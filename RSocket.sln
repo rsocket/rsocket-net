@@ -12,6 +12,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Transport.WebSocket
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core", "RSocket.Core\RSocket.Core.csproj", "{8575B6E4-9E7F-4473-8D56-9FE21240B1C4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core.Tests", "RSocket.Core.Tests\RSocket.Core.Tests.csproj", "{AF95925C-C011-4EB8-BDEE-A28736042974}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,6 +32,10 @@ Global
 		{8575B6E4-9E7F-4473-8D56-9FE21240B1C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8575B6E4-9E7F-4473-8D56-9FE21240B1C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8575B6E4-9E7F-4473-8D56-9FE21240B1C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF95925C-C011-4EB8-BDEE-A28736042974}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF95925C-C011-4EB8-BDEE-A28736042974}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF95925C-C011-4EB8-BDEE-A28736042974}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF95925C-C011-4EB8-BDEE-A28736042974}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
