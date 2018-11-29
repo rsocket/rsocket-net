@@ -3,15 +3,17 @@ using System.Threading.Tasks;
 using System.Reactive.Linq;
 using RSocket;
 using RSocket.Transport;
+using RSocket.Serializers;
 using System.Text;
 
 namespace RSocketSample
 {
+	using ProtoBuf;
 	using RSocket.Reactive;
 
 	class Program
 	{
-		static async Task Main(string[] args)
+		static void Main(string[] args)
 		{
 			Console.WriteLine("Connecting...");
 
@@ -22,15 +24,17 @@ namespace RSocketSample
 
 
 			//			var client = new RSocketClient(new RSocketWebSocketClient("ws://localhost:9092/"));
-			var client = new RSocketClientReactive<JsonSerializer>(new RSocketWebSocketClient("ws://localhost:9092/"));
-			await client.ConnectAsync();
+			var client = new RSocketClientReactive<ProtobufNetSerializer>(new RSocketWebSocketClient("ws://localhost:9092/"));
+			client.ConnectAsync().Wait();
 			Console.WriteLine("Requesting Demo Stream...");
 
-			var obj = new Test() { Id = "1234", Value = "peace" };
-			var req = Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(obj));
+			var obj = new Person() { Id = 1234, Name = "Someone Person", Address = new Address() { Line1 = "123 Any Street", Line2 = "Somewhere, LOC" } };
+			var req = new ProtobufNetSerializer().Serialize(obj).ToArray();	// Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(obj));
+
+			//TODO req is awkward here, probably need to have incoming and return types...
 
 //			var stream = from data in (await client.RequestChannel<Test>(req, initial: 3))
-			var stream = from data in (await client.RequestStream<Test>(req, initial: 3))
+			var stream = from data in (client.RequestStream<Person>(req, initial: 3))
 							 //let value = Encoding.UTF8.GetString(data)
 						 let value = data
 						 //where value.StartsWith("q")
@@ -63,6 +67,22 @@ namespace RSocketSample
 		}
 	}
 
+
+	[ProtoContract]
+	class Person
+	{
+		[ProtoMember(1)] public int Id { get; set; }
+		[ProtoMember(2)] public string Name { get; set; }
+		[ProtoMember(3)] public Address Address { get; set; }
+		public override string ToString() => $"{Id}:{Name} ({Address})";
+	}
+	[ProtoContract]
+	class Address
+	{
+		[ProtoMember(1)] public string Line1 { get; set; }
+		[ProtoMember(2)] public string Line2 { get; set; }
+		public override string ToString() => $"{Line1},{Line2}";
+	}
 
 	//TODO Namespace and assembly structuring
 

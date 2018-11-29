@@ -18,7 +18,7 @@ namespace RSocket
 		T Deserialize<T>(in ReadOnlySpan<byte> data);		//FUTURE C#8.0 static interface member
 	}
 
-	public interface IRSocketTransform
+	public interface IRSocketStream
 	{
 		void Next(ReadOnlySpan<byte> metadata, ReadOnlySpan<byte> data);
 		void Complete();
@@ -45,13 +45,15 @@ namespace RSocket
 
 	public class RSocketClient : IRSocketProtocol
 	{
+		public const int INITIALDEFAULT = -1;
+
 		IRSocketTransport Transport;
 		RSocketClientOptions Options;
 		private int StreamId = 1;       //SPEC: Stream IDs on the client MUST start at 1 and increment by 2 sequentially, such as 1, 3, 5, 7, etc
 		private int NewStreamId() => Interlocked.Add(ref StreamId, 2);
 
-		private ConcurrentDictionary<int, IRSocketTransform> Dispatcher = new ConcurrentDictionary<int, IRSocketTransform>();
-		private int BindDispatch(IRSocketTransform transform) { var id = NewStreamId(); Dispatcher[id] = transform; return id; }
+		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
+		private int StreamDispatch(IRSocketStream transform) { var id = NewStreamId(); Dispatcher[id] = transform; return id; }
 		//TODO Stream Destruction - i.e. removal from the dispatcher.
 
 
@@ -64,7 +66,7 @@ namespace RSocket
 		public async Task ConnectAsync()
 		{
 			await Transport.ConnectAsync();
-			var server = RSocketProtocol.Server(this, Transport.Input, CancellationToken.None);
+			var server = RSocketProtocol.Handler(this, Transport.Input, CancellationToken.None);
 			//TODO Move defaults to policy object
 			new RSocketProtocol.Setup(keepalive: TimeSpan.FromSeconds(60), lifetime: TimeSpan.FromSeconds(180), metadataMimeType: "binary", dataMimeType: "binary").Write(Transport.Output);
 			await Transport.Output.FlushAsync();
@@ -73,7 +75,7 @@ namespace RSocket
 		public async ValueTask Test(string text)
 		{
 			await Transport.ConnectAsync();
-			var server = RSocketProtocol.Server(this, Transport.Input, CancellationToken.None);
+			var server = RSocketProtocol.Handler(this, Transport.Input, CancellationToken.None);
 			new RSocketProtocol.Test(text).Write(Transport.Output);
 			await Transport.Output.FlushAsync();
 		}
@@ -93,19 +95,19 @@ namespace RSocket
 		}
 
 		//TODO Add back overloads for metadata
-		public async ValueTask<TTransform> RequestStream<TTransform>(TTransform transform, byte[] data, int initial = -1) where TTransform : IRSocketTransform
+		public ValueTask<System.IO.Pipelines.FlushResult> RequestStream<TTransform>(TTransform transform, Span<byte> data, Span<byte> metadata = default, int initial = INITIALDEFAULT) where TTransform : IRSocketStream
 		{
 			if (initial < 0) { initial = Options.InitialRequestSize; }
-			var id = BindDispatch(transform);
+			var id = StreamDispatch(transform);
 			new RSocketProtocol.RequestStream(id, data, initialRequest: initial).Write(Transport.Output);
-			await Transport.Output.FlushAsync();
-			return transform;
+			return Transport.Output.FlushAsync();
+			//return transform;
 		}
 
-		public async ValueTask<TTransform> RequestChannel<TTransform>(TTransform transform, byte[] data, int initial = -1) where TTransform : IRSocketTransform
+		public async ValueTask<TTransform> RequestChannel<TTransform>(TTransform transform, byte[] data, int initial = INITIALDEFAULT) where TTransform : IRSocketStream
 		{
 			if (initial < 0) { initial = Options.InitialRequestSize; }
-			var id = BindDispatch(transform);
+			var id = StreamDispatch(transform);
 			new RSocketProtocol.RequestChannel(id, data, initialRequest: initial).Write(Transport.Output);
 			await Transport.Output.FlushAsync();
 			return transform;

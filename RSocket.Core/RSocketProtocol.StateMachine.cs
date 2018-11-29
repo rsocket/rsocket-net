@@ -48,7 +48,7 @@ namespace RSocket
 			Done = 0xFFFF,
 		}
 
-		static public async Task Server(IRSocketProtocol sink, PipeReader reader, CancellationToken cancel)
+		static public async Task Handler(IRSocketProtocol sink, PipeReader reader, CancellationToken cancel)
 		{
 			var state = States.Length;
 
