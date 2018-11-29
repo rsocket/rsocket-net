@@ -8,7 +8,7 @@ namespace RSocket
 	{
 		PipeReader Input { get; }
 		PipeWriter Output { get; }
-		bool UseLength { get; }
+		//bool UseLength { get; }	//TODO Remove
 
 		Task ConnectAsync();
 	}

@@ -61,10 +61,14 @@ namespace RSocket
 			return Memory.Span.Slice(Used, Memory.Length - Used);       //TODO Is this the right kind?
 		}
 
+		public (Memory<byte>, int) Frame() { EnsureBuffer(sizeof(int)); var frame = (Memory, Used); Used += sizeof(Int32); return frame; }
+		public void Frame((Memory<byte>, int) frame, int value) { var (Memory, Used) = frame; BinaryPrimitives.WriteInt32BigEndian(Memory.Span.Slice(Used, Memory.Length - Used), value); }
+
+
 		public void Write(byte value) { EnsureBuffer(sizeof(byte)); Memory.Span[Used++] = (byte)value; }        //Save Memory<T>.Slice overhead for performance
 
 		public void WriteByte(byte value) => Write(value);
-		public void WriteByte(int value) => WriteByte((byte)value);												//This is a convenience for calls that use binary operators which always return int
+		public void WriteByte(int value) => WriteByte((byte)value);                                             //This is a convenience for calls that use binary operators which always return int
 
 		public void WriteUInt16BigEndian(int value) => WriteUInt16BigEndian((UInt16)value);
 		public void WriteUInt16BigEndian(UInt16 value) { BinaryPrimitives.WriteUInt16BigEndian(GetBuffer(sizeof(UInt16)), value); Used += sizeof(UInt16); }
@@ -72,8 +76,8 @@ namespace RSocket
 		public void WriteUInt32BigEndian(UInt32 value) { BinaryPrimitives.WriteUInt32BigEndian(GetBuffer(sizeof(UInt32)), value); Used += sizeof(UInt32); }
 		public void WriteInt24BigEndian(int value) { const int SIZEOF = 3; var span = GetBuffer(SIZEOF); span[0] = (byte)(value & 0xFF); span[1] = (byte)((value >> 8) & 0xFF); span[2] = (byte)((value >> 16) & 0xFF); Used += SIZEOF; }
 
-		public int Write(byte[] values) => throw new NotImplementedException();	//TODO Buffer Slice Writer
-
+		public int Write(byte[] values) { foreach (var value in values) { Write(value); } return values.Length; }   //TODO Buffer Slice Writer
+		public int Write(Span<byte> values) => Write(values.ToArray());   //TODO SpanWriter - I had this, where did it go?
 
 		public int Write(string text) => Write(text.AsSpan(), Encoder, MaximumBytesPerChar);
 

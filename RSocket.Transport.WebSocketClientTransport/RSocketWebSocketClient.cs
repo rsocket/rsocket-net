@@ -17,7 +17,6 @@ namespace RSocket.Transport
 
 		public PipeReader Input => Transport.Input;
 		public PipeWriter Output => Transport.Output;
-		bool IRSocketTransport.UseLength => false;
 
 		public RSocketWebSocketClient(string url) : this(new Uri(url)) { }
 		public RSocketWebSocketClient(Uri url)

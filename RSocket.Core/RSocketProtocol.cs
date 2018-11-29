@@ -32,6 +32,8 @@ namespace RSocket
 		//RESPOND: 0x80, // KEEPALIVE: should KEEPALIVE be sent by peer on receipt.
 		//RESUME_ENABLE: 0x80, // SETUP: Client requests resume capability if possible. Resume Identification Token present.
 
+		//TODO Remove byte[] -> Span<byte>
+
 
 		public ref struct Test
 		{
@@ -106,23 +108,33 @@ namespace RSocket
 			public const ushort FLAG_FOLLOWS = 0b____00_10000000;
 			public const ushort FLAG_COMPLETE = 0b___00_01000000;
 			public const ushort FLAG_NEXT = 0b_______00_00100000;
+			static public bool HasMetadata(ushort flags) => (flags & FLAG_METADATA) != 0;
+			static public bool HasFollows(ushort flags) => (flags & FLAG_FOLLOWS) != 0;
+			static public bool HasComplete(ushort flags) => (flags & FLAG_COMPLETE) != 0;
+			static public bool HasNext(ushort flags) => (flags & FLAG_NEXT) != 0;	//TODO Unify?
+
 			public bool MetadataPresent { get => (Header.Flags & FLAG_METADATA) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_METADATA) : (ushort)(Header.Flags & ~FLAG_METADATA); }
 			public bool Follows { get => (Header.Flags & FLAG_FOLLOWS) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_FOLLOWS) : (ushort)(Header.Flags & ~FLAG_FOLLOWS); }
 			public bool Complete { get => (Header.Flags & FLAG_COMPLETE) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_COMPLETE) : (ushort)(Header.Flags & ~FLAG_COMPLETE); }
 			public bool Next { get => (Header.Flags & FLAG_NEXT) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_NEXT) : (ushort)(Header.Flags & ~FLAG_NEXT); }
 
 			public Header Header;
-			public string Metadata;
-			public byte[] Data;
-			bool HasMetadata => !string.IsNullOrEmpty(Metadata);
+			public Span<byte> Metadata;
+			public Span<byte> Data;
+			bool HasMetadata2 => Metadata != null && Metadata.Length > 0;	//TODO Does zero make any sense here?
 			bool HasData => Data != null && Data.Length > 0;
 
-			public Payload(byte[] data, string metadata = null, bool follows = false, bool complete = false, bool next = false)
+
+			public Payload(int stream, Span<byte> data, Span<byte> metadata, bool follows = false, bool complete = false, bool next = false) : this(stream, data, follows: follows, complete: complete, next: next)
 			{
-				Header = new Header(Types.Request_Channel);
-				Metadata = metadata;
+				Metadata = metadata; MetadataPresent = true;
+			}
+
+			public Payload(int stream, Span<byte> data, bool follows = false, bool complete = false, bool next = false)
+			{
+				Header = new Header(Types.Request_Channel, stream);
 				Data = data;
-				MetadataPresent = HasMetadata;
+				Metadata = Span<byte>.Empty;
 				Follows = follows;
 				Complete = complete;
 				Next = next;
@@ -133,7 +145,7 @@ namespace RSocket
 			void Write(BufferWriter writer)
 			{
 				Header.Write(writer);
-				if (HasMetadata) { writer.Write(Metadata); }
+				if (HasMetadata2) { writer.Write(Metadata); }
 				if (HasData) { writer.Write(Data); }
 			}
 		}
@@ -191,29 +203,51 @@ namespace RSocket
 			public Header Header;
 			public Int32 InitialRequest;
 			public string Metadata;
-			public byte[] Data;
+			public Span<byte> Data;
 			bool HasMetadata => !string.IsNullOrEmpty(Metadata);
 			bool HasData => Data != null && Data.Length > 0;
 
-			public RequestChannel(Int32 initialRequest, byte[] data, string metadata = null, bool follows = false, bool complete = false)
+			public RequestChannel(Int32 id, Span<byte> data, Int32 initialRequest = 0, string metadata = null, bool follows = false, bool complete = false)
 			{
 				Header = new Header(Types.Request_Channel);
-				InitialRequest = initialRequest;            //TODO MUST be > 0
-				Metadata = metadata;
+				InitialRequest = initialRequest;        //TODO MUST be > 0
 				Data = data;
+				Metadata = metadata;        //TODO Not string
 				MetadataPresent = HasMetadata;
 				Follows = follows;
 				Complete = complete;
 			}
 
-			public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
+			//public RequestChannel(Int32 initialRequest, byte[] data, string metadata = null, bool follows = false, bool complete = false)
+			//{
+			//	Header = new Header(Types.Request_Channel);
+			//	InitialRequest = initialRequest;            //TODO MUST be > 0
+			//	Metadata = metadata;        //TODO Not string
+			//	Data = data;
+			//	MetadataPresent = HasMetadata;
+			//	Follows = follows;
+			//	Complete = complete;
+			//}
 
-			void Write(BufferWriter writer)
+			//public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
+
+			public void Write(PipeWriter pipe)
 			{
-				Header.Write(writer);
+				var writer = BufferWriter.Get(pipe);
+				var frame = writer.Frame();
+				writer.Frame(frame, this.Write(writer));
+				writer.Flush();
+				BufferWriter.Return(writer);
+			}
+
+			int Write(BufferWriter writer)
+			{
+				var written = Header.Write(writer);
 				writer.WriteInt32BigEndian(InitialRequest);
-				if (HasMetadata) { writer.Write(Metadata); }
-				if (HasData) { writer.Write(Data); }
+				written += sizeof(Int32);
+				if (HasMetadata) { written += writer.Write(Metadata); }
+				if (HasData) { written += writer.Write(Data); }
+				return written;
 			}
 		}
 
@@ -229,44 +263,53 @@ namespace RSocket
 			public Header Header;
 			public Int32 InitialRequest;
 			public string Metadata;
-			public byte[] Data;
+			public Span<byte> Data;
 			public string StringData;
 			bool HasMetadata => !string.IsNullOrEmpty(Metadata);
 			bool HasData => Data != null && Data.Length > 0;
 			bool HasStringData => !string.IsNullOrEmpty(StringData);
 
 
-			public RequestStream(Int32 initialRequest, string data, string metadata = null, bool follows = false)
-			{
-				Header = new Header(Types.Request_Stream);
-				InitialRequest = initialRequest;        //TODO MUST be > 0
-				Data = null;
-				StringData = data;
-				Metadata = metadata;
-				MetadataPresent = HasMetadata;
-				Follows = follows;
-			}
+			//public RequestStream(Int32 id, Int32 initialRequest, string data, string metadata = null, bool follows = false)
+			//{
+			//	Header = new Header(Types.Request_Stream, stream: id);
+			//	InitialRequest = initialRequest;        //TODO MUST be > 0
+			//	Data = null;
+			//	StringData = data;
+			//	Metadata = metadata;
+			//	MetadataPresent = HasMetadata;
+			//	Follows = follows;
+			//}
 
-			public RequestStream(Int32 initialRequest, byte[] data, string metadata = null, bool follows = false)
+			public RequestStream(Int32 id, Span<byte> data, Int32 initialRequest = 0, string metadata = null, bool follows = false)
 			{
-				Header = new Header(Types.Request_Stream);
+				Header = new Header(Types.Request_Stream, stream: id);
 				InitialRequest = initialRequest;		//TODO MUST be > 0
 				Data = data;
 				StringData = null;
-				Metadata = metadata;
+				Metadata = metadata;		//TODO Not string
 				MetadataPresent = HasMetadata;
 				Follows = follows;
 			}
 
-			public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
-
-			void Write(BufferWriter writer)
+			public void Write(PipeWriter pipe)
 			{
-				Header.Write(writer);
+				var writer = BufferWriter.Get(pipe);
+				var frame = writer.Frame();
+				writer.Frame(frame, this.Write(writer));
+				writer.Flush();
+				BufferWriter.Return(writer);
+			}
+
+			int Write(BufferWriter writer)
+			{
+				var written = Header.Write(writer);
 				writer.WriteInt32BigEndian(InitialRequest);
-				if (HasMetadata) { writer.Write(Metadata); }
-				if (HasData) { writer.Write(Data); }
-				if (HasStringData) { writer.Write(StringData); }
+				written += sizeof(Int32);
+				if (HasMetadata) { written += writer.Write(Metadata); }
+				if (HasData) { written += writer.Write(Data); }
+				if (HasStringData) { written += writer.Write(StringData); }
+				return written;
 			}
 		}
 
@@ -428,22 +471,32 @@ namespace RSocket
 				ResumeToken = resumeToken;
 			}
 
-			public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
-
-			void Write(BufferWriter writer)
+			//public int Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); var written = this.Write(writer); writer.Flush(); BufferWriter.Return(writer); return written; }
+			public void Write(PipeWriter pipe)
 			{
-				Header.Write(writer);   //TODO ResumeToken & Length (Track in Writer?)
+				var writer = BufferWriter.Get(pipe);
+				var frame = writer.Frame();
+				var written = this.Write(writer);
+
+				writer.Frame(frame, written);
+				writer.Flush();
+				BufferWriter.Return(writer);
+			}
+
+			int Write(BufferWriter writer)
+			{
+				var written = Header.Write(writer);   //TODO ResumeToken & Length (Track in Writer?)
 				writer.WriteUInt16BigEndian(MajorVersion);
 				writer.WriteUInt16BigEndian(MinorVersion);
 				writer.WriteInt32BigEndian(KeepAlive);
 				writer.WriteInt32BigEndian(Lifetime);
-				if (ResumeToken != null) { writer.WriteUInt16BigEndian(ResumeToken.Length); writer.Write(ResumeToken); }
-				writer.WritePrefixByte(MetadataMimeType);
-				writer.WritePrefixByte(DataMimeType);
+				written += sizeof(UInt16) + sizeof(UInt16) + sizeof(Int32) + sizeof(Int32);
+				//if (ResumeToken != null) { writer.WriteUInt16BigEndian(ResumeToken.Length); writer.Write(ResumeToken); }		//TODO Restore with written!
+				written += writer.WritePrefixByte(MetadataMimeType);
+				written += writer.WritePrefixByte(DataMimeType);
+				return written;
 			}
 		}
-
-
 
 		public ref struct Error
 		{
@@ -478,6 +531,11 @@ namespace RSocket
 			internal const ushort FLAG_IGNORE = 0b____10_00000000;
 			internal const ushort FLAG_METADATA = 0b__01_00000000;
 
+			static public Types MakeType(ushort flags) => (Types) ((flags & Header.FRAMETYPE_TYPE) >> Header.FRAMETYPE_OFFSET);
+			static public ushort MakeFlags(ushort flags) => (ushort)(flags & Header.FLAGS);
+			static public bool HasIgnore(ushort flags) => (flags & FLAG_IGNORE) != 0;
+			static public bool HasMetadata(ushort flags) => (flags & FLAG_METADATA) != 0;
+			
 			public Int32 Stream;
 			public Types Type;
 			//public Boolean Ignore;
@@ -493,11 +551,12 @@ namespace RSocket
 				Flags = (UInt16)flags;
 			}
 
-			public void Write(BufferWriter writer)
+			public int Write(BufferWriter writer)
 			{
 				//if (length > 0) { writer.WriteInt24BigEndian(length); }
 				writer.WriteInt32BigEndian(Stream);
 				writer.WriteUInt16BigEndian((((int)Type << FRAMETYPE_OFFSET) & FRAMETYPE_TYPE) | (Flags & FLAGS));//  (Ignore ? FLAG_IGNORE : 0) | (Metadata ? FLAG_METADATA : 0));
+				return sizeof(Int32) + sizeof(UInt16);
 			}
 		}
 	}
