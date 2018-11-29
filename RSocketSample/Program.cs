@@ -76,6 +76,7 @@ namespace RSocketSample
 		[ProtoMember(3)] public Address Address { get; set; }
 		public override string ToString() => $"{Id}:{Name} ({Address})";
 	}
+
 	[ProtoContract]
 	class Address
 	{

@@ -111,7 +111,6 @@ namespace RSocket
 									case Types.Payload: state = States.Payload; break;
 									default: throw new InvalidOperationException($"State Machine Invalid Type {type}!");
 								}
-
 								break;
 
 							case States.Payload:
@@ -132,9 +131,6 @@ namespace RSocket
 									goto case States.Done;
 								}
 								break;
-
-							//public Payload(byte[] data, string metadata = null, bool follows = false, bool complete = false, bool next = false)
-
 							case States.Done: state = States.Length; break;		//TODO isEOM handling...
 							default: throw new InvalidOperationException($"State Machine Overflow at {state}!");
 						}

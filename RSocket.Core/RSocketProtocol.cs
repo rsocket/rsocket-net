@@ -202,32 +202,21 @@ namespace RSocket
 
 			public Header Header;
 			public Int32 InitialRequest;
-			public string Metadata;
+			public Span<byte> Metadata;
 			public Span<byte> Data;
-			bool HasMetadata => !string.IsNullOrEmpty(Metadata);
+			bool HasMetadata => Metadata != default;
 			bool HasData => Data != null && Data.Length > 0;
 
-			public RequestChannel(Int32 id, Span<byte> data, Int32 initialRequest = 0, string metadata = null, bool follows = false, bool complete = false)
+			public RequestChannel(Int32 id, Span<byte> data, Span<byte> metadata = default, Int32 initialRequest = 0, bool follows = false, bool complete = false)
 			{
 				Header = new Header(Types.Request_Channel);
 				InitialRequest = initialRequest;        //TODO MUST be > 0
 				Data = data;
-				Metadata = metadata;        //TODO Not string
+				Metadata = metadata;
 				MetadataPresent = HasMetadata;
 				Follows = follows;
 				Complete = complete;
 			}
-
-			//public RequestChannel(Int32 initialRequest, byte[] data, string metadata = null, bool follows = false, bool complete = false)
-			//{
-			//	Header = new Header(Types.Request_Channel);
-			//	InitialRequest = initialRequest;            //TODO MUST be > 0
-			//	Metadata = metadata;        //TODO Not string
-			//	Data = data;
-			//	MetadataPresent = HasMetadata;
-			//	Follows = follows;
-			//	Complete = complete;
-			//}
 
 			//public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
 
@@ -262,10 +251,10 @@ namespace RSocket
 
 			public Header Header;
 			public Int32 InitialRequest;
-			public string Metadata;
+			public Span<byte> Metadata;
 			public Span<byte> Data;
 			public string StringData;
-			bool HasMetadata => !string.IsNullOrEmpty(Metadata);
+			bool HasMetadata => Metadata != default;
 			bool HasData => Data != null && Data.Length > 0;
 			bool HasStringData => !string.IsNullOrEmpty(StringData);
 
@@ -281,14 +270,14 @@ namespace RSocket
 			//	Follows = follows;
 			//}
 
-			public RequestStream(Int32 id, Span<byte> data, Int32 initialRequest = 0, string metadata = null, bool follows = false)
+			public RequestStream(Int32 id, Span<byte> data, Span<byte> metadata = default, Int32 initialRequest = 0, bool follows = false)
 			{
 				Header = new Header(Types.Request_Stream, stream: id);
 				InitialRequest = initialRequest;		//TODO MUST be > 0
 				Data = data;
 				StringData = null;
-				Metadata = metadata;		//TODO Not string
-				MetadataPresent = HasMetadata;
+				Metadata = metadata;		
+				MetadataPresent = HasMetadata;  //TODO Fix
 				Follows = follows;
 			}
 
