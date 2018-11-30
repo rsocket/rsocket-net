@@ -77,7 +77,7 @@ namespace RSocket
 		public void WriteInt24BigEndian(int value) { const int SIZEOF = 3; var span = GetBuffer(SIZEOF); span[0] = (byte)(value & 0xFF); span[1] = (byte)((value >> 8) & 0xFF); span[2] = (byte)((value >> 16) & 0xFF); Used += SIZEOF; }
 
 		public int Write(byte[] values) { foreach (var value in values) { Write(value); } return values.Length; }   //TODO Buffer Slice Writer
-		public int Write(Span<byte> values) => Write(values.ToArray());   //TODO SpanWriter - I had this, where did it go?
+		public int Write(ReadOnlySpan<byte> values) => Write(values.ToArray());   //TODO SpanWriter - I had this, where did it go?
 
 		public int Write(string text) => Write(text.AsSpan(), Encoder, MaximumBytesPerChar);
 

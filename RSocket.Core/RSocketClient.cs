@@ -7,11 +7,8 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	public interface IRSocketSerializer
-	{
-		ReadOnlySpan<byte> Serialize<T>(in T item);
-		T Deserialize<T>(in ReadOnlySpan<byte> data);		//FUTURE C#8.0 static interface member
-	}
+	public interface IRSocketSerializer { ReadOnlySpan<byte> Serialize<T>(in T item); }			//FUTURE C#8.0 static interface member
+	public interface IRSocketDeserializer { T Deserialize<T>(in ReadOnlySpan<byte> data); }		//FUTURE C#8.0 static interface member
 
 	public interface IRSocketStream
 	{
@@ -70,29 +67,47 @@ namespace RSocket
 				//TODO Log missing stream here.
 			}
 		}
-		
-		#region Default Serializers for Strings
-		public ValueTask<System.IO.Pipelines.FlushResult> RequestStream(IRSocketStream transform, Span<byte> data, string metadata = default, int initial = INITIALDEFAULT) =>
-			RequestStream(transform, data, metadata: metadata == default ? default : Encoding.UTF8.GetBytes(metadata), initial: initial);
-		#endregion
 
+		//#region Default Serializers for Strings
+		//public ValueTask<System.IO.Pipelines.FlushResult> RequestStream(IRSocketStream stream, Span<byte> data, string metadata = default, int initial = INITIALDEFAULT) =>
+		//	RequestStream(stream, data, metadata: metadata == default ? default : Encoding.UTF8.GetBytes(metadata), initial: initial);
+		//#endregion
 
-		public ValueTask<System.IO.Pipelines.FlushResult> RequestStream(IRSocketStream transform, Span<byte> data, Span<byte> metadata = default, int initial = INITIALDEFAULT)
+		public Task RequestStream<TData>(IRSocketStream stream, TData data, ReadOnlySpan<byte> metadata = default, int initial = INITIALDEFAULT) => RequestStream(stream, RequestDataSerializer.Serialize(data), metadata, initial);
+		public Task RequestStream<TMetadata>(IRSocketStream stream, ReadOnlySpan<byte> data, TMetadata metadata = default, int initial = INITIALDEFAULT) => RequestStream(stream, data, RequestMetadataSerializer.Serialize(metadata), initial);
+		public Task RequestStream<TData, TMetadata>(IRSocketStream stream, TData data, TMetadata metadata = default, int initial = INITIALDEFAULT) => RequestStream(stream, RequestDataSerializer.Serialize(data), RequestMetadataSerializer.Serialize(metadata), initial);
+
+		public Task RequestStream(IRSocketStream stream, ReadOnlySpan<byte> data, ReadOnlySpan<byte> metadata = default, int initial = INITIALDEFAULT)
 		{
 			if (initial < 0) { initial = Options.InitialRequestSize; }
-			var id = StreamDispatch(transform);
+			var id = StreamDispatch(stream);
 			new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: initial).Write(Transport.Output);
-			return Transport.Output.FlushAsync();
+			var result = Transport.Output.FlushAsync();
+			return result.IsCompleted ? Task.CompletedTask : result.AsTask();
 		}
 
-		public ValueTask<System.IO.Pipelines.FlushResult> RequestChannel(IRSocketStream transform, Span<byte> data, Span<byte> metadata = default, int initial = INITIALDEFAULT)
+		public ValueTask<System.IO.Pipelines.FlushResult> RequestChannel(IRSocketStream stream, ReadOnlySpan<byte> data, ReadOnlySpan<byte> metadata = default, int initial = INITIALDEFAULT)
 		{
 			if (initial < 0) { initial = Options.InitialRequestSize; }
-			var id = StreamDispatch(transform);
+			var id = StreamDispatch(stream);
 			new RSocketProtocol.RequestChannel(id, data, initialRequest: initial).Write(Transport.Output);
 			return Transport.Output.FlushAsync();
 		}
 
 		//TODO Errors
+
+		public IRSocketSerializer RequestDataSerializer = Defaults.Request;
+		public IRSocketSerializer RequestMetadataSerializer = Defaults.Request;
+		public IRSocketDeserializer ResponseDataDeserializer = Defaults.Response;
+		public IRSocketDeserializer ResponseMetadataDeserializer = Defaults.Response;
+
+		private sealed class Defaults : IRSocketSerializer, IRSocketDeserializer
+		{
+			private bool isRequest;
+			static public readonly Defaults Request = new Defaults() { isRequest = true };
+			static public readonly Defaults Response = new Defaults() { isRequest = false };
+			ReadOnlySpan<byte> IRSocketSerializer.Serialize<T>(in T item) => throw new NotSupportedException(isRequest ? "The RSocket client was not provided with a request serializer." : "The RSocket client was not provided with a response serializer.");
+			T IRSocketDeserializer.Deserialize<T>(in ReadOnlySpan<byte> data) => throw new NotSupportedException(isRequest ? "The RSocket client was not provided with a request deserializer." : "The RSocket client was not provided with a response deserializer.");
+		}
 	}
 }

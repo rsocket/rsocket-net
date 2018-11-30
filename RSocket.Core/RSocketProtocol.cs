@@ -202,12 +202,12 @@ namespace RSocket
 
 			public Header Header;
 			public Int32 InitialRequest;
-			public Span<byte> Metadata;
-			public Span<byte> Data;
+			public ReadOnlySpan<byte> Metadata;
+			public ReadOnlySpan<byte> Data;
 			bool HasMetadata => Metadata != default;
 			bool HasData => Data != null && Data.Length > 0;
 
-			public RequestChannel(Int32 id, Span<byte> data, Span<byte> metadata = default, Int32 initialRequest = 0, bool follows = false, bool complete = false)
+			public RequestChannel(Int32 id, ReadOnlySpan<byte> data, ReadOnlySpan<byte> metadata = default, Int32 initialRequest = 0, bool follows = false, bool complete = false)
 			{
 				Header = new Header(Types.Request_Channel);
 				InitialRequest = initialRequest;        //TODO MUST be > 0
@@ -251,13 +251,12 @@ namespace RSocket
 
 			public Header Header;
 			public Int32 InitialRequest;
-			public Span<byte> Metadata;
-			public Span<byte> Data;
+			public ReadOnlySpan<byte> Metadata;
+			public ReadOnlySpan<byte> Data;
 			public string StringData;
 			bool HasMetadata => Metadata != default;
 			bool HasData => Data != null && Data.Length > 0;
 			bool HasStringData => !string.IsNullOrEmpty(StringData);
-
 
 			//public RequestStream(Int32 id, Int32 initialRequest, string data, string metadata = null, bool follows = false)
 			//{
@@ -270,7 +269,7 @@ namespace RSocket
 			//	Follows = follows;
 			//}
 
-			public RequestStream(Int32 id, Span<byte> data, Span<byte> metadata = default, Int32 initialRequest = 0, bool follows = false)
+			public RequestStream(Int32 id, ReadOnlySpan<byte> data, ReadOnlySpan<byte> metadata = default, Int32 initialRequest = 0, bool follows = false)
 			{
 				Header = new Header(Types.Request_Stream, stream: id);
 				InitialRequest = initialRequest;		//TODO MUST be > 0

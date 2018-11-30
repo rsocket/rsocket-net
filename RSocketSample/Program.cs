@@ -24,17 +24,20 @@ namespace RSocketSample
 
 
 			//			var client = new RSocketClient(new RSocketWebSocketClient("ws://localhost:9092/"));
-			var client = new RSocketClientReactive<ProtobufNetSerializer>(new RSocketWebSocketClient("ws://localhost:9092/"));
+			var client = new RSocketClientReactive(new RSocketWebSocketClient("ws://localhost:9092/"))
+				.UsingProtobufNetSerialization();
 			client.ConnectAsync().Wait();
 			Console.WriteLine("Requesting Demo Stream...");
 
 			var obj = new Person() { Id = 1234, Name = "Someone Person", Address = new Address() { Line1 = "123 Any Street", Line2 = "Somewhere, LOC" } };
-			var req = new ProtobufNetSerializer().Serialize(obj).ToArray();	// Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(obj));
+			var req = new ProtobufNetSerializer().Serialize(obj).ToArray(); // Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(obj));
 
 			//TODO req is awkward here, probably need to have incoming and return types...
 
+			//var rr = client.RequestStream<Person, Person, Person, Person>(data: obj);
+
 //			var stream = from data in (await client.RequestChannel<Test>(req, initial: 3))
-			var stream = from data in (client.RequestStream<Person>(req, initial: 3))
+			var stream = from data in (client.Of<Person, Person>().RequestStream(obj, initial: 3))
 							 //let value = Encoding.UTF8.GetString(data)
 						 let value = data
 						 //where value.StartsWith("q")
