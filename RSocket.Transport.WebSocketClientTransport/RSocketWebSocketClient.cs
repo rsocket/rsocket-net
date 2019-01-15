@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO.Pipelines;
 
-namespace RSocket.Transport
+namespace RSocket.Transports
 {
 	using Microsoft.AspNetCore.Http.Connections.Client;
 	using Microsoft.AspNetCore.Http.Connections.Client.Internal;
@@ -12,8 +12,8 @@ namespace RSocket.Transport
 	public class RSocketWebSocketClient : IRSocketTransport
 	{
 		public Uri Url { get; private set; }
-		//ClientWebSocket Client = new ClientWebSocket();
 		WebSocketsTransport Transport;
+		WebSocketTransport Transport2;
 
 		public PipeReader Input => Transport.Input;
 		public PipeWriter Output => Transport.Output;
@@ -31,34 +31,14 @@ namespace RSocket.Transport
 			{
 				Url = url,
 			}, logger, null);
+			
+			Transport2 = new WebSocketTransport(url);
 		}
 
-		public async Task ConnectAsync()
+		public async Task ConnectAsync(CancellationToken cancel = default)
 		{
 			await Transport.StartAsync(Url, Microsoft.AspNetCore.Connections.TransferFormat.Binary);
-
-			//TODO Cancellation
+			//await Transport2.ConnectAsync(cancel);
 		}
 	}
-
-
-	//public class WebSocketClientTransport
-	//{
-	//	ClientWebSocket Client = new ClientWebSocket();
-
-	//	public WebSocketClientTransport()
-	//	{
-	//	}
-
-
-	//	public async Task Test()
-	//	{
-	//		var cancel = new CancellationTokenSource();
-	//		await Client.ConnectAsync(new Uri("ws://rsocket-demo.herokuapp.com/ws"), cancel.Token);
-	//		Console.WriteLine("Connected");
-
-	//		//TODO This actually might be better as a factory taking a Transport...
-	//		IObservable<string> stream = Client.RequestStream("peace");
-	//	}
-	//}
 }

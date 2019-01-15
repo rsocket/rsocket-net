@@ -9,6 +9,8 @@ namespace RSocket
 		public const UInt16 MAJOR_VERSION = 1;
 		public const UInt16 MINOR_VERSION = 0;
 
+		private const int MaxMetadataLength = 16777215;
+
 		public enum Types
 		{
 			/// <summary>Reserved</summary>

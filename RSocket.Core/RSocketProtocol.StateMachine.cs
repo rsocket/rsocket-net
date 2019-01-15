@@ -11,32 +11,203 @@ namespace RSocket
 {
 	public interface IRSocketProtocol
 	{
-		void Payload(in RSocketProtocol.Payload value);
+		void Setup(in RSocketProtocol.Setup message);
+		void Error(in RSocketProtocol.Error message);
+		void Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		void RequestStream(in RSocketProtocol.RequestStream message);
 	}
 
 	public partial class RSocketProtocol
 	{
-		//static partial void OnPayload(in RSocketProtocol.Payload value) => Decode($"Got Payload: {Encoding.UTF8.GetString(value.Data)}");
-		static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload value) => sink.Payload(value);
+		static partial void Decoded(string message) => Console.WriteLine(message);
+		//static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => Decoded($"    ===> Metadata[{metadata.Length}]:({Encoding.UTF8.GetString(metadata.ToArray())})    Data[{data.Length}]: {Encoding.UTF8.GetString(data.ToArray())}");
+		static partial void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message) => sink.Setup(message);
+		static partial void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message) => sink.Error(message);
+		static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Payload(message, metadata, data);
+		static partial void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message) => sink.RequestStream(message);
 	}
 
-	public partial class RSocketProtocol
-	{
-		static partial void Operation(string message, long BufferLength) => Console.WriteLine($".... {message}{(BufferLength == -1 ? "" : $"    ({nameof(BufferLength)}: {BufferLength})")}");
-		static partial void StateEnter(States state) => Console.Write($"{{State.{state}}}");
-		static partial void Decode(string message, States? newstate, long BufferLength) => Console.WriteLine($"{message}{(BufferLength == -1 ? "" : $" / (Buffer[{BufferLength}])")}{(newstate == null ? "" : $" ==> {newstate}")}");
-	}
+	//public partial class RSocketProtocol
+	//{
+	//	static partial void Operation(string message, long BufferLength) => Console.WriteLine($".... {message}{(BufferLength == -1 ? "" : $"    ({nameof(BufferLength)}: {BufferLength})")}");
+	//	static partial void StateEnter(States state) => Console.Write($"{{State.{state}}}");
+	//	static partial void Decode(string message, States? newstate, long BufferLength, string name) => Console.WriteLine($"{name ?? string.Empty} {message}{(BufferLength == -1 ? "" : $" / (Buffer[{BufferLength}])")}{(newstate == null ? "" : $" ==> {newstate}")}");
+	//}
 
 	partial class RSocketProtocol
 	{
-		static partial void Operation(string message, long BufferLength = -1);
-		static partial void StateEnter(States state);
-		static partial void Decode(string message, States? newstate = null, long BufferLength = -1);
-		static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload value);
+		//static partial void Operation(string message, long BufferLength = -1);
+		//static partial void StateEnter(States state);
+		//static partial void Decode(string message, States? newstate = null, long BufferLength = -1, string name = null);
+		static partial void Decoded(string message);
 
-		static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because of negative zero.
+		static partial void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message);
+		static partial void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message);
+		static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		static partial void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message);
+
+		static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
 		static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
 
+		static public async Task Handler2(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation, string name = null)
+		{
+			//The original implementation was a state-machine parser with resumability. It doesn't seem like the other implementations follow this pattern and the .NET folks are still figuring this out too - see the internal JSON parser discussion for how they're handling state machine persistence across async boundaries when servicing a Pipeline. So, this version of the handler only processes complete messages at some cost to memory buffer scalability.
+			//Note that this means that the Pipeline must be configured to have enough buffering for a complete message before source-quenching. This also means that the downstream consumers don't really have to support resumption, so the interface no longer has the partial buffer methods in it.
+
+			while (!cancellation.IsCancellationRequested)
+			{
+				var read = await pipereader.ReadAsync(cancellation);
+				var buffer = read.Buffer;
+				if (buffer.IsEmpty && read.IsCompleted) { break; }
+				var position = buffer.Start;
+
+				//Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a standard message frame whether or not the underlying transport signals length, EoM, etc.
+				if (!TryReadInt32BigEndian(buffer, ref position, out int frame)) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }
+				var (framelength, ismessageend) = MessageFrame(frame);
+				if (buffer.Length < framelength) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
+
+				Process(framelength, buffer.Slice(position));
+				pipereader.AdvanceTo(buffer.GetPosition(framelength, position));
+				//TODO - this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
+			}
+			pipereader.Complete();
+
+			
+			void Process(int framelength, ReadOnlySequence<byte> sequence)
+			{
+				var reader = new SequenceReader<byte>(sequence);
+				var header = new Header(ref reader, framelength);
+
+				switch (header.Type)
+				{
+					case Types.Reserved: { throw new InvalidOperationException($"Protocol Reserved! [{header.Type}]"); }
+					case Types.Setup:
+						var setup = new Setup(header, ref reader);
+						OnSetup(sink, setup);
+						break;
+					case Types.Lease:
+						var lease = new Lease(header, ref reader);
+						break;
+					case Types.KeepAlive:
+						var keepalive = new KeepAlive(header, ref reader);
+						break;
+					case Types.Request_Response:
+						var requestresponse = new RequestResponse(header, ref reader);
+						break;
+					case Types.Request_Fire_And_Forget:
+						var requestfireandforget = new RequestFireAndForget(header, ref reader);
+						break;
+					case Types.Request_Stream:
+						var requeststream = new RequestStream(header, ref reader);
+						if (requeststream.Validate()) { OnRequestStream(sink, requeststream); }
+						break;
+					case Types.Request_Channel:
+						var requestchannel = new RequestChannel(header, ref reader);
+						break;
+					case Types.Request_N:
+						var requestne = new RequestN(header, ref reader);
+						break;
+					case Types.Cancel:
+						var cancel = new Cancel(header, ref reader);
+						break;
+					case Types.Payload:
+						var payload = new Payload(header, ref reader);
+						Decoded(payload.ToString());
+						if (payload.Validate())
+						{
+							OnPayload(sink, payload, payload.ReadMetadata(ref reader), payload.ReadData(ref reader));
+							//reader.Sequence.Slice(reader.Position, payload.MetadataLength), reader.Sequence.Slice(reader.Sequence.GetPosition(payload.MetadataLength, reader.Position), payload.DataLength));
+						}
+						break;
+					case Types.Error:
+						var error = new Error(header, ref reader);
+						Decoded(error.ToString());
+						OnError(sink, error);
+						break;
+					case Types.Metadata_Push:
+						var metadatapush = new MetadataPush(header, ref reader);
+						break;
+					case Types.Resume: { throw new NotSupportedException($"Protocol Resumption not Supported. [{header.Type}]"); }
+					case Types.Resume_OK: { throw new NotSupportedException($"Protocol Resumption not Supported. [{header.Type}]"); }
+					case Types.Extension: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Extension Unsupported! [{header.Type}]"); } else break;
+					default: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Unknown Type! [{header.Type}]"); } else break;
+				}
+
+				//while (!buffer.IsEmpty)
+				//	{
+				//		var position = buffer.Start;
+
+
+				//		Int32 length;
+				//		bool isEndOfMessage;
+				//		Int32 stream = 0;
+				//		Types type = 0;
+				//		ushort flags = 0;
+
+				//		//var header = new Header();
+
+				//		//TODO Protocol assertions (0 bit in stream, etc)
+
+				//		while (!buffer.IsEmpty)
+				//		{
+				//			StateEnter(state);
+				//			switch (state)
+				//			{
+				//				case States.Remaining:  //Transition to this state to just dump everything the remaining for inspection.
+				//					if (TryReadByte(buffer, ref position, out var remaining)) { Decode($" [{remaining:X2}] '{Encoding.ASCII.GetString(new[] { remaining })}'", BufferLength: buffer.Length, name: name); break; }
+				//					else { goto Break; } //Break a loop from within a switch. This is the recommended way to do this in C# if you don't want to allocate a looping flag.
+				//				case States.Length: if (TryReadInt32BigEndian(buffer, ref position, out var frame)) { (length, isEndOfMessage) = MessageFrame(frame); state = States.Stream; Decode($" [{length}, {isEndOfMessage:5}]", state, buffer.Length, name: name); break; } else { goto Break; }
+				//				case States.Stream: if (TryReadInt32BigEndian(buffer, ref position, out stream)) { state = States.Flags; Decode($" [0x{stream:X8}]", state, buffer.Length, name: name); break; } else { goto Break; }
+				//				case States.Flags:
+				//					//if (TryReadByte(buffer, ref position, out flags)) { state = States.Remaining; Decode($" [{flags}]", state, buffer.Length); break; } else { goto Break; }
+				//					if (TryReadUInt16BigEndian(buffer, ref position, out var _flags))
+				//					{
+				//						state = States.TypeDispatch;
+				//						type = Header.MakeType(_flags);
+				//						flags = Header.MakeFlags(_flags);
+				//						Decode($" [{type} {(Header.HasIgnore(flags) ? "Ignore" : "NoIgnore")} {(Header.HasMetadata(flags) ? "Metadata" : "NoMetadata")} Flags ({flags:X3})]", state, buffer.Length, name: name);
+				//						goto case States.TypeDispatch;
+				//					}
+				//					else { goto Break; }
+				//				case States.TypeDispatch:
+				//					switch (type)
+				//					{
+				//						case Types.Payload: state = States.Payload; break;
+				//						default: throw new InvalidOperationException($"Handler State {state} Invalid Dispatch Type {type}!");
+				//					}
+				//					break;
+
+				//				case States.Payload:
+				//					//TODO !complete & !next fails.
+				//					if (Payload.HasMetadata(flags)) goto case States.PayloadMetadata;
+				//					if (Payload.HasNext(flags)) goto case States.PayloadData;
+
+				//					//TODO verify with protocol.
+				//					OnPayload(sink, new Payload(stream, Span<byte>.Empty, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
+				//					break;
+				//				case States.PayloadMetadata:
+				//					break;
+				//				case States.PayloadData:
+				//					//TODO Allow zero byte payload
+				//					if (TryReadAll(buffer, ref position, out var data))
+				//					{
+				//						OnPayload(sink, new Payload(stream, data, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
+				//						goto case States.Done;
+				//					}
+				//					break;
+				//				case States.Done: state = States.Length; break;     //TODO isEOM handling...
+				//				default: throw new InvalidOperationException($"State Machine Overflow at {state}!");
+				//			}
+				//			buffer = buffer.Slice(position);    //TODO goto case
+				//		}
+				//		Break:
+				//		Operation(buffer.IsEmpty ? $"{name} Recycling with Empty Buffer" : $"{name} Recycling with Partial Buffer", BufferLength: buffer.Length);
+				//		pipereader.AdvanceTo(position, buffer.End);
+				//	}
+			}
+		}
+
+		/*
 		enum States
 		{
 			Default = 0,
@@ -48,20 +219,23 @@ namespace RSocket
 			Done = 0xFFFF,
 		}
 
-		static public async Task Handler(IRSocketProtocol sink, PipeReader reader, CancellationToken cancel)
+
+		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancel, string name = null)
 		{
+			name = name ?? "Client";
 			var state = States.Length;
 
 			while (!cancel.IsCancellationRequested)
 			{
-				Operation("Reading Pipe");
-				var read = await reader.ReadAsync(cancel);
+				Operation($"{name} Reading Pipe");
+				var read = await pipereader.ReadAsync(cancel);
 				var buffer = read.Buffer;
-				if (buffer.IsEmpty && read.IsCompleted) { Operation("Reading Complete"); break; } else { Operation($"Got Buffer [{buffer.Length}]"); }
+				if (buffer.IsEmpty && read.IsCompleted) { Operation($"{name} Reading Complete"); break; } else { Operation($"{name} Got Buffer [{buffer.Length}]"); }
 
 				while (!buffer.IsEmpty)
 				{
 					var position = buffer.Start;
+
 
 					//if (!usePrefixFrameLength)  //If no prefix frame length, the underlying pipeline must use EoM framing.
 					//{
@@ -72,7 +246,6 @@ namespace RSocket
 					//	}
 					//	else { continue; }
 					//}
-
 
 					Int32 length;
 					bool isEndOfMessage;
@@ -90,10 +263,10 @@ namespace RSocket
 						switch (state)
 						{
 							case States.Remaining:  //Transition to this state to just dump everything the remaining for inspection.
-								if (TryReadByte(buffer, ref position, out var remaining)) { Decode($" [{remaining:X2}] '{Encoding.ASCII.GetString(new[] { remaining })}'", BufferLength: buffer.Length); break; }
+								if (TryReadByte(buffer, ref position, out var remaining)) { Decode($" [{remaining:X2}] '{Encoding.ASCII.GetString(new[] { remaining })}'", BufferLength: buffer.Length, name: name); break; }
 								else { goto Break; } //Break a loop from within a switch. This is the recommended way to do this in C# if you don't want to allocate a looping flag.
-							case States.Length: if (TryReadInt32BigEndian(buffer, ref position, out var frame)) { (length, isEndOfMessage) = MessageFrame(frame); state = States.Stream; Decode($" [{length}, {isEndOfMessage:5}]", state, buffer.Length); break; } else { goto Break; }
-							case States.Stream: if (TryReadInt32BigEndian(buffer, ref position, out stream)) { state = States.Flags; Decode($" [0x{stream:X8}]", state, buffer.Length); break; } else { goto Break; }
+							case States.Length: if (TryReadInt32BigEndian(buffer, ref position, out var frame)) { (length, isEndOfMessage) = MessageFrame(frame); state = States.Stream; Decode($" [{length}, {isEndOfMessage:5}]", state, buffer.Length, name: name); break; } else { goto Break; }
+							case States.Stream: if (TryReadInt32BigEndian(buffer, ref position, out stream)) { state = States.Flags; Decode($" [0x{stream:X8}]", state, buffer.Length, name: name); break; } else { goto Break; }
 							case States.Flags:
 								//if (TryReadByte(buffer, ref position, out flags)) { state = States.Remaining; Decode($" [{flags}]", state, buffer.Length); break; } else { goto Break; }
 								if (TryReadUInt16BigEndian(buffer, ref position, out var _flags))
@@ -101,7 +274,7 @@ namespace RSocket
 									state = States.TypeDispatch;
 									type = Header.MakeType(_flags);
 									flags = Header.MakeFlags(_flags);
-									Decode($" [{type} {(Header.HasIgnore(flags) ? "Ignore" : "NoIgnore")} {(Header.HasMetadata(flags) ? "Metadata" : "NoMetadata")} Flags ({flags:X3})]", state, buffer.Length);
+									Decode($" [{type} {(Header.HasIgnore2(flags) ? "Ignore" : "NoIgnore")} {(Header.HasMetadata2(flags) ? "Metadata" : "NoMetadata")} Flags ({flags:X3})]", state, buffer.Length, name: name);
 									goto case States.TypeDispatch;
 								}
 								else { goto Break; }
@@ -109,7 +282,7 @@ namespace RSocket
 								switch (type)
 								{
 									case Types.Payload: state = States.Payload; break;
-									default: throw new InvalidOperationException($"State Machine Invalid Type {type}!");
+									default: throw new InvalidOperationException($"Handler State {state} Invalid Dispatch Type {type}!");
 								}
 								break;
 
@@ -119,7 +292,7 @@ namespace RSocket
 								if (Payload.HasNext(flags)) goto case States.PayloadData;
 
 								//TODO verify with protocol.
-								OnPayload(sink, new Payload(stream, Span<byte>.Empty, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
+								//OnPayload(sink, new Payload(stream, Span<byte>.Empty, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
 								break;
 							case States.PayloadMetadata:
 								break;
@@ -127,7 +300,7 @@ namespace RSocket
 								//TODO Allow zero byte payload
 								if (TryReadAll(buffer, ref position, out var data))
 								{
-									OnPayload(sink, new Payload(stream, data, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
+									//OnPayload(sink, new Payload(stream, data, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
 									goto case States.Done;
 								}
 								break;
@@ -137,13 +310,55 @@ namespace RSocket
 						buffer = buffer.Slice(position);    //TODO goto case
 					}
 					Break:
-					Operation(buffer.IsEmpty ? "Recycling with Empty Buffer" : $"Recycling with Partial Buffer", BufferLength: buffer.Length);
-					reader.AdvanceTo(position, buffer.End);
+					Operation(buffer.IsEmpty ? $"{name} Recycling with Empty Buffer" : $"{name} Recycling with Partial Buffer", BufferLength: buffer.Length);
+					pipereader.AdvanceTo(position, buffer.End);
 				}
 			}
-			Operation("Completing Pipe");
-			reader.Complete();
+			Operation($"{name} Completing Pipe");
+			pipereader.Complete();
 		}
+
+		//static private States PayloadHandler(IRSocketProtocol sink, ushort flags, ReadOnlySequence<byte> buffer)
+		//{
+		//	States state;
+		//	var length = buffer.Length;
+		//	var reader = new SequenceReader<byte>(buffer);
+
+		//	if (Payload.HasMetadata(flags))
+		//	{
+		//	}
+		//	else
+		//	{
+
+		//	}
+
+
+
+
+		//	switch (state)
+		//	{
+		//		case States.Payload:
+		//			//TODO !complete & !next fails.
+		//			if (Payload.HasMetadata(flags)) goto case States.PayloadMetadata;
+		//			if (Payload.HasNext(flags)) goto case States.PayloadData;
+
+		//			//TODO verify with protocol.
+		//			OnPayload(sink, new Payload(stream, Span<byte>.Empty, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
+		//			break;
+		//		case States.PayloadMetadata:
+		//			break;
+		//		case States.PayloadData:
+		//			//TODO Allow zero byte payload
+		//			if (TryReadAll(buffer, ref position, out var data))
+		//			{
+		//				OnPayload(sink, new Payload(stream, data, follows: Payload.HasFollows(flags), complete: Payload.HasComplete(flags), next: Payload.HasNext(flags)));
+		//				goto case States.Done;
+		//			}
+		//			break;
+		//	}
+		//}
+		*/
+
 
 		internal ref struct BufferReader
 		{

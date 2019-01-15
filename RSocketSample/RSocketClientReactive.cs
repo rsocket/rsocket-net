@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
@@ -7,16 +8,23 @@ namespace RSocket.Reactive
 {
 	//TODO This goes to its own assembly for dependency management.
 
-
-
 	public class RSocketClientReactive : RSocketClient
 	{
 		public RSocketClientReactive(IRSocketTransport transport, RSocketClientOptions options = default) : base(transport, options) { }
 
 		public ResultOf<TData, TMetadata> Of<TData, TMetadata>() => new ResultOf<TData, TMetadata>(this);
 
-		public IObservable<(TData, TMetadata)> RequestStream<TData, TMetadata, TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
-			Observable.Create<(TData, TMetadata)>(observer => { var stream = new ReactiveStream<TData, TMetadata>(observer, ResponseDataDeserializer, ResponseMetadataDeserializer); base.RequestStream(stream, data, metadata: metadata, initial: initial); return stream.Task; });
+		public IObservable<(TData Data, TMetadata Metadata)> RequestChannel<TData, TMetadata, TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
+			Observable.Create<(TData, TMetadata)>(observer => { var stream = new ReactiveStream<TData, TMetadata>(observer, ResponseDataDeserializer, ResponseMetadataDeserializer); base.RequestChannel<TRequestData, TRequestMetadata>(stream, data, metadata: metadata, initial: initial); return stream.Task; });
+
+		public IObservable<(TData Data, TMetadata Metadata)> RequestStream<TData, TMetadata, TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
+			Observable.Create<(TData, TMetadata)>(observer => { var stream = new ReactiveStream<TData, TMetadata>(observer, ResponseDataDeserializer, ResponseMetadataDeserializer); base.RequestStream<TRequestData, TRequestMetadata>(stream, data, metadata: metadata, initial: initial); return stream.Task; });
+
+		public IObservable<(TData Data, TMetadata Metadata)> RequestResponse<TData, TMetadata, TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default) =>
+			Observable.Create<(TData, TMetadata)>(observer => { var stream = new ReactiveStream<TData, TMetadata>(observer, ResponseDataDeserializer, ResponseMetadataDeserializer); base.RequestResponse<TRequestData, TRequestMetadata>(stream, data, metadata: metadata); return stream.Task; });
+
+		public IObservable<(TData Data, TMetadata Metadata)> RequestFireAndForget<TData, TMetadata, TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default) =>
+			Observable.Create<(TData, TMetadata)>(observer => { var stream = new ReactiveStream<TData, TMetadata>(observer, ResponseDataDeserializer, ResponseMetadataDeserializer); base.RequestFireAndForget<TRequestData, TRequestMetadata>(stream, data, metadata: metadata); return stream.Task; });
 
 
 		private sealed class ReactiveStream<TData, TMetadata> : IRSocketStream
@@ -34,9 +42,8 @@ namespace RSocket.Reactive
 				ForMetadata = formetadata;
 			}
 
-			void IRSocketStream.Next(ReadOnlySpan<byte> metadata, ReadOnlySpan<byte> data) => Observer.OnNext((ForData.Deserialize<TData>(data), ForMetadata.Deserialize<TMetadata>(metadata)));
+			void IRSocketStream.Next(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => Observer.OnNext((ForData.Deserialize<TData>(data), ForMetadata.Deserialize<TMetadata>(metadata)));
 			void IRSocketStream.Complete() { Observer.OnCompleted(); Completion.SetResult(null); }
-
 		}
 
 		public struct ResultOf<TData, TMetadata>
@@ -44,12 +51,33 @@ namespace RSocket.Reactive
 			internal RSocketClientReactive Client;
 			public ResultOf(RSocketClientReactive client) => Client = client;
 
-			public IObservable<(TData, TMetadata)> RequestStream<TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
+			public IObservable<(TData Data, TMetadata Metadata)> RequestChannel<TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
+				Client.RequestChannel<TData, TMetadata, TRequestData, TRequestMetadata>(data, metadata, initial: initial);
+			public IObservable<(TData Data, TMetadata Metadata)> RequestChannel<TRequestData>(TRequestData data, int initial = RSocketClient.INITIALDEFAULT) =>
+				Client.RequestChannel<TData, TMetadata, TRequestData, object>(data, default, initial: initial);
+
+			//public IObservable<(TData Data, TMetadata Metadata)> RequestChannel<TRequestData>(IObservable<TRequestData> data, int initial = RSocketClient.INITIALDEFAULT)
+			//{
+			//	ChannelSubscription = data.Subscribe(() => 
+			//	Client.RequestChannel<TData, TMetadata, TRequestData, object>(data, default, initial: initial);
+
+			//}
+	
+			public IObservable<(TData Data, TMetadata Metadata)> RequestStream<TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
 				Client.RequestStream<TData, TMetadata, TRequestData, TRequestMetadata>(data, metadata, initial: initial);
+			public IObservable<(TData Data, TMetadata Metadata)> RequestStream<TRequestData>(TRequestData data, int initial = RSocketClient.INITIALDEFAULT) =>
+				Client.RequestStream<TData, TMetadata, TRequestData, object>(data, default, initial: initial);
 
-			public IObservable<(TData, TMetadata)> RequestStream<TRequestData>(TRequestData data, int initial = RSocketClient.INITIALDEFAULT) =>
-				Client.RequestStream<TData, TMetadata, TRequestData, object>(data, null, initial: initial);
+			public IObservable<(TData Data, TMetadata Metadata)> RequestResponse<TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default) =>
+				Client.RequestResponse<TData, TMetadata, TRequestData, TRequestMetadata>(data, metadata);
+			public IObservable<(TData Data, TMetadata Metadata)> RequestResponse<TRequestData>(TRequestData data) =>
+				Client.RequestResponse<TData, TMetadata, TRequestData, object>(data, default);
 
+
+			public IObservable<(TData Data, TMetadata Metadata)> RequestFireAndForget<TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default) =>
+				Client.RequestFireAndForget<TData, TMetadata, TRequestData, TRequestMetadata>(data, metadata);
+			public IObservable<(TData Data, TMetadata Metadata)> RequestFireAndForget<TRequestData>(TRequestData data) =>
+				Client.RequestFireAndForget<TData, TMetadata, TRequestData, object>(data, default);
 		}
 	}
 

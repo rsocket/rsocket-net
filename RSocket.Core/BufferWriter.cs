@@ -70,25 +70,42 @@ namespace RSocket
 		public void WriteByte(byte value) => Write(value);
 		public void WriteByte(int value) => WriteByte((byte)value);                                             //This is a convenience for calls that use binary operators which always return int
 
-		public void WriteUInt16BigEndian(int value) => WriteUInt16BigEndian((UInt16)value);
-		public void WriteUInt16BigEndian(UInt16 value) { BinaryPrimitives.WriteUInt16BigEndian(GetBuffer(sizeof(UInt16)), value); Used += sizeof(UInt16); }
-		public void WriteInt32BigEndian(Int32 value) { BinaryPrimitives.WriteInt32BigEndian(GetBuffer(sizeof(Int32)), value); Used += sizeof(Int32); }
-		public void WriteUInt32BigEndian(UInt32 value) { BinaryPrimitives.WriteUInt32BigEndian(GetBuffer(sizeof(UInt32)), value); Used += sizeof(UInt32); }
-		public void WriteInt24BigEndian(int value) { const int SIZEOF = 3; var span = GetBuffer(SIZEOF); span[0] = (byte)(value & 0xFF); span[1] = (byte)((value >> 8) & 0xFF); span[2] = (byte)((value >> 16) & 0xFF); Used += SIZEOF; }
+		public int WriteUInt16BigEndian(int value) => WriteUInt16BigEndian((UInt16)value);
+		public int WriteUInt16BigEndian(UInt16 value) { BinaryPrimitives.WriteUInt16BigEndian(GetBuffer(sizeof(UInt16)), value); Used += sizeof(UInt16); return sizeof(UInt16); }
+		public int WriteInt32BigEndian(Int32 value) { BinaryPrimitives.WriteInt32BigEndian(GetBuffer(sizeof(Int32)), value); Used += sizeof(Int32); return sizeof(Int32); }
+		public int WriteInt64BigEndian(Int64 value) { BinaryPrimitives.WriteInt64BigEndian(GetBuffer(sizeof(Int64)), value); Used += sizeof(Int64); return sizeof(Int64); }
+		public int WriteUInt32BigEndian(UInt32 value) { BinaryPrimitives.WriteUInt32BigEndian(GetBuffer(sizeof(UInt32)), value); Used += sizeof(UInt32); return sizeof(UInt32); }
+		public int WriteInt24BigEndian(int value) { const int SIZEOF = 3; var span = GetBuffer(SIZEOF); span[0] = (byte)((value >> 16) & 0xFF); span[1] = (byte)((value >> 8) & 0xFF); span[2] = (byte)(value & 0xFF); Used += SIZEOF; return SIZEOF; }
 
 		public int Write(byte[] values) { foreach (var value in values) { Write(value); } return values.Length; }   //TODO Buffer Slice Writer
-		public int Write(ReadOnlySpan<byte> values) => Write(values.ToArray());   //TODO SpanWriter - I had this, where did it go?
+		public int Write(ReadOnlySpan<byte> values) => Write(values.ToArray());   //TODO SpanWriter - I had this, where did it go? Maybe speed the Sequence writer too.
+		public int Write(ReadOnlySequence<byte> values) { if (values.IsSingleSegment) { return Write(values.First.Span); } else { int count = 0; foreach (var memory in values) { count += Write(memory.Span); } return count; } }
 
 		public int Write(string text) => Write(text.AsSpan(), Encoder, MaximumBytesPerChar);
 
 		public int WritePrefixByte(string text)
 		{
 			var bytes = Encoding.GetByteCount(text);
-			if (bytes > byte.MaxValue) { throw new ArgumentOutOfRangeException(nameof(text), text, $"String encoding [{bytes}] would exceed the maximum prefix length. [{byte.MaxValue}]"); }
-			Write((byte)bytes);
-			return sizeof(byte) + Write(text);
+			if (bytes > Byte.MaxValue) { throw new ArgumentOutOfRangeException(nameof(text), text, $"String encoding [{bytes}] would exceed the maximum prefix length. [{Byte.MaxValue}]"); }
+			Write((Byte)bytes);
+			return sizeof(Byte) + Write(text);
 		}
 
+		public int WritePrefixShort(string text)
+		{
+			var bytes = Encoding.GetByteCount(text);
+			if (bytes > UInt16.MaxValue) { throw new ArgumentOutOfRangeException(nameof(text), text, $"String encoding [{bytes}] would exceed the maximum prefix length. [{UInt16.MaxValue}]"); }
+			WriteUInt16BigEndian(bytes);
+			return sizeof(UInt16) + Write(text);
+		}
+
+		public int WritePrefixShort(ReadOnlySpan<byte> buffer)
+		{
+			var bytes = buffer.Length;
+			if (bytes > UInt16.MaxValue) { throw new ArgumentOutOfRangeException(nameof(buffer), buffer.Length, $"Buffer [{bytes}] would exceed the maximum prefix length. [{UInt16.MaxValue}]"); }
+			WriteUInt16BigEndian(bytes);
+			return sizeof(UInt16) + Write(buffer);
+		}
 
 		public unsafe void Write(char value, Encoder encoder, int encodingmaxbytesperchar)
 		{

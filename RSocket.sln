@@ -14,7 +14,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core", "RSocket.Cor
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core.Tests", "RSocket.Core.Tests\RSocket.Core.Tests.csproj", "{AF95925C-C011-4EB8-BDEE-A28736042974}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RSocket.ProtobufNet", "RSocket.ProtobufNet\RSocket.ProtobufNet.csproj", "{8A4F7CFB-94D4-4C6E-95E4-FDE6E95774DA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.ProtobufNet", "RSocket.ProtobufNet\RSocket.ProtobufNet.csproj", "{8A4F7CFB-94D4-4C6E-95E4-FDE6E95774DA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -2,71 +2,79 @@
 using System.Threading.Tasks;
 using System.Reactive.Linq;
 using RSocket;
-using RSocket.Transport;
+using RSocket.Transports;
 using RSocket.Serializers;
 using System.Text;
 
 namespace RSocketSample
 {
+	using System.Buffers;
 	using ProtoBuf;
 	using RSocket.Reactive;
 
 	class Program
 	{
-		static void Main(string[] args)
+		//TODO Connection Cleanup on Unsubscribe/failure/etc
+		//TODO General Error handling -> OnError
+
+		static async Task Main(string[] args)
 		{
-			Console.WriteLine("Connecting...");
+			//var client = new RSocketClient(new RSocketWebSocketClient("ws://rsocket-demo.herokuapp.com/ws"));		//await client.RequestStream("peace", initial: 2);
+			//var client = new RSocketClient(new RSocketWebSocketClient("ws://localhost:9092/"));
 
-			//var client = new RSocketClient(new RSocketWebSocketClient("ws://rsocket-demo.herokuapp.com/ws"));
-			//await client.ConnectAsync();
-			//Console.WriteLine("Requesting Web Demo Stream...");
-			//await client.RequestStream("peace", initial: 2);
+			var loopback = new LoopbackTransport();
+
+			var server = new RSocketServer(loopback);
+			server.Start();
 
 
-			//			var client = new RSocketClient(new RSocketWebSocketClient("ws://localhost:9092/"));
-			var client = new RSocketClientReactive(new RSocketWebSocketClient("ws://localhost:9092/"))
+			var client = new RSocketClientReactive(
+				new WebSocketTransport("ws://localhost:9092/"))
+				//new SocketTransport("tcp://localhost:9092/"))
+			//var client = new RSocketClientReactive(new RSocketWebSocketClient("ws://localhost:9092/"))
+			//var client = new RSocketClientReactive(loopback)
 				.UsingProtobufNetSerialization();
-			client.ConnectAsync().Wait();
+
+			await client.ConnectAsync();
 			Console.WriteLine("Requesting Demo Stream...");
 
 			var obj = new Person() { Id = 1234, Name = "Someone Person", Address = new Address() { Line1 = "123 Any Street", Line2 = "Somewhere, LOC" } };
+			var meta = new Person() { Id = 567, Name = "Meta Person", Address = new Address() { Line1 = "", Line2 = "" } };
 			var req = new ProtobufNetSerializer().Serialize(obj).ToArray(); // Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(obj));
-
-			//TODO req is awkward here, probably need to have incoming and return types...
+																			//TODO req is awkward here, probably need to have incoming and return types...
 
 			//var rr = client.RequestStream<Person, Person, Person, Person>(data: obj);
 
-//			var stream = from data in (await client.RequestChannel<Test>(req, initial: 3))
-			var stream = from data in (client.Of<Person, Person>().RequestStream(obj, initial: 3))
-							 //let value = Encoding.UTF8.GetString(data)
-						 let value = data
+			var personclient = client.Of<Person, Person>();
+			var stream = from data in personclient.RequestStream(obj, meta, initial: 3)
 						 //where value.StartsWith("q")
-						 select value;
-
+						 select data.Data;
 
 			using (stream.Subscribe(
-					onNext: value => Console.WriteLine($"Demo.OnNext===>{value}"),
-					onCompleted: () => Console.WriteLine($"Demo.OnComplete!")))
-			{
+					onNext: value => Console.WriteLine($"Demo.OnNext===>{value}"), onCompleted: () => Console.WriteLine($"Demo.OnComplete!\n")))
+
+			using (personclient.RequestChannel(obj).Subscribe(
+				onNext: value => Console.WriteLine($"RequestChannel.OnNext ===>{value}"), onCompleted: () => Console.WriteLine($"RequestChannel.OnComplete!\n")))
+
+			using (personclient.RequestStream(obj).Subscribe(
+				onNext: value => Console.WriteLine($"RequestStream.OnNext ===>{value}"), onCompleted: () => Console.WriteLine($"RequestStream.OnComplete!\n")))
+
+			using (personclient.RequestResponse(obj).Subscribe(
+				onNext: value => Console.WriteLine($"RequestResponse.OnNext ===>{value}"), onCompleted: () => Console.WriteLine($"RequestResponse.OnComplete!\n")))
+
+			using (personclient.RequestFireAndForget(obj).Subscribe(
+				onNext: value => Console.WriteLine($"RequestFireAndForget.OnNext ===>{value}"), onCompleted: () => Console.WriteLine($"RequestFireAndForget.OnComplete!\n")))
+			{ 
 				Console.ReadKey();
 			}
 
-			//TODO Need to cleanup connetion when no subscribers and hot/cold. Oh, and OnError
 
-			//await client.RequestStream("peace2", initial: 2);
-			//await client.RequestStream("peace3", initial: 1);
-
-
-			//var client = new RSocketClient(new RSocketWebSocketClient("ws://echo.websocket.org/?encoding=text"));
-			//await client.Test("Howdy Planet!!");
-
-		}
-
-		class Test
-		{
-			public string Id { get; set; }
-			public string Value { get; set; }
-			public override string ToString() => $"{Id}:{Value}";
+			//var sender = from index in Observable.Interval(TimeSpan.FromSeconds(1)) select new Person() { Id = (int)index, Name = $"Person #{index:0000}" };
+			//using (personclient.RequestChannel(obj).Subscribe(
+			//	onNext: value => Console.WriteLine($"RequestChannel.OnNext ===>{value}"), onCompleted: () => Console.WriteLine($"RequestChannel.OnComplete!")))
+			//{
+			//	Console.ReadKey();
+			//}
 		}
 	}
 
@@ -92,7 +100,7 @@ namespace RSocketSample
 
 	public class JsonSerializer : IRSocketSerializer
 	{
-		public T Deserialize<T>(in ReadOnlySpan<byte> data) => Newtonsoft.Json.JsonConvert.DeserializeObject<T>(Encoding.UTF8.GetString(data));
-		public ReadOnlySpan<byte> Serialize<T>(in T item) => Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(item));
+		public T Deserialize<T>(in ReadOnlySequence<byte> data) => Newtonsoft.Json.JsonConvert.DeserializeObject<T>(Encoding.UTF8.GetString(data.ToArray()));
+		public ReadOnlySequence<byte> Serialize<T>(in T item) => new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(item)));
 	}
 }
