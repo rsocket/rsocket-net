@@ -4,3 +4,4 @@ dotnet: 2.1
 script:
 - dotnet build -c Release
 - dotnet test
+- dotnet pack -c Release

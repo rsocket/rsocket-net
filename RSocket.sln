@@ -3,20 +3,25 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28010.2046
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocketSample", "RSocketSample/RSocketSample.csproj", "{67F2AAD9-EF80-4B9D-AAA7-AF519E1E257C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocketSample", "RSocketSample\RSocketSample.csproj", "{67F2AAD9-EF80-4B9D-AAA7-AF519E1E257C}"
 	ProjectSection(ProjectDependencies) = postProject
 		{C6E64495-00C6-45E8-A86A-5AE9D9E906BD} = {C6E64495-00C6-45E8-A86A-5AE9D9E906BD}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Transport.WebSocketClientTransport", "RSocket.Transport.WebSocketClientTransport/RSocket.Transport.WebSocketClientTransport.csproj", "{C6E64495-00C6-45E8-A86A-5AE9D9E906BD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Transport.WebSocketClientTransport", "RSocket.Transport.WebSocketClientTransport\RSocket.Transport.WebSocketClientTransport.csproj", "{C6E64495-00C6-45E8-A86A-5AE9D9E906BD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core", "RSocket.Core/RSocket.Core.csproj", "{8575B6E4-9E7F-4473-8D56-9FE21240B1C4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core", "RSocket.Core\RSocket.Core.csproj", "{8575B6E4-9E7F-4473-8D56-9FE21240B1C4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core.Tests", "RSocket.Core.Tests/RSocket.Core.Tests.csproj", "{AF95925C-C011-4EB8-BDEE-A28736042974}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.Core.Tests", "RSocket.Core.Tests\RSocket.Core.Tests.csproj", "{AF95925C-C011-4EB8-BDEE-A28736042974}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.ProtobufNet", "RSocket.ProtobufNet/RSocket.ProtobufNet.csproj", "{8A4F7CFB-94D4-4C6E-95E4-FDE6E95774DA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.ProtobufNet", "RSocket.ProtobufNet\RSocket.ProtobufNet.csproj", "{8A4F7CFB-94D4-4C6E-95E4-FDE6E95774DA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RSocket.RPC", "RSocket.RPC\RSocket.RPC.csproj", "{133CD4BB-1F1C-4BD9-AFFF-D6B7DF59A2B2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RSocket.RPC", "RSocket.RPC\RSocket.RPC.csproj", "{133CD4BB-1F1C-4BD9-AFFF-D6B7DF59A2B2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E01A7BD9-16F7-4B6D-B273-F5FE5C319259}"
+	ProjectSection(SolutionItems) = preProject
+		.travis.yml = .travis.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
