@@ -8,3 +8,10 @@ script:
 - dotnet build -c Release
 - dotnet test
 - dotnet pack -c Release
+deploy:
+  skip_cleanup: true
+  provider: script
+  script: dotnet nuget push /home/travis/build/rsocket/rsocket-net/RSocket.Core/bin/Release/RSocket.Core.*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+  on:
+    tags: true
+    condition: $TRAVIS_TAG =~ ^(\d+\.)?(\d+\.)?(\*|\d+)$
