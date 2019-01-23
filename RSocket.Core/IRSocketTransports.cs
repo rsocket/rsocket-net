@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
+	/// <summary>
+	/// A Pipeline Transport for a connectable RSocket. Once connected, the Input and Output Pipelines can be used to communicate abstractly with the RSocket bytestream.
+	/// </summary>
 	public interface IRSocketTransport
 	{
 		PipeReader Input { get; }
@@ -13,6 +16,9 @@ namespace RSocket
 		Task ConnectAsync(CancellationToken cancel = default);
 	}
 
+	/// <summary>
+	/// A Pipeline Transport for a serving RSocket.
+	/// </summary>
 	public interface IRSocketServerTransport
 	{
 		PipeReader Input { get; }

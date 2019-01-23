@@ -9,7 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="ClientServerTests.cs" />
     <Compile Remove="ProtocolTests.cs" />
   </ItemGroup>
 

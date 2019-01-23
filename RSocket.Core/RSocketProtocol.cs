@@ -26,6 +26,10 @@ namespace RSocket
 		//TODO Feature TLS for WebSockets, other?
 		//TODO Feature QuickStart in the fashion of the existing ones
 
+		static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
+		static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
+
+
 		static bool TryReadRemaining(in Header header, int innerlength, ref SequenceReader<byte> reader, out int metadatalength)
 		{
 			//TODO Should assert that mdl = header.remain == 0;

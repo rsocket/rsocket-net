@@ -8,15 +8,9 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	//TODO This should probably write to an c
 	public interface IRSocketSerializer { ReadOnlySequence<byte> Serialize<T>(in T item); }			//FUTURE C#8.0 static interface member
 	public interface IRSocketDeserializer { T Deserialize<T>(in ReadOnlySequence<byte> data); }     //FUTURE C#8.0 static interface member
 
-	public interface IRSocketStream
-	{
-		void Next(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void Complete();
-	}
 
 	public class RSocketClient : IRSocketProtocol
 	{
@@ -25,14 +19,14 @@ namespace RSocket
 		IRSocketTransport Transport { get; set; }
 		RSocketClientOptions Options { get; set; }
 		private int StreamId = 1 - 2;       //SPEC: Stream IDs on the client MUST start at 1 and increment by 2 sequentially, such as 1, 3, 5, 7, etc
-		private int NewStreamId() => Interlocked.Add(ref StreamId, 2);	//TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
+		private int NewStreamId() => Interlocked.Add(ref StreamId, 2);  //TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
 
 		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
 		private int StreamDispatch(IRSocketStream transform) { var id = NewStreamId(); Dispatcher[id] = transform; return id; }
 		//TODO Stream Destruction - i.e. removal from the dispatcher.
 
-		protected IDisposable ChannelSubscription;		//TODO Tracking state for channels
-		
+		protected IDisposable ChannelSubscription;      //TODO Tracking state for channels
+
 		public RSocketClient(IRSocketTransport transport, RSocketClientOptions options = default)
 		{
 			Transport = transport;
@@ -50,11 +44,6 @@ namespace RSocket
 			return this;
 		}
 
-		//#region Default Serializers for Strings
-		//public ValueTask<System.IO.Pipelines.FlushResult> RequestStream(IRSocketStream stream, Span<byte> data, string metadata = default, int initial = INITIALDEFAULT) =>
-		//	RequestStream(stream, data, metadata: metadata == default ? default : Encoding.UTF8.GetBytes(metadata), initial: initial);
-		//#endregion
-
 		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 
 		public Task RequestChannel<TData>(IRSocketStream stream, TData data, ReadOnlySpan<byte> metadata = default, int initial = INITIALDEFAULT) => RequestChannel(stream, RequestDataSerializer.Serialize(data), metadata, initial);
@@ -63,7 +52,7 @@ namespace RSocket
 		public Task RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = INITIALDEFAULT)
 		{
 			if (initial <= INITIALDEFAULT) { initial = Options.InitialRequestSize; }
-			var id = StreamDispatch(stream);		//TODO This needs to be returned to the caller to allow them to send more messages.
+			var id = StreamDispatch(stream);        //TODO This needs to be returned to the caller to allow them to send more messages.
 			new RSocketProtocol.RequestChannel(id, data, metadata, initialRequest: initial).Write(Transport.Output, data, metadata);
 			var result = Transport.Output.FlushAsync();
 			return result.IsCompleted ? Task.CompletedTask : result.AsTask();
@@ -113,8 +102,6 @@ namespace RSocket
 		//	return Transport.Output.FlushAsync();
 		//}
 
-		//TODO Errors
-
 		public IRSocketSerializer RequestDataSerializer = Defaults.Request;
 		public IRSocketSerializer RequestMetadataSerializer = Defaults.Request;
 		public IRSocketDeserializer ResponseDataDeserializer = Defaults.Response;
@@ -135,8 +122,8 @@ namespace RSocket
 			if (Dispatcher.TryGetValue(message.Stream, out var transform))
 			{
 				//TODO FIXIE!
-				if (message.IsNext) { transform.Next(metadata, data); }
-				if (message.IsComplete) { transform.Complete(); }
+				if (message.IsNext) { transform.OnNext((metadata, data)); }
+				if (message.IsComplete) { transform.OnCompleted(); }
 			}
 			else
 			{
@@ -145,9 +132,7 @@ namespace RSocket
 		}
 
 		void IRSocketProtocol.Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");
-
-		public void RequestStream(in RSocketProtocol.RequestStream message) => throw new NotImplementedException(); //TODO How to handle unexpected messagess...
-
-		public void Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }
+		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message) => throw new NotImplementedException(); //TODO How to handle unexpected messagess...
+		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }	//TODO Handle Errors!
 	}
 }

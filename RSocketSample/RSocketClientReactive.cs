@@ -42,8 +42,10 @@ namespace RSocket.Reactive
 				ForMetadata = formetadata;
 			}
 
-			void IRSocketStream.Next(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => Observer.OnNext((ForData.Deserialize<TData>(data), ForMetadata.Deserialize<TMetadata>(metadata)));
-			void IRSocketStream.Complete() { Observer.OnCompleted(); Completion.SetResult(null); }
+			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value) =>
+				Observer.OnNext((ForData.Deserialize<TData>(value.data), ForMetadata.Deserialize<TMetadata>(value.metadata)));
+			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnCompleted() { Observer.OnCompleted(); Completion.SetResult(null); }
+			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnError(Exception error) => throw new NotImplementedException();
 		}
 
 		public struct ResultOf<TData, TMetadata>

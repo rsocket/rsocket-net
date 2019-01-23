@@ -65,8 +65,9 @@ namespace RSocket.Tests
 
 		public class StreamReceiver : List<(byte[] Metadata, byte[] Data)>, IRSocketStream
 		{
-			public void Next(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => this.Add((metadata.ToArray(), data.ToArray()));
-			public void Complete() => this.Add((null, null));
+			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnCompleted() => this.Add((null, null));
+			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnError(Exception error) => throw new NotImplementedException(); //Next(metadata, data);
+			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value) => this.Add((value.metadata.ToArray(), value.data.ToArray()));
 		}
 	}
 }

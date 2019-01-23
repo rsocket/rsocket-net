@@ -1,17 +1,16 @@
 ﻿using System;
-using System.Threading.Tasks;
+using System.Buffers;
 using System.Reactive.Linq;
-using RSocket;
-using RSocket.Transports;
-using RSocket.Serializers;
 using System.Text;
+using System.Threading.Tasks;
+using ProtoBuf;
+using RSocket;
+using RSocket.Reactive;
+using RSocket.Serializers;
+using RSocket.Transports;
 
 namespace RSocketSample
 {
-	using System.Buffers;
-	using ProtoBuf;
-	using RSocket.Reactive;
-
 	class Program
 	{
 		//TODO Connection Cleanup on Unsubscribe/failure/etc

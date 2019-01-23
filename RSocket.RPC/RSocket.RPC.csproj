@@ -5,4 +5,8 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RSocket.Core\RSocket.Core.csproj" />
+  </ItemGroup>
+
 </Project>

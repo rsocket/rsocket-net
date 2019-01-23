@@ -9,23 +9,15 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	public interface IRSocketProtocol
-	{
-		void Setup(in RSocketProtocol.Setup message);
-		void Error(in RSocketProtocol.Error message);
-		void Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void RequestStream(in RSocketProtocol.RequestStream message);
-	}
-
-	public partial class RSocketProtocol
-	{
-		static partial void Decoded(string message) => Console.WriteLine(message);
-		//static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => Decoded($"    ===> Metadata[{metadata.Length}]:({Encoding.UTF8.GetString(metadata.ToArray())})    Data[{data.Length}]: {Encoding.UTF8.GetString(data.ToArray())}");
-		static partial void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message) => sink.Setup(message);
-		static partial void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message) => sink.Error(message);
-		static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Payload(message, metadata, data);
-		static partial void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message) => sink.RequestStream(message);
-	}
+	//public partial class RSocketProtocol
+	//{
+	//	static partial void Decoded(string message) => Console.WriteLine(message);
+	//	//static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => Decoded($"    ===> Metadata[{metadata.Length}]:({Encoding.UTF8.GetString(metadata.ToArray())})    Data[{data.Length}]: {Encoding.UTF8.GetString(data.ToArray())}");
+	//	static partial void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message) => sink.Setup(message);
+	//	static partial void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message) => sink.Error(message);
+	//	static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Payload(message, metadata, data);
+	//	static partial void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message) => sink.RequestStream(message);
+	//}
 
 	//public partial class RSocketProtocol
 	//{
@@ -39,15 +31,15 @@ namespace RSocket
 		//static partial void Operation(string message, long BufferLength = -1);
 		//static partial void StateEnter(States state);
 		//static partial void Decode(string message, States? newstate = null, long BufferLength = -1, string name = null);
-		static partial void Decoded(string message);
+		//static partial void Decoded(string message);
 
-		static partial void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message);
-		static partial void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message);
-		static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		static partial void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message);
+		//static partial void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message);
+		//static partial void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message);
+		//static partial void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		//static partial void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message);
 
-		static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
-		static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
+		//static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
+		//static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
 
 		static public async Task Handler2(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation, string name = null)
 		{
@@ -360,124 +352,124 @@ namespace RSocket
 		*/
 
 
-		internal ref struct BufferReader
-		{
-			private ReadOnlySequence<byte> Sequence;
-			private SequencePosition Position;
-			private SequencePosition Next;
+		//internal ref struct BufferReader
+		//{
+		//	private ReadOnlySequence<byte> Sequence;
+		//	private SequencePosition Position;
+		//	private SequencePosition Next;
 
-			private ReadOnlySpan<byte> Current;
-			private int Index;
-			public bool End { get; private set; }
+		//	private ReadOnlySpan<byte> Current;
+		//	private int Index;
+		//	public bool End { get; private set; }
 
-			//private SequencePosition _nextSequencePosition;
+		//	//private SequencePosition _nextSequencePosition;
 
-			//private int _consumedBytes;
+		//	//private int _consumedBytes;
 
-			//[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public BufferReader(in ReadOnlySequence<byte> buffer)
-			{
-				Sequence = buffer;
-				Position = Sequence.Start;
-				Index = 0;
-				//_consumedBytes = 0;
-				Next = Position;
+		//	//[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		//	public BufferReader(in ReadOnlySequence<byte> buffer)
+		//	{
+		//		Sequence = buffer;
+		//		Position = Sequence.Start;
+		//		Index = 0;
+		//		//_consumedBytes = 0;
+		//		Next = Position;
 
-				if (Sequence.TryGet(ref Next, out var memory, true))
-				{
-					End = false;
-					Current = memory.Span;
-					//if (Current.Length == 0) { MoveNext(); }
-				}
-				else
-				{
-					End = true;
-					Current = default;
-				}
-			}
+		//		if (Sequence.TryGet(ref Next, out var memory, true))
+		//		{
+		//			End = false;
+		//			Current = memory.Span;
+		//			//if (Current.Length == 0) { MoveNext(); }
+		//		}
+		//		else
+		//		{
+		//			End = true;
+		//			Current = default;
+		//		}
+		//	}
 
-			//bool TryReadInt32BigEndian(in ReadOnlySequence<byte> buffer, out int value)
-			//{
-			//	var position = buffer.Start;
-			//	//while (position < buffer.End)
-			//	//{
-			//	buffer.TryGet(ref position, out var memory, advance: false);
-			//	var frame = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(memory.Span);
-			//	position = buffer.GetPosition(sizeof(Int32), position);
-			//	await socket.SendAsync(buffer.Slice(position, frame), _webSocketMessageType);
-			//	position = buffer.GetPosition(frame, position);
-			//	//}
-
-
-			//	/// <summary>
-			//	/// Converts the <see cref="ReadOnlySequence{T}"/> to an array
-			//	/// </summary>
-			//	public static T[] ToArray<T>(in this ReadOnlySequence<T> sequence)
-			//	{
-			//		var array = new T[sequence.Length];
-			//		sequence.CopyTo(array);
-			//		return array;
-			//	}
-			//}
-
-			////[MethodImpl(MethodImplOptions.NoInlining)]
-			//private void MoveNext()
-			//{
-			//	var previous = _nextSequencePosition;
-			//	while (Sequence.TryGet(ref _nextSequencePosition, out var memory, true))
-			//	{
-			//		_currentSequencePosition = previous;
-			//		Current = memory.Span; Index = 0;
-			//		if (Current.Length > 0) { return; }
-			//	}
-			//	_end = true;
-			//}
-		}
+		//	//bool TryReadInt32BigEndian(in ReadOnlySequence<byte> buffer, out int value)
+		//	//{
+		//	//	var position = buffer.Start;
+		//	//	//while (position < buffer.End)
+		//	//	//{
+		//	//	buffer.TryGet(ref position, out var memory, advance: false);
+		//	//	var frame = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(memory.Span);
+		//	//	position = buffer.GetPosition(sizeof(Int32), position);
+		//	//	await socket.SendAsync(buffer.Slice(position, frame), _webSocketMessageType);
+		//	//	position = buffer.GetPosition(frame, position);
+		//	//	//}
 
 
-		static bool TryReadAll(ReadOnlySequence<byte> buffer, ref SequencePosition position, out byte[] values)
-		{
-			buffer = buffer.Slice(position);
-			if (buffer.IsEmpty) { values = Span<byte>.Empty.ToArray(); return true; }	//TODO garbage.
-			if (buffer.TryGet(ref position, out var memory)) { values = memory.Span.ToArray(); position = buffer.GetPosition(values.Length); return true; }
-			else { throw new InvalidOperationException(); }    //This is impossible, since we had at least one byte...
-		}
+		//	//	/// <summary>
+		//	//	/// Converts the <see cref="ReadOnlySequence{T}"/> to an array
+		//	//	/// </summary>
+		//	//	public static T[] ToArray<T>(in this ReadOnlySequence<T> sequence)
+		//	//	{
+		//	//		var array = new T[sequence.Length];
+		//	//		sequence.CopyTo(array);
+		//	//		return array;
+		//	//	}
+		//	//}
 
-		static bool TryReadByte(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Byte value)
-		{
-			const int SIZEOF = sizeof(Byte);
-			buffer = buffer.Slice(position);
-			if (buffer.IsEmpty) { value = 0; return false; }        //TODO Look for Buffer.Length checks - probably bad since it would have to traverse the list.
-			if (buffer.TryGet(ref position, out var memory)) { value = memory.Span[0]; position = buffer.GetPosition(SIZEOF); return true; }
-			else { throw new InvalidOperationException(); }    //This is impossible, since we had at least one byte...
-		}
+		//	////[MethodImpl(MethodImplOptions.NoInlining)]
+		//	//private void MoveNext()
+		//	//{
+		//	//	var previous = _nextSequencePosition;
+		//	//	while (Sequence.TryGet(ref _nextSequencePosition, out var memory, true))
+		//	//	{
+		//	//		_currentSequencePosition = previous;
+		//	//		Current = memory.Span; Index = 0;
+		//	//		if (Current.Length > 0) { return; }
+		//	//	}
+		//	//	_end = true;
+		//	//}
+		//}
 
-		static bool TryReadInt24BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Int32 value)
-		{
-			const int SIZEOF = 3;
-			buffer = buffer.Slice(position, SIZEOF);
-			if (buffer.TryGet(ref position, out var memory))        //TODO is this better as IsSingleSegment or unrolled loop or even read 4 bytes and if (BinaryPrimitives.TryReadInt32BigEndian(span, out var result) { value = result & 0xFFFFFF; }
-			{
-				System.Diagnostics.Debug.Assert(memory.Length == SIZEOF);
-				var span = memory.Span;
-				value = (span[0]) | (span[1] << 8) | (span[2] << 16);
-			}
-			else
-			{
-				if (buffer.Length < SIZEOF) { value = 0; return false; }
-				Int32 result = 0;
-				foreach (var subbuffer in buffer)
-				{
-					for (int index = 0; index < subbuffer.Length; index++)
-					{
-						result = (result << 8 | subbuffer.Span[index]);
-					}
-				}
-				value = result;
-			}
-			position = buffer.GetPosition(SIZEOF);
-			return true;
-		}
+
+		//static bool TryReadAll(ReadOnlySequence<byte> buffer, ref SequencePosition position, out byte[] values)
+		//{
+		//	buffer = buffer.Slice(position);
+		//	if (buffer.IsEmpty) { values = Span<byte>.Empty.ToArray(); return true; }	//TODO garbage.
+		//	if (buffer.TryGet(ref position, out var memory)) { values = memory.Span.ToArray(); position = buffer.GetPosition(values.Length); return true; }
+		//	else { throw new InvalidOperationException(); }    //This is impossible, since we had at least one byte...
+		//}
+
+		//static bool TryReadByte(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Byte value)
+		//{
+		//	const int SIZEOF = sizeof(Byte);
+		//	buffer = buffer.Slice(position);
+		//	if (buffer.IsEmpty) { value = 0; return false; }        //TODO Look for Buffer.Length checks - probably bad since it would have to traverse the list.
+		//	if (buffer.TryGet(ref position, out var memory)) { value = memory.Span[0]; position = buffer.GetPosition(SIZEOF); return true; }
+		//	else { throw new InvalidOperationException(); }    //This is impossible, since we had at least one byte...
+		//}
+
+		//static bool TryReadInt24BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Int32 value)
+		//{
+		//	const int SIZEOF = 3;
+		//	buffer = buffer.Slice(position, SIZEOF);
+		//	if (buffer.TryGet(ref position, out var memory))        //TODO is this better as IsSingleSegment or unrolled loop or even read 4 bytes and if (BinaryPrimitives.TryReadInt32BigEndian(span, out var result) { value = result & 0xFFFFFF; }
+		//	{
+		//		System.Diagnostics.Debug.Assert(memory.Length == SIZEOF);
+		//		var span = memory.Span;
+		//		value = (span[0]) | (span[1] << 8) | (span[2] << 16);
+		//	}
+		//	else
+		//	{
+		//		if (buffer.Length < SIZEOF) { value = 0; return false; }
+		//		Int32 result = 0;
+		//		foreach (var subbuffer in buffer)
+		//		{
+		//			for (int index = 0; index < subbuffer.Length; index++)
+		//			{
+		//				result = (result << 8 | subbuffer.Span[index]);
+		//			}
+		//		}
+		//		value = result;
+		//	}
+		//	position = buffer.GetPosition(SIZEOF);
+		//	return true;
+		//}
 
 		static bool TryReadInt32BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Int32 value)
 		{
@@ -502,27 +494,27 @@ namespace RSocket
 			return true;
 		}
 
-		static bool TryReadUInt16BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out UInt16 value)
-		{
-			const int SIZEOF = sizeof(UInt16);
-			buffer = buffer.Slice(position, SIZEOF);
+		//static bool TryReadUInt16BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out UInt16 value)
+		//{
+		//	const int SIZEOF = sizeof(UInt16);
+		//	buffer = buffer.Slice(position, SIZEOF);
 
-			if (!buffer.TryGet(ref position, out var memory) || !BinaryPrimitives.TryReadUInt16BigEndian(memory.Span, out value))
-			{
-				if (buffer.Length < SIZEOF) { value = 0; return false; }
+		//	if (!buffer.TryGet(ref position, out var memory) || !BinaryPrimitives.TryReadUInt16BigEndian(memory.Span, out value))
+		//	{
+		//		if (buffer.Length < SIZEOF) { value = 0; return false; }
 
-				int result = 0;
-				foreach (var subbuffer in buffer)
-				{
-					for (int index = 0; index < subbuffer.Length; index++)
-					{
-						result = (result << 8 | subbuffer.Span[index]);
-					}
-				}
-				value = (UInt16)result;
-			}
-			position = buffer.GetPosition(SIZEOF);
-			return true;
-		}
+		//		int result = 0;
+		//		foreach (var subbuffer in buffer)
+		//		{
+		//			for (int index = 0; index < subbuffer.Length; index++)
+		//			{
+		//				result = (result << 8 | subbuffer.Span[index]);
+		//			}
+		//		}
+		//		value = (UInt16)result;
+		//	}
+		//	position = buffer.GetPosition(SIZEOF);
+		//	return true;
+		//}
 	}
 }

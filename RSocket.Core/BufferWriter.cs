@@ -107,6 +107,15 @@ namespace RSocket
 			return sizeof(UInt16) + Write(buffer);
 		}
 
+		public int WritePrefixShort(ReadOnlySequence<byte> buffer)
+		{
+			var bytes = buffer.Length;
+			if (bytes > UInt16.MaxValue) { throw new ArgumentOutOfRangeException(nameof(buffer), buffer.Length, $"Buffer [{bytes}] would exceed the maximum prefix length. [{UInt16.MaxValue}]"); }
+			WriteUInt16BigEndian((UInt16)bytes);
+			return sizeof(UInt16) + Write(buffer);
+		}
+
+
 		public unsafe void Write(char value, Encoder encoder, int encodingmaxbytesperchar)
 		{
 			var destination = GetBuffer(encodingmaxbytesperchar);
