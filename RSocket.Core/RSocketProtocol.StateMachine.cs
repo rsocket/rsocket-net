@@ -85,16 +85,19 @@ namespace RSocket
 						break;
 					case Types.Request_Response:
 						var requestresponse = new RequestResponse(header, ref reader);
+						if (requestresponse.Validate()) { OnRequestResponse(sink, requestresponse, requestresponse.ReadMetadata(ref reader), requestresponse.ReadData(ref reader)); }
 						break;
 					case Types.Request_Fire_And_Forget:
 						var requestfireandforget = new RequestFireAndForget(header, ref reader);
+						if (requestfireandforget.Validate()) { OnRequestFireAndForget(sink, requestfireandforget, requestfireandforget.ReadMetadata(ref reader), requestfireandforget.ReadData(ref reader)); }
 						break;
 					case Types.Request_Stream:
 						var requeststream = new RequestStream(header, ref reader);
-						if (requeststream.Validate()) { OnRequestStream(sink, requeststream); }
+						if (requeststream.Validate()) { OnRequestStream(sink, requeststream, requeststream.ReadMetadata(ref reader), requeststream.ReadData(ref reader)); }
 						break;
 					case Types.Request_Channel:
 						var requestchannel = new RequestChannel(header, ref reader);
+						if (requestchannel.Validate()) { OnRequestChannel(sink, requestchannel, requestchannel.ReadMetadata(ref reader), requestchannel.ReadData(ref reader)); }
 						break;
 					case Types.Request_N:
 						var requestne = new RequestN(header, ref reader);
@@ -444,32 +447,32 @@ namespace RSocket
 		//	else { throw new InvalidOperationException(); }    //This is impossible, since we had at least one byte...
 		//}
 
-		//static bool TryReadInt24BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Int32 value)
-		//{
-		//	const int SIZEOF = 3;
-		//	buffer = buffer.Slice(position, SIZEOF);
-		//	if (buffer.TryGet(ref position, out var memory))        //TODO is this better as IsSingleSegment or unrolled loop or even read 4 bytes and if (BinaryPrimitives.TryReadInt32BigEndian(span, out var result) { value = result & 0xFFFFFF; }
-		//	{
-		//		System.Diagnostics.Debug.Assert(memory.Length == SIZEOF);
-		//		var span = memory.Span;
-		//		value = (span[0]) | (span[1] << 8) | (span[2] << 16);
-		//	}
-		//	else
-		//	{
-		//		if (buffer.Length < SIZEOF) { value = 0; return false; }
-		//		Int32 result = 0;
-		//		foreach (var subbuffer in buffer)
-		//		{
-		//			for (int index = 0; index < subbuffer.Length; index++)
-		//			{
-		//				result = (result << 8 | subbuffer.Span[index]);
-		//			}
-		//		}
-		//		value = result;
-		//	}
-		//	position = buffer.GetPosition(SIZEOF);
-		//	return true;
-		//}
+		static bool TryReadInt24BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Int32 value)
+		{
+			const int SIZEOF = 3;
+			buffer = buffer.Slice(position, SIZEOF);
+			if (buffer.TryGet(ref position, out var memory))        //TODO is this better as IsSingleSegment or unrolled loop or even read 4 bytes and if (BinaryPrimitives.TryReadInt32BigEndian(span, out var result) { value = result & 0xFFFFFF; }
+			{
+				System.Diagnostics.Debug.Assert(memory.Length == SIZEOF);
+				var span = memory.Span;
+				value = (span[0]) | (span[1] << 8) | (span[2] << 16);
+			}
+			else
+			{
+				if (buffer.Length < SIZEOF) { value = 0; return false; }
+				Int32 result = 0;
+				foreach (var subbuffer in buffer)
+				{
+					for (int index = 0; index < subbuffer.Length; index++)
+					{
+						result = (result << 8 | subbuffer.Span[index]);
+					}
+				}
+				value = result;
+			}
+			position = buffer.GetPosition(SIZEOF);
+			return true;
+		}
 
 		static bool TryReadInt32BigEndian(ReadOnlySequence<byte> buffer, ref SequencePosition position, out Int32 value)
 		{

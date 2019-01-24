@@ -72,6 +72,9 @@ namespace RSocket
 
 		public int WriteUInt16BigEndian(int value) => WriteUInt16BigEndian((UInt16)value);
 		public int WriteUInt16BigEndian(UInt16 value) { BinaryPrimitives.WriteUInt16BigEndian(GetBuffer(sizeof(UInt16)), value); Used += sizeof(UInt16); return sizeof(UInt16); }
+
+		//public int WriteUInt16LittleEndian(UInt16 value) { BinaryPrimitives.WriteUInt16LittleEndian(GetBuffer(sizeof(UInt16)), value); Used += sizeof(UInt16); return sizeof(UInt16); }
+
 		public int WriteInt32BigEndian(Int32 value) { BinaryPrimitives.WriteInt32BigEndian(GetBuffer(sizeof(Int32)), value); Used += sizeof(Int32); return sizeof(Int32); }
 		public int WriteInt64BigEndian(Int64 value) { BinaryPrimitives.WriteInt64BigEndian(GetBuffer(sizeof(Int64)), value); Used += sizeof(Int64); return sizeof(Int64); }
 		public int WriteUInt32BigEndian(UInt32 value) { BinaryPrimitives.WriteUInt32BigEndian(GetBuffer(sizeof(UInt32)), value); Used += sizeof(UInt32); return sizeof(UInt32); }

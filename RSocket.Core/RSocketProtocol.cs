@@ -14,7 +14,9 @@ namespace RSocket
 
 	public partial class RSocketProtocol
 	{
-		private const int METADATALENGTHSIZE = (sizeof(UInt32) - 1);    //UInt24
+		private const int INT24SIZE = (sizeof(UInt32) - 1);
+		public const int FRAMELENGTHSIZE = INT24SIZE;
+		private const int METADATALENGTHSIZE = INT24SIZE;
 
 		//Memory Buffer Builders: ArrayPool<byte>
 		//https://github.com/aspnet/SignalR/blob/2d4fb0af6fd2ef2e3a059a2a15a56484d8800d35/src/Common/MemoryBufferWriter.cs
@@ -25,9 +27,15 @@ namespace RSocket
 		//TODO Feature Docs.
 		//TODO Feature TLS for WebSockets, other?
 		//TODO Feature QuickStart in the fashion of the existing ones
+		//TODO Test Both WS and TCP with >Memory<T> buffer size. Since they don't accumulate in the state machine, they probably can overflow.
 
-		static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
-		static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
+		public const int MESSAGEFRAMESIZE = INT24SIZE;	//This may be large than the FRAMELENGTHSIZE if the messages are padded inside of pipelines.
+		//static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
+		//static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
+		static public (int Length, bool IsEndofMessage) MessageFrame(int frame) => (frame, true);
+		static public int MessageFrame(int length, bool isEndOfMessage) => length;
+		static public void MessageFrameWrite(int length, bool isEndOfMessage, Span<byte> target) { target[2] = (byte)((length >> 8 * 0) & 0xFF); target[1] = (byte)((length >> 8 * 1) & 0xFF); target[0] = (byte)((length >> 8 * 2) & 0xFF); }
+		static public (int Length, bool IsEndOfMessage) MessageFramePeek(ReadOnlySequence<byte> sequence) { var reader = new SequenceReader<byte>(sequence); return reader.TryRead(out byte b1) && reader.TryRead(out byte b2) && reader.TryRead(out byte b3) ? ((b1 << 8 * 2) | (b2 << 8 * 1) | (b3 << 8 * 0), true) : (0, false); }
 
 
 		static bool TryReadRemaining(in Header header, int innerlength, ref SequenceReader<byte> reader, out int metadatalength)
@@ -102,7 +110,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 			}
@@ -166,6 +174,7 @@ namespace RSocket
 			public bool IsComplete { get => (Header.Flags & FLAG_COMPLETE) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_COMPLETE) : (ushort)(Header.Flags & ~FLAG_COMPLETE); }
 
 			private Header Header;
+			public Int32 Stream => Header.Stream;
 			public Int32 InitialRequest;
 			public int MetadataLength;
 			public int DataLength;
@@ -209,13 +218,15 @@ namespace RSocket
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
-				writer.WriteInt32BigEndian(Length);
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian(InitialRequest);
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }
 				written += writer.Write(data);
 				return written;
 			}
+
+			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -226,6 +237,7 @@ namespace RSocket
 			public bool HasFollows { get => (Header.Flags & FLAG_FOLLOWS) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_FOLLOWS) : (ushort)(Header.Flags & ~FLAG_FOLLOWS); }
 
 			private Header Header;
+			public Int32 Stream => Header.Stream;
 			public Int32 InitialRequest;
 			public int MetadataLength;
 			public int DataLength;
@@ -269,13 +281,15 @@ namespace RSocket
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
-				writer.WriteInt32BigEndian(Length);
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian(InitialRequest);
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 				return written;
 			}
+
+			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -286,6 +300,7 @@ namespace RSocket
 			public bool HasFollows { get => (Header.Flags & FLAG_FOLLOWS) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_FOLLOWS) : (ushort)(Header.Flags & ~FLAG_FOLLOWS); }
 
 			private Header Header;
+			public Int32 Stream => Header.Stream;
 			public int MetadataLength;
 			public int DataLength;
 			private const int InnerLength = 0;
@@ -323,12 +338,14 @@ namespace RSocket
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
-				writer.WriteInt32BigEndian(Length);
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 				return written;
 			}
+
+			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -339,6 +356,7 @@ namespace RSocket
 			public bool HasFollows { get => (Header.Flags & FLAG_FOLLOWS) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_FOLLOWS) : (ushort)(Header.Flags & ~FLAG_FOLLOWS); }
 
 			private Header Header;
+			public Int32 Stream => Header.Stream;
 			public int MetadataLength;
 			public int DataLength;
 			private const int InnerLength = 0;
@@ -375,12 +393,14 @@ namespace RSocket
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
-				writer.WriteInt32BigEndian(Length);
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 				return written;
 			}
+
+			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -389,6 +409,7 @@ namespace RSocket
 			public bool HasMetadata { get => Header.HasMetadata; set => Header.HasMetadata = value; }
 
 			private Header Header;
+			public Int32 Stream => Header.Stream;
 			public Int32 RequestNumber;
 			private const int InnerLength = sizeof(Int32);
 			public int Length => Header.Length + InnerLength;
@@ -417,8 +438,7 @@ namespace RSocket
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
-				writer.WriteInt32BigEndian(Length);
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian(RequestNumber);
 				return written;
 			}
@@ -461,6 +481,7 @@ namespace RSocket
 		public ref struct Cancel
 		{
 			private Header Header;
+			public int Length => Header.Length;
 
 			public Cancel(Int32 request)
 			{
@@ -481,7 +502,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 			}
 		}
 
@@ -525,7 +546,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt64BigEndian(LastReceivedPosition);
 				written += writer.Write(data);
 			}
@@ -572,7 +593,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> metadata)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian(TimeToLive);
 				written += writer.WriteInt32BigEndian(NumberOfRequests);
 				if (HasMetadata) { written += writer.Write(metadata); }
@@ -616,7 +637,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> extra)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian(ExtendedType);
 				written += writer.Write(extra);
 			}
@@ -656,7 +677,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> metadata = default)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				if (HasMetadata) { written += writer.Write(metadata); }
 			}
 		}
@@ -682,7 +703,7 @@ namespace RSocket
 			public Error(in Header header, ref SequenceReader<byte> reader)
 			{
 				Header = header;
-				reader.TryRead(out Int32 errorCode); ErrorCode = (ErrorCodes)errorCode;
+				reader.TryReadBigEndian(out Int32 errorCode); ErrorCode = (ErrorCodes)errorCode;
 				TryReadRemaining(header, InnerLength, ref reader, out _, out DataLength);
 				reader.TryRead(out string text, DataLength); ErrorText = text;
 			}
@@ -693,12 +714,12 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default)
 			{
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian((int)ErrorCode);
 				written += writer.Write(data);
 			}
 
-			public override string ToString() => $"{Header.ToString()} {ToStringFlags()}: [{ErrorCode}] {ErrorText}";
+			public override string ToString() => $"{Header.ToString()} {ToStringFlags()}: [{ErrorCode:X}] {ErrorText}";
 			string ToStringFlags() => Header.ToStringFlags();
 		}
 
@@ -801,8 +822,7 @@ namespace RSocket
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{
-				writer.WriteInt32BigEndian(Length);
-				var written = Header.Write(writer);
+				var written = Header.Write(writer, Length);
 				written += writer.WriteUInt16BigEndian(MajorVersion);
 				written += writer.WriteUInt16BigEndian(MinorVersion);
 				written += writer.WriteInt32BigEndian(KeepAlive);
@@ -856,8 +876,9 @@ namespace RSocket
 				Flags = MakeFlags(flags);
 			}
 
-			public int Write(BufferWriter writer)
+			public int Write(BufferWriter writer, int length)
 			{
+				writer.WriteInt24BigEndian(length);		//Not included in total length.
 				writer.WriteInt32BigEndian(Stream);
 				writer.WriteUInt16BigEndian((((int)Type << FRAMETYPE_OFFSET) & FRAMETYPE_TYPE) | (Flags & FLAGS));//  (Ignore ? FLAG_IGNORE : 0) | (Metadata ? FLAG_METADATA : 0));
 				return Length;

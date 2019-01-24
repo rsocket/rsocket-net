@@ -29,7 +29,7 @@ namespace RSocketSample
 
 			var client = new RSocketClientReactive(
 				new WebSocketTransport("ws://localhost:9092/"))
-				//new SocketTransport("tcp://localhost:9092/"))
+				//new SocketTransport("tcp://localhost:9091/"))
 			//var client = new RSocketClientReactive(new RSocketWebSocketClient("ws://localhost:9092/"))
 			//var client = new RSocketClientReactive(loopback)
 				.UsingProtobufNetSerialization();

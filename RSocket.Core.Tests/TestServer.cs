@@ -24,8 +24,8 @@ namespace RSocket.Tests
 		public TestServer(IRSocketServerTransport transport) : base(transport) { }
 
 		public override void Setup(in RSocketProtocol.Setup value) => All.Add(new Message.Setup(value));
-		public override void RequestStream(in RSocketProtocol.RequestStream value) => All.Add(new Message.RequestStream(value));
-		
+		public override void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => All.Add(new Message.RequestStream(message));
+
 
 		public class Message
 		{

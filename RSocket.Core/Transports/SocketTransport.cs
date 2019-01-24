@@ -135,15 +135,15 @@ namespace RSocket.Transports
                     // Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
                     var received = await socket.ReceiveAsync(Memory<byte>.Empty, token);
 					if(received == 0) { continue; }
+					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
                     var received = await socket.ReceiveAsync(memory, token);
-					var memory = Back.Output.GetMemory(out var memoryframe);    //RSOCKET Framing
 #else
 					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
 					var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment); Debug.Assert(isArray);
 					var received = await socket.ReceiveAsync(arraySegment, SocketFlags.None);   //TODO Cancellation?
 #endif
 					//Log.MessageReceived(_logger, receive.MessageType, receive.Count, receive.EndOfMessage);
-					Back.Output.Advance(received + 1);      //RSOCKET Framing
+					Back.Output.Advance(received);
 					var flushResult = await Back.Output.FlushAsync();
 					if (flushResult.IsCanceled || flushResult.IsCompleted) { break; }
 				}
@@ -175,6 +175,7 @@ namespace RSocket.Transports
 				{
 					var result = await Back.Input.ReadAsync();
 					var buffer = result.Buffer;
+					var consumed = buffer.Start;        //RSOCKET Framing
 
 					try
 					{
@@ -184,7 +185,7 @@ namespace RSocket.Transports
 							try
 							{
 								//Log.SendPayload(_logger, buffer.Length);
-								await socket.SendAsync(buffer, buffer.Start, SocketFlags.None);     //RSOCKET Framing
+								consumed = await socket.SendAsync(buffer, buffer.Start, SocketFlags.None);     //RSOCKET Framing
 							}
 							catch (Exception)
 							{
@@ -194,7 +195,10 @@ namespace RSocket.Transports
 						}
 						else if (result.IsCompleted) { break; }
 					}
-					finally { Back.Input.AdvanceTo(buffer.End); }
+					finally
+					{
+						Back.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
+					}
 				}
 			}
 			catch (Exception ex)

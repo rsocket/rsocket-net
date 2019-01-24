@@ -9,7 +9,7 @@ namespace RSocket
 {
 	public class RSocketServer : IRSocketProtocol
 	{
-		IRSocketServerTransport Transport;
+		protected IRSocketServerTransport Transport;
 		Task Handler;
 
 		public RSocketServer(IRSocketServerTransport transport)
@@ -19,7 +19,7 @@ namespace RSocket
 
 		public void Start(CancellationToken cancel = default)
 		{
-			Handler = RSocketProtocol.Handler2(this, Transport.Input, cancel);
+			Handler = RSocketProtocol.Handler(this, Transport.Input, cancel, name: nameof(RSocketServer));
 		}
 
 
@@ -27,15 +27,27 @@ namespace RSocket
 		{
 		}
 
+		public virtual void Error(in RSocketProtocol.Error message)
+		{
+		}
+
 		public virtual void Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 		}
 
-		public virtual void RequestStream(in RSocketProtocol.RequestStream message)
+		public virtual void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 		}
 
-		public virtual void Error(in RSocketProtocol.Error message)
+		public virtual void RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+		}
+
+		public virtual void RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+		}
+
+		public virtual void RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 		}
 	}

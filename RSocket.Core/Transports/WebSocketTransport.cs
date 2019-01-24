@@ -236,18 +236,18 @@ namespace RSocket.Transports
 					while (!token.IsCancellationRequested)
 					{
 #if NETCOREAPP3_0
-                    // Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
-                    var result = await socket.ReceiveAsync(Memory<byte>.Empty, token);
+						// Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
+						var result = await socket.ReceiveAsync(Memory<byte>.Empty, token);
 
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        return;
-                    }
+						if (result.MessageType == WebSocketMessageType.Close)
+						{
+							return;
+						}
 #endif
 						var memory = _application.Output.GetMemory(out var memoryframe);        //RSOCKET Framing
 
 #if NETCOREAPP3_0
-                    var receiveResult = await socket.ReceiveAsync(memory, token);
+	                    var receiveResult = await socket.ReceiveAsync(memory, token);
 #else
 						var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment);
 						Debug.Assert(isArray);
@@ -263,7 +263,7 @@ namespace RSocket.Transports
 
 						Log.MessageReceived(_logger, receiveResult.MessageType, receiveResult.Count, receiveResult.EndOfMessage);
 
-						_application.Output.Advance(receiveResult.Count, receiveResult.EndOfMessage, memoryframe);		//RSOCKET Framing
+						_application.Output.Advance(receiveResult.Count, receiveResult.EndOfMessage, memoryframe);      //RSOCKET Framing
 
 						var flushResult = await _application.Output.FlushAsync();
 
@@ -312,7 +312,7 @@ namespace RSocket.Transports
 					{
 						var result = await _application.Input.ReadAsync();
 						var buffer = result.Buffer;
-
+						var consumed = buffer.Start;        //RSOCKET Framing
 						// Get a frame from the application
 
 						try
@@ -334,7 +334,7 @@ namespace RSocket.Transports
 
 									if (WebSocketCanSend(socket))
 									{
-										await socket.SendAsync(buffer, buffer.Start, webSocketMessageType);     //RSOCKET Framing
+										consumed = await socket.SendAsync(buffer, buffer.Start, webSocketMessageType);      //RSOCKET Framing
 									}
 									else
 									{
@@ -357,7 +357,7 @@ namespace RSocket.Transports
 						}
 						finally
 						{
-							_application.Input.AdvanceTo(buffer.End);
+							_application.Input.AdvanceTo(consumed, buffer.End);		//RSOCKET Framing
 						}
 					}
 				}

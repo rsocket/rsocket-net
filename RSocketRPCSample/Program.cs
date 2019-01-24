@@ -33,23 +33,32 @@ namespace RSocketRPCSample
 			}
 		}
 
-
 		static async Task Main(string[] args)
 		{
+			var methods = EchoService.GetMethods();
+			methods.ForEach(method => Console.WriteLine($"Service Method: {method.Name}"));
+
 			//var client = new RSocketClient(new RSocketWebSocketClient("ws://rsocket-demo.herokuapp.com/ws"));		//await client.RequestStream("peace", initial: 2);
 			//var client = new RSocketClient(new RSocketWebSocketClient("ws://localhost:9092/"));
 
 			var client = new RSocketClient(
 				new WebSocketTransport("ws://localhost:9092/"));
-			//new SocketTransport("tcp://localhost:9092/"))
+				//new SocketTransport("tcp://localhost:9091/"));
 
 			await client.ConnectAsync();
 
-			var rpcclient = new RSocketRPCClient(client);
 
 			var data = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("TEST VALUES!"));
 
-			await rpcclient.RequestStream(new ConsoleStream(), "EchoService", "requestStream", data);
+			var service = new EchoService(client);
+
+			var result = await service.requestResponse(data);
+
+			Console.WriteLine($"Result: [{result.Length}]");
+
+			//var rpcclient = new RSocketRPCClient(client);
+			
+			//await rpcclient.RequestStream(new ConsoleStream(), "EchoService", "requestStream", data);
 
 			Console.ReadKey();
 

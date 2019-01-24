@@ -16,8 +16,10 @@ namespace RSocket
 		static void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message) => sink.Setup(message);
 		static void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message) => sink.Error(message);
 		static void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Payload(message, metadata, data);
-		static void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message) => sink.RequestStream(message);
-
+		static void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestStream(message, metadata, data);
+		static void OnRequestResponse(IRSocketProtocol sink, in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestResponse(message, metadata, data);
+		static void OnRequestFireAndForget(IRSocketProtocol sink, in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestFireAndForget(message, metadata, data);
+		static void OnRequestChannel(IRSocketProtocol sink, in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestChannel(message, metadata, data);
 
 		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation, string name = null)
 		{
@@ -31,12 +33,13 @@ namespace RSocket
 				var position = buffer.Start;
 
 				//Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a standard message frame whether or not the underlying transport signals length, EoM, etc.
-				if (!TryReadInt32BigEndian(buffer, ref position, out int frame)) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }
-				var (framelength, ismessageend) = MessageFrame(frame);
-				if (buffer.Length < framelength) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
+				var (Length, IsEndOfMessage) = MessageFramePeek(buffer);
+				//if (!TryReadInt24BigEndian(buffer, ref position, out int frame)) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }
+				//var (framelength, ismessageend) = MessageFrame(frame);
+				if (buffer.Length < Length + MESSAGEFRAMESIZE) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
 
-				Process(framelength, buffer.Slice(position));
-				pipereader.AdvanceTo(buffer.GetPosition(framelength, position));
+				Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
+				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
 				//TODO - this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
 			}
 			pipereader.Complete();
@@ -69,16 +72,19 @@ namespace RSocket
 						break;
 					case Types.Request_Response:
 						var requestresponse = new RequestResponse(header, ref reader);
+						if (requestresponse.Validate()) { OnRequestResponse(sink, requestresponse, requestresponse.ReadMetadata(ref reader), requestresponse.ReadData(ref reader)); }
 						break;
 					case Types.Request_Fire_And_Forget:
 						var requestfireandforget = new RequestFireAndForget(header, ref reader);
+						if (requestfireandforget.Validate()) { OnRequestFireAndForget(sink, requestfireandforget, requestfireandforget.ReadMetadata(ref reader), requestfireandforget.ReadData(ref reader)); }
 						break;
 					case Types.Request_Stream:
 						var requeststream = new RequestStream(header, ref reader);
-						if (requeststream.Validate()) { OnRequestStream(sink, requeststream); }
+						if (requeststream.Validate()) { OnRequestStream(sink, requeststream, requeststream.ReadMetadata(ref reader), requeststream.ReadData(ref reader)); }
 						break;
 					case Types.Request_Channel:
 						var requestchannel = new RequestChannel(header, ref reader);
+						if (requestchannel.Validate()) { OnRequestChannel(sink, requestchannel, requestchannel.ReadMetadata(ref reader), requestchannel.ReadData(ref reader)); }
 						break;
 					case Types.Request_N:
 						var requestne = new RequestN(header, ref reader);

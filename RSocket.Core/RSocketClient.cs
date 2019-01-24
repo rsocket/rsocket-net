@@ -37,7 +37,7 @@ namespace RSocket
 		public async Task<RSocketClient> ConnectAsync()
 		{
 			await Transport.ConnectAsync();
-			var server = RSocketProtocol.Handler2(this, Transport.Input, CancellationToken.None);
+			var server = RSocketProtocol.Handler(this, Transport.Input, CancellationToken.None, name: nameof(RSocketClient));
 			////TODO Move defaults to policy object
 			new RSocketProtocol.Setup(keepalive: TimeSpan.FromSeconds(60), lifetime: TimeSpan.FromSeconds(180), metadataMimeType: "binary", dataMimeType: "binary").Write(Transport.Output);
 			await Transport.Output.FlushAsync();
@@ -132,7 +132,10 @@ namespace RSocket
 		}
 
 		void IRSocketProtocol.Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");
-		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message) => throw new NotImplementedException(); //TODO How to handle unexpected messagess...
-		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }	//TODO Handle Errors!
+		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
+		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException(); //TODO How to handle unexpected messagess...
+		void IRSocketProtocol.RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
+		void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
+		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
 	}
 }

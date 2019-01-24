@@ -12,7 +12,7 @@ namespace RSocket.Transports
 		IDuplexPipe Front, Back;
 		public PipeReader Input => Front.Input;
 		public PipeWriter Output => Front.Output;
-		public IRSocketServerTransport Server => this;
+		//public IRSocketServerTransport Server => this;
 		PipeReader IRSocketServerTransport.Input => Back.Input;
 		PipeWriter IRSocketServerTransport.Output => Back.Output;
 
