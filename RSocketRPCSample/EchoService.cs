@@ -30,7 +30,7 @@ namespace RSocketRPCSample
 		public EchoService(RSocketClient client) : base(client) { }
 
 		//TODO Consider CallerMemberName because the servicename is basically fixed. Also, consider static class...
-		public Task<BytesValue> requestResponse(BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(SERVICE, nameof(requestResponse), message, Google.Protobuf.MessageExtensions.ToByteArray, BytesValue.Parser.ParseFrom, metadata);
+		public Task<BytesValue> requestResponse(BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(message, Google.Protobuf.MessageExtensions.ToByteArray, BytesValue.Parser.ParseFrom, metadata, service: SERVICE);
 
 
 

@@ -41,6 +41,7 @@ namespace RSocket
 
 		public virtual void RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			Transport.Output.FlushAsync();
 		}
 
 		public virtual void RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)

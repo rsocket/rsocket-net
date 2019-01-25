@@ -21,11 +21,11 @@ namespace RSocket.RPC.Tests
 		[TestMethod]
 		public void ServerBasicTest()
 		{
-			//var data = new TestData();
-			//var response = Service.RequestResponse(data).Result;
-			//var result = new TestData(response);
+			var data = new TestData();
+			var response = Service.RequestResponse(data).Result;
+			var result = new TestData(response);
 
-			//Assert.AreEqual(data, result, $"{nameof(Service.RequestResponse)} did not round trip on bytes.");
+			Assert.AreEqual(data, result, $"{nameof(Service.RequestResponse)} did not round trip on bytes.");
 
 			//public Task<ReadOnlySequence<byte>> requestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => base.RequestResponse<ReadOnlySequence<byte>>(ServicePrefix + nameof(EchoService), nameof(requestResponse), data, metadata);
 			//public Task<ReadOnlySequence<byte>> requestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => base.RequestStream<ReadOnlySequence<byte>>(ServicePrefix + nameof(EchoService), nameof(requestStream), data, metadata);
@@ -38,10 +38,10 @@ namespace RSocket.RPC.Tests
 		[System.Runtime.CompilerServices.CompilerGenerated]
 		public class TestService : RSocketService<TestService>
 		{
-			private const string ServicePrefix = "";
+			private const string SERVICE = nameof(TestService);
 			public TestService(RSocketClient client) : base(client) { }
 			//public void fireAndForget(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestFireAndForget(null, data, metadata); }
-			//public Task<ReadOnlySequence<byte>> RequestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => base.__RequestResponse<ReadOnlySequence<byte>>(ServicePrefix + nameof(TestService), nameof(RequestResponse), data, metadata);
+			public Task<ReadOnlySequence<byte>> RequestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => __RequestResponse(data, metadata, service: SERVICE);
 			//public Task<ReadOnlySequence<byte>> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => base.__RequestStream<ReadOnlySequence<byte>>(ServicePrefix + nameof(TestService), nameof(RequestStream), data, metadata);
 			//public void requestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestChannel(null, data, metadata); }
 		}
@@ -52,8 +52,9 @@ namespace RSocket.RPC.Tests
 		public void SupportTests()
 		{
 			var data = new TestData();
-			var result = new TestData(data);
-			Assert.AreEqual(data, result, $"TestData did not round trip on bytes.");
+			var bytecopy = new TestData(data);
+			Assert.AreEqual(data.GetHashCode(), bytecopy.GetHashCode(), $"TestData byte constructor did not result in hascode equality.");
+			Assert.AreEqual(data, bytecopy, $"TestData byte constructor did not result in equality.");
 		}
 
 		public class TestData

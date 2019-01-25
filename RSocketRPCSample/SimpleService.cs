@@ -35,7 +35,7 @@
 
 		public SimpleService(RSocketClient client) : base(client) { }
 
-		public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(SERVICE, nameof(RequestReply), message, Google.Protobuf.MessageExtensions.ToByteArray, SimpleResponse.Parser.ParseFrom, metadata);
+		public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(message, Google.Protobuf.MessageExtensions.ToByteArray, SimpleResponse.Parser.ParseFrom, metadata, service: SERVICE);
 
 
 		//rpc RequestReply(SimpleRequest) returns(SimpleResponse) { }

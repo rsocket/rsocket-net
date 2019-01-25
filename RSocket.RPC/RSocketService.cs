@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
 namespace RSocket.RPC
 {
@@ -14,14 +15,27 @@ namespace RSocket.RPC
 
 		protected void __RequestFireAndForget(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestFireAndForget(null, data, metadata); }
 
+		protected async Task<TResult> __RequestFireAndForget<TMessage, TResult>(string service, string method, TMessage message, Func<TMessage, byte[]> intransform, Func<byte[], TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) =>
+			outtransform((await __RequestFireAndForget(service, method, new ReadOnlySequence<byte>(intransform(message)), metadata, tracing)).ToArray());
 
-		protected async Task<TResult> __RequestResponse<TMessage, TResult>(string service, string method, TMessage message, Func<TMessage, byte[]> intransform, Func<byte[], TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) =>
-			outtransform((await __RequestResponse(service, method, new ReadOnlySequence<byte>(intransform(message)), metadata, tracing)).ToArray());
+		protected async Task<TResult> __RequestFireAndForget<TMessage, TResult>(string service, string method, TMessage message, Func<TMessage, ReadOnlySequence<byte>> intransform, Func<ReadOnlySequence<byte>, TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) =>
+			outtransform(await __RequestFireAndForget(service, method, intransform(message), metadata, tracing));
 
-		protected async Task<TResult> __RequestResponse<TMessage, TResult>(string service, string method, TMessage message, Func<TMessage, ReadOnlySequence<byte>> intransform, Func<ReadOnlySequence<byte>, TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) =>
-			outtransform(await __RequestResponse(service, method, intransform(message), metadata, tracing));
+		protected async Task<ReadOnlySequence<byte>> __RequestFireAndForget(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
+		{
+			var receiver = new Receiver();
+			await Client.RequestResponse(receiver, data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing));
+			return await receiver.Task.ConfigureAwait(false);
+		}
 
-		protected async Task<ReadOnlySequence<byte>> __RequestResponse(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
+
+		protected async Task<TResult> __RequestResponse<TMessage, TResult>(TMessage message, Func<TMessage, byte[]> intransform, Func<byte[], TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default, string service = default, [CallerMemberName]string method = default) =>
+			outtransform((await __RequestResponse(new ReadOnlySequence<byte>(intransform(message)), metadata, tracing, service: service, method: method)).ToArray());
+
+		protected async Task<TResult> __RequestResponse<TMessage, TResult>(TMessage message, Func<TMessage, ReadOnlySequence<byte>> intransform, Func<ReadOnlySequence<byte>, TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default, string service = default, [CallerMemberName]string method = default) =>
+			outtransform(await __RequestResponse(intransform(message), metadata, tracing, service: service, method: method));
+
+		protected async Task<ReadOnlySequence<byte>> __RequestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default, string service = default, [CallerMemberName]string method = default)
 		{
 			var receiver = new Receiver();
 			await Client.RequestResponse(receiver, data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing));
