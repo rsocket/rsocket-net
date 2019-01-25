@@ -56,14 +56,15 @@ namespace RSocket.RPC.Tests
 			Assert.AreEqual(data, result, $"TestData did not round trip on bytes.");
 		}
 
-		public class TestData : IEquatable<TestData>
+		public class TestData
 		{
 			public Guid Id = Guid.NewGuid();
 			public TestData() { }
 			public TestData(ReadOnlySequence<byte> from) { Id = new Guid(from.ToArray()); }
 			public static implicit operator ReadOnlySequence<byte>(TestData from) => new ReadOnlySequence<byte>(from.Id.ToByteArray());
 			public override string ToString() => nameof(TestData) + Id.ToString();
-			public bool Equals(TestData other) => this.ToString().Equals(other.ToString());
+			public override int GetHashCode() => HashCode.Combine(Id);
+			public override bool Equals(object obj) => (obj is TestData other) && this.Id == other.Id;
 		}
 
 		[TestInitialize]
