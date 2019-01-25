@@ -31,11 +31,11 @@
 	[System.Runtime.CompilerServices.CompilerGenerated]
 	public class SimpleService : RSocketService<SimpleService>, ISimpleService
 	{
-		private const string ServiceName = "io.rsocket.rpc.testing.protobuf" + "." + nameof(SimpleService);
+		private const string SERVICE = "io.rsocket.rpc.testing.protobuf" + "." + nameof(SimpleService);
 
 		public SimpleService(RSocketClient client) : base(client) { }
 
-		public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(ServiceName, nameof(RequestReply), message, Google.Protobuf.MessageExtensions.ToByteArray, SimpleResponse.Parser.ParseFrom, metadata);
+		public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(SERVICE, nameof(RequestReply), message, Google.Protobuf.MessageExtensions.ToByteArray, SimpleResponse.Parser.ParseFrom, metadata);
 
 
 		//rpc RequestReply(SimpleRequest) returns(SimpleResponse) { }

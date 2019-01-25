@@ -1,4 +1,5 @@
-﻿namespace RSocketRPCSample
+﻿#pragma warning disable IDE1006 //Naming rule violation: These words must begin with upper case characters
+namespace RSocketRPCSample
 {
 	using System.Buffers;
 	using System.Threading.Tasks;
@@ -24,12 +25,12 @@
 	[System.Runtime.CompilerServices.CompilerGenerated]
 	public class EchoService : RSocketService<EchoService>, IEchoService
 	{
-		private const string ServiceName = "io.rsocket.rpc.echo" + "." + nameof(EchoService);
+		private const string SERVICE = "io.rsocket.rpc.echo" + "." + nameof(EchoService);
 
 		public EchoService(RSocketClient client) : base(client) { }
 
 		//TODO Consider CallerMemberName because the servicename is basically fixed. Also, consider static class...
-		public Task<BytesValue> requestResponse(BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(ServiceName, nameof(requestResponse), message, Google.Protobuf.MessageExtensions.ToByteArray, BytesValue.Parser.ParseFrom, metadata);
+		public Task<BytesValue> requestResponse(BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(SERVICE, nameof(requestResponse), message, Google.Protobuf.MessageExtensions.ToByteArray, BytesValue.Parser.ParseFrom, metadata);
 
 
 
