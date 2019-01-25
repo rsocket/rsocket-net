@@ -15,26 +15,41 @@ namespace RSocket.RPC
 		protected void __RequestFireAndForget(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestFireAndForget(null, data, metadata); }
 
 
+		protected async Task<TResult> __RequestResponse<TMessage, TResult>(string service, string method, TMessage message, Func<TMessage, byte[]> intransform, Func<byte[], TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) =>
+			outtransform((await __RequestResponse(service, method, new ReadOnlySequence<byte>(intransform(message)), metadata, tracing)).ToArray());
 
-		protected async Task<TResult> __RequestResponse<TResult>(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
+		protected async Task<TResult> __RequestResponse<TMessage, TResult>(string service, string method, TMessage message, Func<TMessage, ReadOnlySequence<byte>> intransform, Func<ReadOnlySequence<byte>, TResult> outtransform, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) =>
+			outtransform(await __RequestResponse(service, method, intransform(message), metadata, tracing));
+
+		protected async Task<ReadOnlySequence<byte>> __RequestResponse(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
 		{
-			var receiver = new Receiver<TResult>();
+			var receiver = new Receiver();
 			await Client.RequestResponse(receiver, data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing));
 			return await receiver.Task.ConfigureAwait(false);
 		}
 
 		//TODO Ask about semantics of this - should it execute the server call before subscription?
 
-		protected async Task<TResult> __RequestStream<TResult>(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
+		protected async Task<ReadOnlySequence<byte>> __RequestStream<TResult>(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
 		{
-			var receiver = new Receiver<TResult>();
-			await Client.RequestStream(receiver, data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing), initial: 3);
+			var receiver = new Receiver();
+			await Client.RequestStream(receiver, data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing), initial: 3);		//TODO Policy!!
 			return await receiver.Task.ConfigureAwait(false);
 		}
 
 
 		//protected void RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestStream(null, data, metadata); }   //TODO Initial? Or get from policy?
 		//protected void RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestChannel(null, data, metadata); } //TODO Initial?
+
+
+		//private class Receiver : Receiver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>, IRSocketStream { }
+
+		private class Receiver : TaskCompletionSource<ReadOnlySequence<byte>>, IRSocketStream
+		{
+			public void OnCompleted() { }
+			public void OnError(Exception error) => base.SetException(error);
+			public void OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value) => base.SetResult(value.data);
+		}
 
 
 		public void Dispatch()
@@ -57,17 +72,6 @@ namespace RSocket.RPC
 			throw new NotImplementedException();
 		}
 
-		private class Receiver<TResult> : TaskCompletionSource<TResult>, IRSocketStream
-		{
-			public Receiver() { }
-
-			public void OnCompleted() { }
-			public void OnError(Exception error) => base.SetException(error);
-			public void OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value)
-			{
-				Console.WriteLine($"OnNext: [{value.metadata.Length}]:[{value.data.Length}]");
-			}
-		}
 
 		private Lazy<List<System.Reflection.MethodInfo>> Methods = new Lazy<List<System.Reflection.MethodInfo>>(() => GetMethods());
 

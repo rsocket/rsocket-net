@@ -9,6 +9,10 @@ using RSocket.Transports;
 
 namespace RSocketRPCSample
 {
+	using Io.Rsocket.Rpc.Testing;
+	using Google.Protobuf;
+	using Google.Protobuf.WellKnownTypes;
+
 	class Program
 	{
 		//TODO Connection Cleanup on Unsubscribe/failure/etc
@@ -52,9 +56,9 @@ namespace RSocketRPCSample
 
 			var service = new EchoService(client);
 
-			var result = await service.requestResponse(data);
+			var result = await service.requestResponse(new BytesValue() { Value = ByteString.CopyFromUtf8("TEST VALUES!!") });
 
-			Console.WriteLine($"Result: [{result.Length}]");
+			Console.WriteLine($"Result: {result.ToString()}");
 
 			//var rpcclient = new RSocketRPCClient(client);
 			

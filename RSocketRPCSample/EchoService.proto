@@ -1,0 +1,22 @@
+﻿syntax = "proto3";
+
+package io.rsocket.rpc.echo;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+import "rsocket/options.proto";
+
+option java_package = "io.rsocket.rpc.echo";
+option java_outer_classname = "EchoServiceProto";
+option java_multiple_files = true;
+
+service EchoService {
+  rpc fireAndForget (google.protobuf.BytesValue) returns (google.protobuf.Empty) {
+    option (io.rsocket.rpc.options) = {
+      fire_and_forget: true
+    };
+  }
+  rpc requestResponse (google.protobuf.BytesValue) returns (google.protobuf.BytesValue);
+  rpc requestStream (google.protobuf.BytesValue) returns (stream google.protobuf.BytesValue);
+  rpc requestChannel(stream google.protobuf.BytesValue) returns (stream google.protobuf.BytesValue);
+}

@@ -1,0 +1,17 @@
+﻿syntax = "proto3";
+
+package io.rsocket.rpc;
+
+import "google/protobuf/descriptor.proto";
+
+option java_package = "io.rsocket.rpc";
+option java_outer_classname = "RSocketOptions";
+option java_multiple_files = true;
+
+extend google.protobuf.MethodOptions {
+    RSocketMethodOptions options = 1057;
+}
+
+message RSocketMethodOptions {
+    bool fire_and_forget = 1;
+}

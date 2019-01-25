@@ -4,10 +4,10 @@
 	using System.Threading.Tasks;
 	using RSocket;
 	using RSocket.RPC;
-	using Google.Protobuf.WellKnownTypes;
+	using Io.Rsocket.Rpc.Testing;
 
 	[System.Runtime.CompilerServices.CompilerGenerated]
-	interface IEchoService
+	interface ISimpleService
 	{
 		//String SERVICE = "io.rsocket.rpc.echo.EchoService";
 		//String METHOD_FIRE_AND_FORGET = "fireAndForget";
@@ -19,31 +19,37 @@
 		//reactor.core.publisher.Mono<com.google.protobuf.BytesValue> requestResponse(com.google.protobuf.BytesValue message, io.netty.buffer.ByteBuf metadata);
 		//reactor.core.publisher.Flux<com.google.protobuf.BytesValue> requestStream(com.google.protobuf.BytesValue message, io.netty.buffer.ByteBuf metadata);
 		//reactor.core.publisher.Flux<com.google.protobuf.BytesValue> requestChannel(org.reactivestreams.Publisher<com.google.protobuf.BytesValue> messages, io.netty.buffer.ByteBuf metadata);
+
+
+		//rpc RequestReply(SimpleRequest) returns(SimpleResponse) { }
+		//rpc FireAndForget(SimpleRequest) returns(google.protobuf.Empty) { }
+		//rpc RequestStream(SimpleRequest) returns(stream SimpleResponse) { }
+		//rpc StreamingRequestSingleResponse(stream SimpleRequest) returns(SimpleResponse) { }
+		//rpc StreamingRequestAndResponse(stream SimpleRequest) returns(stream SimpleResponse) { }
 	}
 
 	[System.Runtime.CompilerServices.CompilerGenerated]
-	public class EchoService : RSocketService<EchoService>, IEchoService
+	public class SimpleService : RSocketService<SimpleService>, ISimpleService
 	{
-		private const string ServiceName = "io.rsocket.rpc.echo" + "." + nameof(EchoService);
+		private const string ServiceName = "io.rsocket.rpc.testing.protobuf" + "." + nameof(SimpleService);
 
-		public EchoService(RSocketClient client) : base(client) { }
+		public SimpleService(RSocketClient client) : base(client) { }
 
-		//TODO Consider CallerMemberName because the servicename is basically fixed. Also, consider static class...
-		public Task<BytesValue> requestResponse(BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(ServiceName, nameof(requestResponse), message, Google.Protobuf.MessageExtensions.ToByteArray, BytesValue.Parser.ParseFrom, metadata);
-
+		public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(ServiceName, nameof(RequestReply), message, Google.Protobuf.MessageExtensions.ToByteArray, SimpleResponse.Parser.ParseFrom, metadata);
 
 
-		//async Task ASD()
-		//{
-		//	var thing = new System.Buffers.ReadOnlySequence<byte>(new byte[0]);
-		//	//var result = await requestResponse(thing, thing);
-		//	return 3;
-		//}
+		//rpc RequestReply(SimpleRequest) returns(SimpleResponse) { }
+		//rpc FireAndForget(SimpleRequest) returns(google.protobuf.Empty) { }
+		//rpc RequestStream(SimpleRequest) returns(stream SimpleResponse) { }
+		//rpc StreamingRequestSingleResponse(stream SimpleRequest) returns(SimpleResponse) { }
+		//rpc StreamingRequestAndResponse(stream SimpleRequest) returns(stream SimpleResponse) { }
 
 		//public void fireAndForget(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestFireAndForget(null, data, metadata); }
 
-		//public Task<ReadOnlySequence<byte>> requestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) =>
-		//	base.__RequestResponse(ServicePrefix + nameof(EchoService), nameof(requestResponse), data, metadata);
+		//public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => 
+		//	base.__RequestResponse(ServicePrefix + nameof(SimpleService), nameof(RequestReply), message, source => Google.Protobuf.MessageExtensions.ToByteArray(source), result => SimpleResponse.Parser.ParseFrom(result), metadata);
+
+
 
 		//public ReadOnlySequence<byte> requestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => requestResponseAsync(data, metadata).Result;
 
