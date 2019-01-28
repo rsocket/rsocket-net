@@ -12,14 +12,15 @@ using System.Buffers;
 
 namespace RSocket.Transports
 {
+	//TODO Readd transport logging - worth it during debugging.
 	public class SocketTransport : IRSocketTransport
 	{
 		private IPEndPoint Endpoint;
 		private Socket Socket;
 
 		internal Task Running { get; private set; } = Task.CompletedTask;
-		private CancellationTokenSource Cancellation;
-		private volatile bool Aborted;
+		//private CancellationTokenSource Cancellation;
+		private volatile bool Aborted;		//TODO Implement cooperative cancellation
 
 		public Uri Url { get; private set; }
 		private LoggerFactory Logger;
@@ -36,9 +37,8 @@ namespace RSocket.Transports
 			if (url.Port == -1) { throw new ArgumentException("TCP Port must be specified.", nameof(Url)); }
 
 			//Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
-			//Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
+			Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
 			(Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
-			//Transport = new SocketsTransport(Options, Back, WebSocketsTransport.HttpConnectionContext.Default, Logger);
 		}
 
 		public async Task ConnectAsync(CancellationToken cancel = default)
@@ -125,7 +125,7 @@ namespace RSocket.Transports
 
 		private async Task StartReceiving(Socket socket)
 		{
-			var token = Cancellation?.Token ?? default;
+			var token = default(CancellationToken);	//Cancellation?.Token ?? default;
 
 			try
 			{

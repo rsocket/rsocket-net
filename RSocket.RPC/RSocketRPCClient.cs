@@ -6,6 +6,7 @@ using RSocket;
 
 namespace RSocket.RPC
 {
+	//TODO This has probably dissolved into the Service base class at this point.
 	public class RSocketRPCClient
 	{
 		readonly RSocketClient Client;

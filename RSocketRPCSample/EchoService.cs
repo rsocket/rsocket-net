@@ -5,7 +5,6 @@ namespace RSocketRPCSample
 	using System.Threading.Tasks;
 	using RSocket;
 	using RSocket.RPC;
-	using Google.Protobuf.WellKnownTypes;
 
 	[System.Runtime.CompilerServices.CompilerGenerated]
 	interface IEchoService
@@ -29,17 +28,7 @@ namespace RSocketRPCSample
 
 		public EchoService(RSocketClient client) : base(client) { }
 
-		//TODO Consider CallerMemberName because the servicename is basically fixed. Also, consider static class...
-		public Task<BytesValue> requestResponse(BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(message, Google.Protobuf.MessageExtensions.ToByteArray, BytesValue.Parser.ParseFrom, metadata, service: SERVICE);
-
-
-
-		//async Task ASD()
-		//{
-		//	var thing = new System.Buffers.ReadOnlySequence<byte>(new byte[0]);
-		//	//var result = await requestResponse(thing, thing);
-		//	return 3;
-		//}
+		public Task<Google.Protobuf.WellKnownTypes.BytesValue> requestResponse(Google.Protobuf.WellKnownTypes.BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(message, Google.Protobuf.MessageExtensions.ToByteArray, Google.Protobuf.WellKnownTypes.BytesValue.Parser.ParseFrom, metadata, service: SERVICE);
 
 		//public void fireAndForget(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestFireAndForget(null, data, metadata); }
 
