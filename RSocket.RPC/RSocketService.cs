@@ -35,7 +35,7 @@ namespace RSocket.RPC
 
 		//TODO Ask about semantics of this - should it execute the server call before subscription?
 
-		protected async Task<ReadOnlySequence<byte>> __RequestStream<TResult>(string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default)
+		protected async Task<ReadOnlySequence<byte>> __RequestStream<TResult>(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default, string service = default, [CallerMemberName]string method = default)
 		{
 			var receiver = new Receiver();
 			await Client.RequestStream(receiver, data, new RemoteProcedureCallMetadata(service, method, metadata, tracing), initial: 3);		//TODO Policy!!
