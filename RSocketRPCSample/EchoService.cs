@@ -22,11 +22,13 @@ namespace RSocketRPCSample
 	}
 
 	[System.Runtime.CompilerServices.CompilerGenerated]
-	public class EchoService : RSocketService<EchoService>, IEchoService
+	public class EchoService : RSocketService, IEchoService
 	{
 		private const string SERVICE = "io.rsocket.rpc.echo" + "." + nameof(EchoService);
 
 		public EchoService(RSocketClient client) : base(client) { }
+
+		public Task fireAndForget(Google.Protobuf.WellKnownTypes.BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestFireAndForget(message, Google.Protobuf.MessageExtensions.ToByteArray, metadata, service: SERVICE);
 
 		public Task<Google.Protobuf.WellKnownTypes.BytesValue> requestResponse(Google.Protobuf.WellKnownTypes.BytesValue message, ReadOnlySequence<byte> metadata = default) => __RequestResponse(message, Google.Protobuf.MessageExtensions.ToByteArray, Google.Protobuf.WellKnownTypes.BytesValue.Parser.ParseFrom, metadata, service: SERVICE);
 

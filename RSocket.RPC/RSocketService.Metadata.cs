@@ -1,39 +1,12 @@
 ﻿using System;
 using System.Buffers;
 using System.Text;
-using System.Threading.Tasks;
-using RSocket;
 
 namespace RSocket.RPC
 {
-	//TODO This has probably dissolved into the Service base class at this point.
-	public class RSocketRPCClient
+	partial class RSocketService
 	{
-		readonly RSocketClient Client;
-
-		public RSocketRPCClient(RSocketClient client) { Client = client; }
-
-		public Task RequestChannel(IRSocketRPCStream stream, string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default, int initial = RSocketClient.INITIALDEFAULT) => Client.RequestChannel(new RemoteProcedureCall(stream), data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing), initial);
-		public Task RequestStream(IRSocketRPCStream stream, string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default, int initial = RSocketClient.INITIALDEFAULT) => Client.RequestStream(new RemoteProcedureCall(stream), data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing), initial);
-		public Task RequestFireAndForget(IRSocketRPCStream stream, string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) => Client.RequestFireAndForget(new RemoteProcedureCall(stream), data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing));
-		public Task RequestResponse(IRSocketRPCStream stream, string service, string method, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> tracing = default) => Client.RequestResponse(new RemoteProcedureCall(stream), data, new RemoteProcedureCall.RemoteProcedureCallMetadata(service, method, metadata, tracing));
-	}
-
-	public sealed class RemoteProcedureCall : IRSocketStream
-	{
-		private readonly IRSocketRPCStream Stream;
-
-		public RemoteProcedureCall(IRSocketRPCStream stream) { Stream = stream; }
-
-		public void OnCompleted() => Stream.OnCompleted();
-		public void OnError(Exception error) => Stream.OnError(error);
-		public void OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value)
-		{
-			var rpc = new RemoteProcedureCallMetadata(value.metadata);
-			Stream.OnNext((rpc.Service, rpc.Method, rpc.Metadata, value.data, rpc.Tracing));
-		}
-
-		public ref struct RemoteProcedureCallMetadata           //SPEC: https://github.com/rsocket/rsocket-rpc-java/blob/master/rsocket-rpc-core/src/main/java/io/rsocket/rpc/frames/Metadata.java
+		ref struct RemoteProcedureCallMetadata           //SPEC: https://github.com/rsocket/rsocket-rpc-java/blob/master/rsocket-rpc-core/src/main/java/io/rsocket/rpc/frames/Metadata.java
 		{
 			public const UInt16 VERSION = 1;
 
@@ -41,7 +14,7 @@ namespace RSocket.RPC
 			public string Method;
 			public ReadOnlySequence<byte> Tracing;
 			public ReadOnlySequence<byte> Metadata;
-			static public readonly Encoding DefaultEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);     //TODO SPEC: Check on the Encoding.
+			static public readonly Encoding DefaultEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 			public int Length => sizeof(UInt16) + sizeof(UInt16) + DefaultEncoding.GetByteCount(Service) + sizeof(UInt16) + DefaultEncoding.GetByteCount(Method) + sizeof(UInt16) + (int)Tracing.Length + (int)Metadata.Length;
 
 			public RemoteProcedureCallMetadata(string service, string method, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> tracing) { Service = service; Method = method; Metadata = metadata; Tracing = tracing; }

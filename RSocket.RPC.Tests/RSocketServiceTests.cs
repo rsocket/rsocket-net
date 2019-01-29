@@ -36,7 +36,7 @@ namespace RSocket.RPC.Tests
 
 
 		[System.Runtime.CompilerServices.CompilerGenerated]
-		public class TestService : RSocketService<TestService>
+		public class TestService : RSocketService
 		{
 			private const string SERVICE = nameof(TestService);
 			public TestService(RSocketClient client) : base(client) { }

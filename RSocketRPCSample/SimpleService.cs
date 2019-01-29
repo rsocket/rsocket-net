@@ -29,7 +29,7 @@
 	}
 
 	[System.Runtime.CompilerServices.CompilerGenerated]
-	public class SimpleService : RSocketService<SimpleService>, ISimpleService
+	public class SimpleService : RSocketService, ISimpleService
 	{
 		private const string SERVICE = "io.rsocket.rpc.testing.protobuf" + "." + nameof(SimpleService);
 
@@ -43,26 +43,5 @@
 		//rpc RequestStream(SimpleRequest) returns(stream SimpleResponse) { }
 		//rpc StreamingRequestSingleResponse(stream SimpleRequest) returns(SimpleResponse) { }
 		//rpc StreamingRequestAndResponse(stream SimpleRequest) returns(stream SimpleResponse) { }
-
-		//public void fireAndForget(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestFireAndForget(null, data, metadata); }
-
-		//public Task<SimpleResponse> RequestReply(SimpleRequest message, ReadOnlySequence<byte> metadata = default) => 
-		//	base.__RequestResponse(ServicePrefix + nameof(SimpleService), nameof(RequestReply), message, source => Google.Protobuf.MessageExtensions.ToByteArray(source), result => SimpleResponse.Parser.ParseFrom(result), metadata);
-
-
-
-		//public ReadOnlySequence<byte> requestResponse(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) => requestResponseAsync(data, metadata).Result;
-
-
-		//public Task<ReadOnlySequence<byte>> requestStreamAsync(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) =>
-		//	base.__RequestStream<ReadOnlySequence<byte>>(ServicePrefix + nameof(EchoService), nameof(requestStream), data, metadata);
-
-		////Prefer this implementation.
-		//public IObservable<ReadOnlySequence<byte>> requestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) =>
-		//	base.__RequestStream<ReadOnlySequence<byte>>(ServicePrefix + nameof(EchoService), nameof(requestStream), data, metadata);
-
-
-		//Not real. Wrong signature.
-		//public void requestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { Client.RequestChannel(null, data, metadata); }
 	}
 }
