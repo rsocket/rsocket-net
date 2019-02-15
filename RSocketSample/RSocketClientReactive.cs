@@ -10,7 +10,7 @@ namespace RSocket.Reactive
 
 	public class RSocketClientReactive : RSocketClient
 	{
-		public RSocketClientReactive(IRSocketTransport transport, RSocketClientOptions options = default) : base(transport, options) { }
+		public RSocketClientReactive(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options) { }
 
 		public ResultOf<TData, TMetadata> Of<TData, TMetadata>() => new ResultOf<TData, TMetadata>(this);
 
@@ -46,6 +46,7 @@ namespace RSocket.Reactive
 				Observer.OnNext((ForData.Deserialize<TData>(value.data), ForMetadata.Deserialize<TMetadata>(value.metadata)));
 			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnCompleted() { Observer.OnCompleted(); Completion.SetResult(null); }
 			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnError(Exception error) => throw new NotImplementedException();
+
 		}
 
 		public struct ResultOf<TData, TMetadata>

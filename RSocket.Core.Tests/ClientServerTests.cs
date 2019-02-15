@@ -3,11 +3,10 @@ using System.Buffers;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using RSocket.Transports;
 
 namespace RSocket.Tests
 {
-	using RSocket.Transports;
-
 	[TestClass]
 	public class ClientServerTests
 	{
@@ -17,6 +16,7 @@ namespace RSocket.Tests
 		{
 			Lazy<RSocketClient> _Client;
 			RSocketClient Client => _Client.Value;
+			RSocket Socket => _Client.Value;
 			LoopbackTransport Loopback;
 			TestServer Server;
 			IRSocketStream Stream => Server.Stream;
@@ -25,7 +25,7 @@ namespace RSocket.Tests
 			[TestMethod]
 			public void ServerBasicTest()
 			{
-				Client.RequestStream(Stream, new Sample().Bytes);
+				Socket.RequestStream(Stream, new Sample());
 				Assert.AreNotEqual(0, Server.All.Count, "Should have at least one message");
 			}
 
@@ -45,7 +45,7 @@ namespace RSocket.Tests
 			[TestMethod]
 			public void RequestStreamTest()
 			{
-				Client.RequestStream(Stream, new Sample().Bytes, initial: 5);
+				Socket.RequestStream(Stream, new Sample(), initial: 5);
 				Assert.AreNotEqual(5, Server.RequestStreams.Single().InitialRequest, "InitialRequest partiy.");
 			}
 

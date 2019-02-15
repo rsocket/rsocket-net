@@ -38,7 +38,7 @@ namespace RSocket
 				//var (framelength, ismessageend) = MessageFrame(frame);
 				if (buffer.Length < Length + MESSAGEFRAMESIZE) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
 
-				Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
+				await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
 				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
 				//TODO - this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
 			}
@@ -52,7 +52,7 @@ namespace RSocket
 			//}
 
 			//This is the non-async portion of the handler. SequenceReader<T> and the other stack-allocated items cannot be used in an async context.
-			void Process(int framelength, ReadOnlySequence<byte> sequence)
+			Task Process(int framelength, ReadOnlySequence<byte> sequence)
 			{
 				var reader = new SequenceReader<byte>(sequence);
 				var header = new Header(ref reader, framelength);
@@ -114,6 +114,7 @@ namespace RSocket
 					case Types.Extension: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Extension Unsupported! [{header.Type}]"); } else break;
 					default: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Unknown Type! [{header.Type}]"); } else break;
 				}
+                return Task.CompletedTask;
 			}
 		}
 	}

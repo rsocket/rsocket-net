@@ -7,11 +7,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Concurrent;
+using RSocket.Transports;
 
 namespace RSocket.Tests
 {
-	using RSocket.Transports;
-
 	public class TestServer : RSocketServer
 	{
 		public IRSocketStream Stream = new StreamReceiver();
