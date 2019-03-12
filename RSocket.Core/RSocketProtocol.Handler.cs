@@ -21,7 +21,7 @@ namespace RSocket
 		static void OnRequestFireAndForget(IRSocketProtocol sink, in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestFireAndForget(message, metadata, data);
 		static void OnRequestChannel(IRSocketProtocol sink, in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestChannel(message, metadata, data);
 
-		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation, string name = null)
+		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation)
 		{
 			//The original implementation was a state-machine parser with resumability. It doesn't seem like the other implementations follow this pattern and the .NET folks are still figuring this out too - see the internal JSON parser discussion for how they're handling state machine persistence across async boundaries when servicing a Pipeline. So, this version of the handler only processes complete messages at some cost to memory buffer scalability.
 			//Note that this means that the Pipeline must be configured to have enough buffering for a complete message before source-quenching. This also means that the downstream consumers don't really have to support resumption, so the interface no longer has the partial buffer methods in it.
@@ -59,7 +59,7 @@ namespace RSocket
 
 				switch (header.Type)
 				{
-					case Types.Reserved: { throw new InvalidOperationException($"Protocol Reserved! [{header.Type}]"); }
+					case Types.Reserved: throw new InvalidOperationException($"Protocol Reserved! [{header.Type}]");
 					case Types.Setup:
 						var setup = new Setup(header, ref reader);
 						OnSetup(sink, setup);

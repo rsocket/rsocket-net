@@ -56,8 +56,8 @@ namespace RSocket.Tests
 			{
 				Loopback = new Transports.LoopbackTransport(DuplexPipe.ImmediateOptions, DuplexPipe.ImmediateOptions);
 				Server = new TestServer(Loopback);
-				Server.Start();
-				_Client = new Lazy<RSocketClient>(() => new RSocketClient(Loopback).ConnectAsync().Result);
+				Server.Connect();
+				_Client = new Lazy<RSocketClient>(() => { var rsocket = new RSocketClient(Loopback); rsocket.ConnectAsync().Wait(); return rsocket; });
 			}
 		}
 

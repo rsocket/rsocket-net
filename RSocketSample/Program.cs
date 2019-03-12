@@ -24,7 +24,7 @@ namespace RSocketSample
 			var loopback = new LoopbackTransport();
 
 			var server = new RSocketServer(loopback);
-			server.Start();
+			await server.ConnectAsync();
 
 
 			var client = new RSocketClientReactive(

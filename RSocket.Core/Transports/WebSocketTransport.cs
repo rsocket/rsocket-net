@@ -33,11 +33,14 @@ namespace RSocket.Transports
 			Transport = new WebSocketsTransport(Options, Back, WebSocketsTransport.HttpConnectionContext.Default, Logger);
 		}
 
-		public Task ConnectAsync(CancellationToken cancel = default)
+		public Task StartAsync(CancellationToken cancel = default)
 		{
 			Running = Transport.ProcessRequestAsync(new WebSocketsTransport.HttpContext(this), cancel);
 			return Task.CompletedTask;
 		}
+
+		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
+
 
 		//This class is based heavily on the SignalR WebSocketsTransport class from the AspNetCore project. It was merged as release/2.2 as of this snapshot.
 		//When designing Pipelines, for some reason, standard adapters for Sockets, WebSockets, etc were not published.

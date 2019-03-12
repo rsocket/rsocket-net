@@ -41,7 +41,7 @@ namespace RSocket.Transports
 			(Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
 		}
 
-		public async Task ConnectAsync(CancellationToken cancel = default)
+		public async Task StartAsync(CancellationToken cancel = default)
 		{
 			var dns = await Dns.GetHostEntryAsync(Url.Host);
 			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
@@ -52,6 +52,8 @@ namespace RSocket.Transports
 
 			Running = ProcessSocketAsync(Socket);
 		}
+
+		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
 
 		private async Task ProcessSocketAsync(Socket socket)
 		{
@@ -217,7 +219,6 @@ namespace RSocket.Transports
 			}
 
 		}
-
 	}
 }
 

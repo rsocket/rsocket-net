@@ -1,4 +1,5 @@
-﻿using System;
+﻿using RSocket.Collections.Generic;
+using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,11 +15,19 @@ namespace RSocket
 
 	public class RSocketClient : RSocket
 	{
+		Task Handler;
 		RSocketOptions Options { get; set; }
 
 		public RSocketClient(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options) { }
 
-		public new async Task<RSocketClient> ConnectAsync() { await base.ConnectAsync(); return this; }		//TODO Not worth it for Unit Tests. Remove.
+		public async Task ConnectAsync()
+		{
+			await Transport.StartAsync();
+			Handler = Connect(CancellationToken.None);
+			////TODO Move defaults to policy object, also, maybe not inline, like prefer a method.
+			new RSocketProtocol.Setup(keepalive: TimeSpan.FromSeconds(60), lifetime: TimeSpan.FromSeconds(180), metadataMimeType: "binary", dataMimeType: "binary").Write(Transport.Output);
+			await Transport.Output.FlushAsync();
+		}
 
 		//Ugh, these are all garbage. Remove in favor of the transformation ones.
 		public Task<IRSocketChannel> RequestChannel<TData>(IRSocketStream stream, TData data, ReadOnlySpan<byte> metadata = default, int initial = INITIALDEFAULT) => RequestChannel(stream, RequestDataSerializer.Serialize(data), metadata, initial);
@@ -35,7 +44,7 @@ namespace RSocket
 		public Task RequestFireAndForget<TData, TMetadata>(IRSocketStream stream, TData data, TMetadata metadata = default) => RequestFireAndForget(stream, RequestDataSerializer.Serialize(data), RequestMetadataSerializer.Serialize(metadata));
 
 
-		public Task RequestResponse<TData>(IRSocketStream stream, TData data, ReadOnlySpan<byte> metadata = default) => RequestFireAndForget(stream, RequestDataSerializer.Serialize(data), metadata);
+		public Task RequestResponse<TData>(IRSocketStream stream, TData data, ReadOnlySpan<byte> metadata = default) => RequestResponse(stream, RequestDataSerializer.Serialize(data), metadata);
 		public Task RequestResponse<TMetadata>(IRSocketStream stream, ReadOnlySpan<byte> data, TMetadata metadata = default) => RequestResponse(stream, data, RequestMetadataSerializer.Serialize(metadata));
 		public Task RequestResponse<TData, TMetadata>(IRSocketStream stream, TData data, TMetadata metadata = default) => RequestResponse(stream, RequestDataSerializer.Serialize(data), RequestMetadataSerializer.Serialize(metadata));
 
@@ -53,7 +62,14 @@ namespace RSocket
 			ReadOnlySequence<byte> IRSocketSerializer.Serialize<T>(in T item) => throw new NotSupportedException(isRequest ? "The RSocket client was not provided with a request serializer." : "The RSocket client was not provided with a response serializer.");
 			T IRSocketDeserializer.Deserialize<T>(in ReadOnlySequence<byte> data) => throw new NotSupportedException(isRequest ? "The RSocket client was not provided with a request deserializer." : "The RSocket client was not provided with a response deserializer.");
 		}
+
+		/// <summary>A simplfied RSocket Client that operates only on UTF-8 strings.</summary>
+		public class ForStrings
+		{
+			private readonly RSocketClient Client;
+			public ForStrings(RSocketClient client) { Client = client; }
+			public Task<string> RequestResponse(string data, string metadata = default) => Client.RequestResponse(value => Encoding.UTF8.GetString(value.data.ToArray()), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+			public IAsyncEnumerable<string> RequestStream(string data, string metadata = default) => Client.RequestStream(value => Encoding.UTF8.GetString(value.data.ToArray()), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+		}
 	}
-
-
 }

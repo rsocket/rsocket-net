@@ -15,9 +15,9 @@ namespace RSocket
 		public class Receiver<T> : IAsyncEnumerable<T>
 		{
 			readonly Func<IRSocketStream, Task> Subscriber;
-			readonly Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> Mapper;
+			readonly Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> Mapper;
 
-			public Receiver(Func<IRSocketStream, Task> subscriber, Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> mapper)
+			public Receiver(Func<IRSocketStream, Task> subscriber, Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> mapper)
 			{
 				Subscriber = subscriber;
 				Mapper = mapper;
@@ -27,7 +27,8 @@ namespace RSocket
 			{
 				var receiver = new Receiver();
 				await Subscriber(receiver);
-				return Mapper(await receiver.Awaitable);
+				var result = await receiver.Awaitable;
+				return Mapper((result.data, result.metadata));
 			}
 
 			public async Task<T> ExecuteAsync(T result, CancellationToken cancellation = default)

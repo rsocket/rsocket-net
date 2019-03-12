@@ -31,14 +31,16 @@ namespace RSocket.Transports
 			{
 				Url = url,
 			}, logger, null);
-			
+
 			Transport2 = new WebSocketTransport(url);
 		}
 
-		public async Task ConnectAsync(CancellationToken cancel = default)
+		public async Task StartAsync(CancellationToken cancel = default)
 		{
 			await Transport.StartAsync(Url, Microsoft.AspNetCore.Connections.TransferFormat.Binary);
 			//await Transport2.ConnectAsync(cancel);
 		}
+
+		public Task StopAsync() => Task.CompletedTask;
 	}
 }

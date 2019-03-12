@@ -13,7 +13,8 @@ namespace RSocket
 		PipeReader Input { get; }
 		PipeWriter Output { get; }
 
-		Task ConnectAsync(CancellationToken cancel = default);
+		Task StartAsync(CancellationToken cancel = default);
+		Task StopAsync();
 	}
 
 	/// <summary>
@@ -24,7 +25,7 @@ namespace RSocket
 		PipeReader Input { get; }
 		PipeWriter Output { get; }
 
-		Task StartAsync();
+		Task StartAsync(CancellationToken cancel = default);
 		Task StopAsync();
 	}
 }

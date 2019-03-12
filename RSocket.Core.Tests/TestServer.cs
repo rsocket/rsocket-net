@@ -11,7 +11,7 @@ using RSocket.Transports;
 
 namespace RSocket.Tests
 {
-	public class TestServer : RSocketServer
+	public class TestServer : RSocket
 	{
 		public IRSocketStream Stream = new StreamReceiver();
 		public List<Message> All = new List<Message>();
@@ -20,10 +20,10 @@ namespace RSocket.Tests
 		public IEnumerable<Message.Setup> Setups => from message in Server.OfType<Message.Setup>() select message;
 		public IEnumerable<Message.RequestStream> RequestStreams => from message in Server.OfType<Message.RequestStream>() select message;
 
-		public TestServer(IRSocketServerTransport transport) : base(transport) { }
+		public TestServer(IRSocketTransport transport) : base(transport) { }
 
-		public override void Setup(in RSocketProtocol.Setup value) => All.Add(new Message.Setup(value));
-		public override void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => All.Add(new Message.RequestStream(message));
+		//public override void Setup(in RSocketProtocol.Setup value) => All.Add(new Message.Setup(value));
+		//public override void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => All.Add(new Message.RequestStream(message));
 
 
 		public class Message

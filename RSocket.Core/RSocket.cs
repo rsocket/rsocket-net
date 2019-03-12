@@ -3,6 +3,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO.Pipelines;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,8 +20,8 @@ namespace RSocket
 		public const int INITIALDEFAULT = int.MaxValue;
 		RSocketOptions Options { get; set; }
 
-		IRSocketTransport Transport { get; set; }
-		//RSocketClientOptions Options { get; set; }
+		//TODO Hide.
+		public IRSocketTransport Transport { get; set; }
 		private int StreamId = 1 - 2;       //SPEC: Stream IDs on the client MUST start at 1 and increment by 2 sequentially, such as 1, 3, 5, 7, etc
 		private int NewStreamId() => Interlocked.Add(ref StreamId, 2);  //TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
 
@@ -42,16 +43,36 @@ namespace RSocket
 			Options = options ?? RSocketOptions.Default;
 		}
 
+		//public RSocket(IRSocketServerTransport transport, RSocketOptions options = default)
+		//{
+		//	Transport = new ServerTransport(transport);
+		//	Options = options ?? RSocketOptions.Default;
+		//}
 
-		public async Task<RSocket> ConnectAsync()
-		{
-			await Transport.ConnectAsync();
-			var server = RSocketProtocol.Handler(this, Transport.Input, CancellationToken.None, name: nameof(RSocketClient));
-			////TODO Move defaults to policy object
-			new RSocketProtocol.Setup(keepalive: TimeSpan.FromSeconds(60), lifetime: TimeSpan.FromSeconds(180), metadataMimeType: "binary", dataMimeType: "binary").Write(Transport.Output);
-			await Transport.Output.FlushAsync();
-			return this;
-		}
+		//private struct ServerTransport : IRSocketTransport
+		//{
+		//	IRSocketServerTransport Transport;
+		//	public ServerTransport(IRSocketServerTransport transport) { Transport = transport; }
+		//	public PipeReader Input => Transport.Input;
+		//	public PipeWriter Output => Transport.Output;
+		//	public Task StartAsync(CancellationToken cancel = default) => Transport.StartAsync(cancel);
+		//	public Task StopAsync() => Transport.StopAsync();
+		//}
+
+		/// <summary>Binds the RSocket to its Transport and begins handling messages.</summary>
+		/// <param name="cancel">Cancellation for the handler. Requesting cancellation will stop message handling.</param>
+		/// <returns>The handler task.</returns>
+		public Task Connect(CancellationToken cancel = default) => RSocketProtocol.Handler(this, Transport.Input, cancel);
+
+		//public async Task<RSocket> ConnectAsync()
+		//{
+		//	await Transport.StartAsync();
+		//	var server = RSocketProtocol.Handler(this, Transport.Input, CancellationToken.None, name: nameof(RSocketClient));
+		//	////TODO Move defaults to policy object
+		//	new RSocketProtocol.Setup(keepalive: TimeSpan.FromSeconds(60), lifetime: TimeSpan.FromSeconds(180), metadataMimeType: "binary", dataMimeType: "binary").Write(Transport.Output);
+		//	await Transport.Output.FlushAsync();
+		//	return this;
+		//}
 
 		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 
@@ -69,7 +90,7 @@ namespace RSocket
 			return channel;
 		}
 
-		class Channel : IRSocketChannel
+		protected class Channel : IRSocketChannel		//TODO hmmm...
 		{
 			readonly RSocket Socket;
 			readonly int Stream;
@@ -140,11 +161,49 @@ namespace RSocket
 			}
 		}
 
-		void IRSocketProtocol.Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");
+
+		//void IRSocketProtocol.Setup(in RSocketProtocol.Setup message) => Setup(message);
+		public virtual void Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
 		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
-		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException(); //TODO How to handle unexpected messagess...
-		void IRSocketProtocol.RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
 		void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
 		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
+
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), Task<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Responder { get; set; } = request => throw new NotImplementedException();
+
+		void IRSocketProtocol.RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+			Respond(message.Stream).Start();
+			async Task Respond(int stream)
+			{
+				var (Data, Metadata) = await Responder((data, metadata));     //TODO Handle Errors.
+				new RSocketProtocol.Payload(stream, Data, Metadata, next: true, complete: true).Write(Transport.Output, Data, Metadata);
+				await Transport.Output.FlushAsync();
+			}
+		}
+
+
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Streamer { get; set; } = request => throw new NotImplementedException();
+
+		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+			Respond(message.Stream).Start();
+			async Task Respond(int stream)
+			{
+				var source = Streamer((data, metadata));     //TODO Handle Errors.
+				var enumerator = source.GetAsyncEnumerator();
+				try
+				{
+					while (await enumerator.MoveNextAsync())
+					{
+						var (Data, Metadata) = enumerator.Current;
+						new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
+						await Transport.Output.FlushAsync();
+					}
+					new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
+					await Transport.Output.FlushAsync();
+				}
+				finally { await enumerator.DisposeAsync(); }
+			}
+		}
 	}
 }

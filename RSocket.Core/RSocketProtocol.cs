@@ -72,7 +72,7 @@ namespace RSocket
 			public int Length => Header.Length + InnerLength + Header.MetadataHeaderLength + MetadataLength + DataLength;
 
 
-			public Payload(int stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false)	//TODO Parameter ordering, isn't Next much more likely than C or F?
+			public Payload(int stream, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false)	//TODO Parameter ordering, isn't Next much more likely than C or F?
 			{
 				Header = new Header(Types.Payload, stream, metadata: metadata);
 				DataLength = (int)data.Length;
@@ -106,9 +106,9 @@ namespace RSocket
 				return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
 
-			void Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
+			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{
 				var written = Header.Write(writer, Length);
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...

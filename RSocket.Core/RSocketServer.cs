@@ -7,49 +7,73 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	public class RSocketServer : IRSocketProtocol
+	public class RSocketServer : RSocket
 	{
-		protected IRSocketServerTransport Transport;
 		Task Handler;
+		RSocketOptions Options { get; set; }
 
-		public RSocketServer(IRSocketServerTransport transport)
+		public RSocketServer(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options) { }
+
+		public async Task ConnectAsync()
 		{
-			Transport = transport;
+			await Transport.StartAsync();
+			Handler = Connect(CancellationToken.None);
 		}
 
-		public void Start(CancellationToken cancel = default)
+		public override void Setup(in RSocketProtocol.Setup value)
 		{
-			Handler = RSocketProtocol.Handler(this, Transport.Input, cancel, name: nameof(RSocketServer));
+
 		}
 
+		//public virtual void IRSocketProtocol.Setup(in RSocketProtocol.Setup value)
+		//{
+		//}
 
-		public virtual void Setup(in RSocketProtocol.Setup value)
-		{
-		}
+		//public virtual void Error(in RSocketProtocol.Error message)
+		//{
+		//}
 
-		public virtual void Error(in RSocketProtocol.Error message)
-		{
-		}
+		//public virtual void Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		//{
+		//}
 
-		public virtual void Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-		}
+		//public virtual void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		//{
+		//}
 
-		public virtual void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-		}
+		//public virtual void RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		//{
+		//	Transport.Output.FlushAsync();
+		//}
 
-		public virtual void RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-			Transport.Output.FlushAsync();
-		}
+		//public virtual void RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		//{
+		//}
 
-		public virtual void RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-		}
+		//public virtual void RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		//{
+		//}
 
-		public virtual void RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-		}
+
+		//public class RSocketService2 : RSocketServer
+		//{
+		//	public Func<ReadOnlySequence<byte>, ReadOnlySequence<byte>, Task<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>> Responder { get; set; }
+
+		//	public RSocketService2(IRSocketServerTransport transport) : base(transport)
+		//	{
+
+		//	}
+
+		//	public void Register(Func<ReadOnlySequence<byte>, ReadOnlySequence<byte>, Task<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>> responder)
+		//	{
+
+		//	}
+
+
+		//	public override void RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		//	{
+
+		//	}
+		//}
 	}
 }
