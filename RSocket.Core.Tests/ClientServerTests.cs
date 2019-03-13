@@ -7,12 +7,13 @@ using RSocket.Transports;
 
 namespace RSocket.Tests
 {
-	[TestClass]
-	public class ClientServerTests
+    [Ignore]
+    public class ClientServerTests
 	{
 
 		[TestClass]
-		public class ClientTests
+        [Ignore]
+        public class ClientTests
 		{
 			Lazy<RSocketClient> _Client;
 			RSocketClient Client => _Client.Value;

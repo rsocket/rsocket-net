@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using RSocket.Collections.Generic;
+using async_enumerable_dotnet;
 
 namespace RSocket
 {
@@ -38,7 +38,15 @@ namespace RSocket
 				return result;
 			}
 
-			public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation = default)
+            public IAsyncEnumerator<T> GetAsyncEnumerator()
+            {
+                var receiver = new Receiver.Deferred(Subscriber);
+                return AsyncEnumerable.FromObservable(receiver)
+                    .Map(Mapper)
+                    .GetAsyncEnumerator();
+            }
+
+			/*public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation = default)
 			{
 				var enumerator = new MappedEnumerator(Mapper);
 				Subscriber(enumerator);     //TODO Do we want to use this task too? It could fault. Also, cancellation. Nope, this should only await on the first MoveNext, so subscription is lower.
@@ -112,7 +120,7 @@ namespace RSocket
 				{
 					return base.DisposeAsync();
 				}
-			}
+			}*/
 		}
 
 

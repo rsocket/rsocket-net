@@ -5,8 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using RSocket.Collections.Generic;
 using RSocket.Transports;
+using async_enumerable_dotnet;
 
 namespace RSocket.Tests
 {
@@ -37,19 +37,11 @@ namespace RSocket.Tests
 		[TestMethod]
 		public void ServerRequestStreamTest()
 		{ 
-			Server.Streamer =
-			//			IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Streamer
-			((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
 			{
-				return Yield().AsyncEnumerate();
-
-				IEnumerable<Task<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Yield()
-				{
-					yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-					yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-					yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-					async Task<T> Delay<T>(TimeSpan delay, Task<T> yield) { await Task.Delay(delay); return await yield; }
-				}
+                return AsyncEnumerable.Interval(TimeSpan.FromMilliseconds(10))
+                    .Take(3)
+                    .Map(i => (request.Data, request.Metadata));
 			};
 
 			//var astream = StringClient.RequestStream("TEST DATA", "METADATA?_____");
@@ -65,8 +57,7 @@ namespace RSocket.Tests
 			try { while (enumerator.MoveNextAsync().Result) { list.Add(enumerator.Current); } }
 			finally { enumerator.DisposeAsync().AsTask().Wait(); }
 
-	//		var stream = astream.ToEnumerable().ToList();
-	//		Assert.AreEqual(3, stream.Count, "Stream contents missing.");
+			Assert.AreEqual(3, list.Count, "Stream contents missing.");
 		}
 
 		[TestInitialize]
