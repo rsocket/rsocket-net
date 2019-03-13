@@ -38,13 +38,13 @@ namespace RSocket
 				return result;
 			}
 
-            public IAsyncEnumerator<T> GetAsyncEnumerator()
-            {
-                var receiver = new Receiver.Deferred(Subscriber);
-                return AsyncEnumerable.FromObservable(receiver)
-                    .Map(Mapper)
-                    .GetAsyncEnumerator();
-            }
+			public IAsyncEnumerator<T> GetAsyncEnumerator()
+			{
+				var receiver = new Receiver.Deferred(Subscriber);
+				return AsyncEnumerable.FromObservable(receiver)
+					.Map(Mapper)
+					.GetAsyncEnumerator();
+			}
 
 			/*public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation = default)
 			{

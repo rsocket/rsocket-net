@@ -40,7 +40,7 @@ namespace RSocket
 
 		public static BufferTextWriter Get(IBufferWriter<byte> bufferWriter)
 		{
-			var writer = Instance ?? new BufferTextWriter(null);		//Special initialization to track prior use.
+			var writer = Instance ?? new BufferTextWriter(null); //Special initialization to track prior use.
 			Instance = null;     // Taken off the thread static
 #if DEBUG
 			if (writer.InUse) { throw new InvalidOperationException($"The {nameof(BufferTextWriter)} wasn't returned!"); }

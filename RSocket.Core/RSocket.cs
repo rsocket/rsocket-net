@@ -90,7 +90,7 @@ namespace RSocket
 			return channel;
 		}
 
-		protected class Channel : IRSocketChannel		//TODO hmmm...
+		protected class Channel : IRSocketChannel //TODO hmmm...
 		{
 			readonly RSocket Socket;
 			readonly int Stream;

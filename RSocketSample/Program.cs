@@ -30,8 +30,8 @@ namespace RSocketSample
 			var client = new RSocketClientReactive(
 				new WebSocketTransport("ws://localhost:9092/"))
 				//new SocketTransport("tcp://localhost:9091/"))
-			//var client = new RSocketClientReactive(new RSocketWebSocketClient("ws://localhost:9092/"))
-			//var client = new RSocketClientReactive(loopback)
+				//var client = new RSocketClientReactive(new RSocketWebSocketClient("ws://localhost:9092/"))
+				//var client = new RSocketClientReactive(loopback)
 				.UsingProtobufNetSerialization();
 
 			await client.ConnectAsync();
@@ -46,7 +46,7 @@ namespace RSocketSample
 
 			var personclient = client.Of<Person, Person>();
 			var stream = from data in personclient.RequestStream(obj, meta, initial: 3)
-						 //where value.StartsWith("q")
+							 //where value.StartsWith("q")
 						 select data.Data;
 
 			using (stream.Subscribe(
@@ -63,7 +63,7 @@ namespace RSocketSample
 
 			using (personclient.RequestFireAndForget(obj).Subscribe(
 				onNext: value => Console.WriteLine($"RequestFireAndForget.OnNext ===>{value}"), onCompleted: () => Console.WriteLine($"RequestFireAndForget.OnComplete!\n")))
-			{ 
+			{
 				Console.ReadKey();
 			}
 

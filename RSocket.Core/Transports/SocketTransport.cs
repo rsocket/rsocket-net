@@ -20,7 +20,7 @@ namespace RSocket.Transports
 
 		internal Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
-		private volatile bool Aborted;		//TODO Implement cooperative cancellation
+		private volatile bool Aborted; //TODO Implement cooperative cancellation
 
 		public Uri Url { get; private set; }
 		private LoggerFactory Logger;
@@ -53,7 +53,7 @@ namespace RSocket.Transports
 			Running = ProcessSocketAsync(Socket);
 		}
 
-		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
+		public Task StopAsync() => Task.CompletedTask; //TODO More graceful shutdown
 
 		private async Task ProcessSocketAsync(Socket socket)
 		{
@@ -127,7 +127,7 @@ namespace RSocket.Transports
 
 		private async Task StartReceiving(Socket socket)
 		{
-			var token = default(CancellationToken);	//Cancellation?.Token ?? default;
+			var token = default(CancellationToken); //Cancellation?.Token ?? default;
 
 			try
 			{

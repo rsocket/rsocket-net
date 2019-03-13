@@ -39,7 +39,7 @@ namespace RSocket.Transports
 			return Task.CompletedTask;
 		}
 
-		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
+		public Task StopAsync() => Task.CompletedTask; //TODO More graceful shutdown
 
 
 		//This class is based heavily on the SignalR WebSocketsTransport class from the AspNetCore project. It was merged as release/2.2 as of this snapshot.
@@ -315,9 +315,9 @@ namespace RSocket.Transports
 					{
 						var result = await _application.Input.ReadAsync();
 						var buffer = result.Buffer;
-						var consumed = buffer.Start;        //RSOCKET Framing
-						// Get a frame from the application
+						var consumed = buffer.Start; //RSOCKET Framing
 
+						// Get a frame from the application
 						try
 						{
 							if (result.IsCanceled)
@@ -360,7 +360,7 @@ namespace RSocket.Transports
 						}
 						finally
 						{
-							_application.Input.AdvanceTo(consumed, buffer.End);		//RSOCKET Framing
+							_application.Input.AdvanceTo(consumed, buffer.End); //RSOCKET Framing
 						}
 					}
 				}

@@ -29,7 +29,8 @@ namespace RSocket
 		//TODO Feature QuickStart in the fashion of the existing ones
 		//TODO Test Both WS and TCP with >Memory<T> buffer size. Since they don't accumulate in the state machine, they probably can overflow.
 
-		public const int MESSAGEFRAMESIZE = INT24SIZE;	//This may be large than the FRAMELENGTHSIZE if the messages are padded inside of pipelines.
+		public const int MESSAGEFRAMESIZE = INT24SIZE; //This may be large than the FRAMELENGTHSIZE if the messages are padded inside of pipelines.
+
 		//static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
 		//static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
 		static public (int Length, bool IsEndofMessage) MessageFrame(int frame) => (frame, true);
@@ -72,7 +73,7 @@ namespace RSocket
 			public int Length => Header.Length + InnerLength + Header.MetadataHeaderLength + MetadataLength + DataLength;
 
 
-			public Payload(int stream, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false)	//TODO Parameter ordering, isn't Next much more likely than C or F?
+			public Payload(int stream, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false) //TODO Parameter ordering, isn't Next much more likely than C or F?
 			{
 				Header = new Header(Types.Payload, stream, metadata: metadata);
 				DataLength = (int)data.Length;
@@ -537,8 +538,8 @@ namespace RSocket
 
 			public bool Validate(bool canContinue = false)
 			{
-				if (Header.Stream == 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(Header.Stream), $"Invalid {nameof(KeepAlive)} Message."); }		//SPEC: KEEPALIVE frames MUST always use Stream ID 0 as they pertain to the Connection.
-				if (LastReceivedPosition < 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(LastReceivedPosition), LastReceivedPosition, $"Invalid {nameof(KeepAlive)} Message."); }	//SPEC: Value MUST be > 0. (optional. Set to all 0s when not supported.)
+				if (Header.Stream == 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(Header.Stream), $"Invalid {nameof(KeepAlive)} Message."); } //SPEC: KEEPALIVE frames MUST always use Stream ID 0 as they pertain to the Connection.
+				if (LastReceivedPosition < 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(LastReceivedPosition), LastReceivedPosition, $"Invalid {nameof(KeepAlive)} Message."); } //SPEC: Value MUST be > 0. (optional. Set to all 0s when not supported.)
 				else return true;
 			}
 
@@ -578,8 +579,8 @@ namespace RSocket
 				Header = header;
 				reader.TryRead(out int timeToLive); TimeToLive = timeToLive;
 				reader.TryRead(out int numberOfRequests); NumberOfRequests = numberOfRequests;
-				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);       //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
-				//MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length - sizeof(int) - sizeof(int) : 0;          //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
+				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength); //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
+																					   //MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length - sizeof(int) - sizeof(int) : 0;          //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -662,8 +663,8 @@ namespace RSocket
 			public MetadataPush(in Header header, ref SequenceReader<byte> reader)
 			{
 				Header = header;
-				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);       //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
-				//MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length : 0; //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
+				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength); //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
+																					   //MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length : 0; //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -749,7 +750,6 @@ namespace RSocket
 				+ sizeof(byte) + Encoding.ASCII.GetByteCount(MetadataMimeType)
 				+ sizeof(byte) + Encoding.ASCII.GetByteCount(DataMimeType);
 			public int Length => Header.Length + InnerLength + Header.MetadataHeaderLength + MetadataLength + DataLength;
-			
 
 			public Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null) : this((int)keepalive.TotalMilliseconds, (int)lifetime.TotalMilliseconds, string.IsNullOrEmpty(metadataMimeType) ? string.Empty : metadataMimeType, string.IsNullOrEmpty(dataMimeType) ? string.Empty : dataMimeType) { }
 
@@ -787,7 +787,7 @@ namespace RSocket
 				var mmtr = reader.TryReadPrefix(out MetadataMimeType);
 				var dmtr = reader.TryReadPrefix(out DataMimeType);
 
-				MetadataLength = DataLength = 0;	//Initialize so we can use InnerLength.
+				MetadataLength = DataLength = 0; //Initialize so we can use InnerLength.
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
 				//if (header.HasMetadata)		//TODO This is so common that it should probably be a common function.
 				//{
@@ -828,8 +828,8 @@ namespace RSocket
 				written += writer.WriteInt32BigEndian(KeepAlive);
 				written += writer.WriteInt32BigEndian(Lifetime);
 				if (HasResume) { written += writer.WriteUInt16BigEndian(ResumeToken.Length) + writer.Write(ResumeToken); }
-				written += writer.WritePrefixByte(MetadataMimeType);    //TODO THIS IS ASCII!!! See Spec!!
-				written += writer.WritePrefixByte(DataMimeType);	   //TODO THIS IS ASCII!!! See Spec!!
+				written += writer.WritePrefixByte(MetadataMimeType); //TODO THIS IS ASCII!!! See Spec!!
+				written += writer.WritePrefixByte(DataMimeType); //TODO THIS IS ASCII!!! See Spec!!
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 			}
@@ -846,7 +846,7 @@ namespace RSocket
 			internal const ushort FLAG_METADATA = 0b__01_00000000;
 			public bool CanIgnore { get => (Flags & FLAG_IGNORE) != 0; set => Flags = value ? (ushort)(Flags | FLAG_IGNORE) : (ushort)(Flags & ~FLAG_IGNORE); }
 			public bool HasMetadata { get => (Flags & FLAG_METADATA) != 0; set => Flags = value ? (ushort)(Flags | FLAG_METADATA) : (ushort)(Flags & ~FLAG_METADATA); }
-			public int MetadataHeaderLength => HasMetadata ? METADATALENGTHSIZE : 0;		//TODO Only here?
+			public int MetadataHeaderLength => HasMetadata ? METADATALENGTHSIZE : 0; //TODO Only here?
 
 			public Int32 Stream;
 			public Types Type;
@@ -878,7 +878,7 @@ namespace RSocket
 
 			public int Write(BufferWriter writer, int length)
 			{
-				writer.WriteInt24BigEndian(length);		//Not included in total length.
+				writer.WriteInt24BigEndian(length); //Not included in total length.
 				writer.WriteInt32BigEndian(Stream);
 				writer.WriteUInt16BigEndian((((int)Type << FRAMETYPE_OFFSET) & FRAMETYPE_TYPE) | (Flags & FLAGS));//  (Ignore ? FLAG_IGNORE : 0) | (Metadata ? FLAG_METADATA : 0));
 				return Length;

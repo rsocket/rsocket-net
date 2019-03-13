@@ -31,7 +31,7 @@ namespace Microsoft.AspNetCore.Http.Connections.Client.Internal
 		public PipeReader Input => _transport.Input;
 
 		public PipeWriter Output => _transport.Output;
-		public PipeWriter Loopback => _application.Output;	//TODO Merge
+		public PipeWriter Loopback => _application.Output; //TODO Merge
 
 		public WebSocketsTransport2(HttpConnectionOptions httpConnectionOptions, ILoggerFactory loggerFactory, Func<Task<string>> accessTokenProvider)
 		{

@@ -64,7 +64,6 @@ namespace RSocket
 			}
 			pipereader.Complete();
 
-			
 			void Process(int framelength, ReadOnlySequence<byte> sequence)
 			{
 				var reader = new SequenceReader<byte>(sequence);

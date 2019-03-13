@@ -9,7 +9,7 @@ namespace RSocket.Serializers
 		static public TRSocketClient UsingProtobufNetSerialization<TRSocketClient>(this TRSocketClient client, bool useData = true, bool useMetadata = true) where TRSocketClient : RSocketClient
 		{
 			var serializer = new ProtobufNetSerializer();
-			if (useData) { client.RequestDataSerializer = serializer;  client.ResponseDataDeserializer = serializer; }
+			if (useData) { client.RequestDataSerializer = serializer; client.ResponseDataDeserializer = serializer; }
 			if (useMetadata) { client.RequestMetadataSerializer = serializer; client.ResponseMetadataDeserializer = serializer; }
 			return client;
 		}

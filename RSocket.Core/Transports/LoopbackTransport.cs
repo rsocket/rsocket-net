@@ -26,7 +26,7 @@ namespace RSocket.Transports
 		public Task StartAsync(CancellationToken cancel = default) => Task.CompletedTask;   //This is a noop because they are already connected.
 		public Task StopAsync() => Task.CompletedTask;
 
-		public IRSocketTransport Beyond => new ServerTransport(this);		//TODO Maybe not Server? Backside? Otherside?
+		public IRSocketTransport Beyond => new ServerTransport(this); //TODO Maybe not Server? Backside? Otherside?
 
 		struct ServerTransport : IRSocketTransport
 		{

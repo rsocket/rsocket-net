@@ -114,7 +114,7 @@ namespace RSocket
 					case Types.Extension: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Extension Unsupported! [{header.Type}]"); } else break;
 					default: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Unknown Type! [{header.Type}]"); } else break;
 				}
-                return Task.CompletedTask;
+				return Task.CompletedTask;
 			}
 		}
 	}

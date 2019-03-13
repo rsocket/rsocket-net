@@ -31,7 +31,7 @@ namespace Microsoft.AspNetCore.Http.Connections.Client.Internal
 		public PipeReader Input => _transport.Input;
 
 		public PipeWriter Output => _transport.Output;
-		public PipeWriter Loopback => _application.Output;	//TODO Merge
+		public PipeWriter Loopback => _application.Output; //TODO Merge
 
 		public WebSocketsTransport(HttpConnectionOptions httpConnectionOptions, ILoggerFactory loggerFactory, Func<Task<string>> accessTokenProvider)
 		{
@@ -239,7 +239,7 @@ namespace Microsoft.AspNetCore.Http.Connections.Client.Internal
 
 					Log.MessageReceived(_logger, receiveResult.MessageType, receiveResult.Count, receiveResult.EndOfMessage);
 
-					System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(memoryframe.Span, RSocket.RSocketProtocol.MessageFrame(receiveResult.Count, receiveResult.EndOfMessage));		//RSOCKET write a framing that carries EoM information.
+					System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(memoryframe.Span, RSocket.RSocketProtocol.MessageFrame(receiveResult.Count, receiveResult.EndOfMessage)); //RSOCKET write a framing that carries EoM information.
 					_application.Output.Advance(sizeof(int) + receiveResult.Count);
 
 					var flushResult = await _application.Output.FlushAsync();
@@ -306,11 +306,11 @@ namespace Microsoft.AspNetCore.Http.Connections.Client.Internal
 								{
 									//while (position < buffer.End)
 									//{
-										buffer.TryGet(ref position, out var memory, advance: false);
-										var frame = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(memory.Span);
-										position = buffer.GetPosition(sizeof(Int32), position);
-										await socket.SendAsync(buffer.Slice(position, frame), _webSocketMessageType);
-										position = buffer.GetPosition(frame, position);
+									buffer.TryGet(ref position, out var memory, advance: false);
+									var frame = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(memory.Span);
+									position = buffer.GetPosition(sizeof(Int32), position);
+									await socket.SendAsync(buffer.Slice(position, frame), _webSocketMessageType);
+									position = buffer.GetPosition(frame, position);
 									//}
 								}
 								else

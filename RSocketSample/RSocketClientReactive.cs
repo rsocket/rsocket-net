@@ -65,7 +65,7 @@ namespace RSocket.Reactive
 			//	Client.RequestChannel<TData, TMetadata, TRequestData, object>(data, default, initial: initial);
 
 			//}
-	
+
 			public IObservable<(TData Data, TMetadata Metadata)> RequestStream<TRequestData, TRequestMetadata>(TRequestData data, TRequestMetadata metadata = default, int initial = RSocketClient.INITIALDEFAULT) =>
 				Client.RequestStream<TData, TMetadata, TRequestData, TRequestMetadata>(data, metadata, initial: initial);
 			public IObservable<(TData Data, TMetadata Metadata)> RequestStream<TRequestData>(TRequestData data, int initial = RSocketClient.INITIALDEFAULT) =>

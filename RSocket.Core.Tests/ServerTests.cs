@@ -36,12 +36,12 @@ namespace RSocket.Tests
 
 		[TestMethod]
 		public void ServerRequestStreamTest()
-		{ 
+		{
 			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
 			{
-                return AsyncEnumerable.Interval(TimeSpan.FromMilliseconds(10))
-                    .Take(3)
-                    .Map(i => (request.Data, request.Metadata));
+				return AsyncEnumerable.Interval(TimeSpan.FromMilliseconds(10))
+					.Take(3)
+					.Map(i => (request.Data, request.Metadata));
 			};
 
 			//var astream = StringClient.RequestStream("TEST DATA", "METADATA?_____");

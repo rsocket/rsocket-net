@@ -187,8 +187,8 @@ namespace RSocket
 
 		public static BufferWriter Get(IBufferWriter<byte> bufferWriter, Encoding encoding = null)
 		{
-			var writer = Instance ?? new BufferWriter(null, encoding);	//Special initialization to track prior use.
-			Instance = null;											//Decache this on the thread
+			var writer = Instance ?? new BufferWriter(null, encoding); //Special initialization to track prior use.
+			Instance = null; //Decache this on the thread
 #if DEBUG
 			if (writer.InUse) { throw new InvalidOperationException($"The {nameof(BufferWriter)} wasn't returned!"); }
 #endif

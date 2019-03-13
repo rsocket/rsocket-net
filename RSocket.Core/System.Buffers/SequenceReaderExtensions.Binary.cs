@@ -55,7 +55,7 @@ namespace System.Buffers
 			}
 
 #if NETSTANDARD2_0
-			value = MemoryMarshal.Read<T>(tempSpan);	//FROM https://github.com/dotnet/corefxlab/blob/138c21ab030710c4d9e31d6fab7e928215e3ecc5/src/System.Buffers.ReaderWriter/System/Buffers/Reader/BufferReader_binary.cs#L46
+			value = MemoryMarshal.Read<T>(tempSpan); //FROM https://github.com/dotnet/corefxlab/blob/138c21ab030710c4d9e31d6fab7e928215e3ecc5/src/System.Buffers.ReaderWriter/System/Buffers/Reader/BufferReader_binary.cs#L46
 #else
 			value = Unsafe.ReadUnaligned<T>(ref MemoryMarshal.GetReference(tempSpan));
 #endif
