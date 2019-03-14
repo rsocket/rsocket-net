@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using RSocket.Collections.Generic;
 using RSocket.Transports;
 
 namespace RSocket.Tests
@@ -37,20 +36,25 @@ namespace RSocket.Tests
 		[TestMethod]
 		public void ServerRequestStreamTest()
 		{ 
-			Server.Streamer =
-			//			IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Streamer
-			((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-			{
-				return Yield().AsyncEnumerate();
+			//Server.Streamer =
+			////			IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Streamer
+			//((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+			//{
+			//	AsyncEnumerable.Create(cancel =>
+			//		AsyncEnumerator.Create(
+				
+			//	)
 
-				IEnumerable<Task<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Yield()
-				{
-					yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-					yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-					yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-					async Task<T> Delay<T>(TimeSpan delay, Task<T> yield) { await Task.Delay(delay); return await yield; }
-				}
-			};
+			//	return Yield().AsyncEnumerate();
+
+			//	IEnumerable<Task<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Yield()
+			//	{
+			//		yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
+			//		yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
+			//		yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
+			//		async Task<T> Delay<T>(TimeSpan delay, Task<T> yield) { await Task.Delay(delay); return await yield; }
+			//	}
+			//};
 
 			//var astream = StringClient.RequestStream("TEST DATA", "METADATA?_____");
 

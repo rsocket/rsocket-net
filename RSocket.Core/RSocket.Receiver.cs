@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using RSocket.Collections.Generic;
 
 namespace RSocket
 {
@@ -27,8 +26,8 @@ namespace RSocket
 			{
 				var receiver = new Receiver();
 				await Subscriber(receiver);
-				var result = await receiver.Awaitable;
-				return Mapper((result.data, result.metadata));
+				var (metadata, data) = await receiver.Awaitable;
+				return Mapper((data, metadata));
 			}
 
 			public async Task<T> ExecuteAsync(T result, CancellationToken cancellation = default)
