@@ -27,5 +27,15 @@ namespace RSocket.Tests
 				() => enumerator.Current,
 				() => enumerator.DisposeAsync());
 		});
+
+
+		static public async Task<List<T>> ToListAsync<T>(this IAsyncEnumerable<T> source)
+		{
+			var list = new List<T>();
+			var enumerator = source.GetAsyncEnumerator();
+			try { while (await enumerator.MoveNextAsync()) { list.Add(enumerator.Current); } }
+			finally { await enumerator.DisposeAsync(); }
+			return list;
+		}
 	}
 }

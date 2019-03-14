@@ -10,7 +10,7 @@ using async_enumerable_dotnet;
 namespace RSocket.Tests
 {
 	[TestClass]
-	public class ServerAlternateTests
+	public class ServerAlternateProducerTests
 	{
 		LoopbackTransport Loopback;
 		RSocketClient Client;
@@ -29,10 +29,8 @@ namespace RSocket.Tests
 
 			var (data, metadata) = ("TEST DATA", "METADATA?_____");
 
-			var enumerator = StringClient.RequestStream(data, metadata).GetAsyncEnumerator();
-			var list = new List<string>();
-			try { while (await enumerator.MoveNextAsync()) { list.Add(enumerator.Current); } }     //This is basically ToList()
-			finally { enumerator.DisposeAsync().AsTask().Wait(); }
+			var list = await StringClient.RequestStream(data, metadata)
+				.ToListAsync();
 
 			Assert.AreEqual(3, list.Count, "Stream contents missing.");
 			list.ForEach(item => Assert.AreEqual(item, data, "Stream contents mismatch."));
