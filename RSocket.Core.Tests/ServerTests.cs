@@ -49,7 +49,7 @@ namespace RSocket.Tests
 		}
 
 		[TestMethod]
-		public async Task ServerRequestStreamBinaryTest()
+		public async Task ServerRequestStreamBinaryDetailsTest()
 		{
 			var count = 20;
 			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
@@ -73,18 +73,32 @@ namespace RSocket.Tests
 			}
 		}
 
+
+		//[TestMethod]
+		//public async Task ServerRequestChannelTest()
+		//{
+		//	Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
+		//	{
+		//		foreach (var index in Enumerable.Range(0, 3))
+		//		{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
+		//	}).ToAsyncEnumerable();
+
+		//	var (data, metadata) = ("TEST DATA", "METADATA?_____");
+		//	var list = await StringClient.RequestStream(data, metadata).ToListAsync();
+		//	Assert.AreEqual(3, list.Count, "Stream contents missing.");
+		//	list.ForEach(item => Assert.AreEqual(item, data, "Stream contents mismatch."));
+		//}
+
+
 		[TestInitialize]
 		public void TestInitialize()
 		{
-			Loopback = new Transports.LoopbackTransport(DuplexPipe.ImmediateOptions, DuplexPipe.ImmediateOptions);
+			Loopback = new LoopbackTransport(DuplexPipe.ImmediateOptions, DuplexPipe.ImmediateOptions);
 			Client = new RSocketClient(Loopback);
 			Server = new RSocketServer(Loopback.Beyond);
 			Client.ConnectAsync().Wait();
 			Server.ConnectAsync().Wait();
 			StringClient = new RSocketClient.ForStrings(Client);
-			//_Client = new Lazy<RSocketClient>(() => new RSocketClient(Loopback).ConnectAsync().Result);
-			//RSocketClient Client => _Client.Value; Lazy<RSocketClient> _Client;
-			//RSocketServer Server => _Server.Value; Lazy<RSocketServer> _Server;
 		}
 	}
 

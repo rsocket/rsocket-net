@@ -165,7 +165,6 @@ namespace RSocket
 		public virtual void Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
 		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
 		void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
-		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
 
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), Task<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Responder { get; set; } = request => throw new NotImplementedException();
 
@@ -203,6 +202,39 @@ namespace RSocket
 				}
 				finally { await enumerator.DisposeAsync(); }
 			}
+		}
+
+
+		public Func<IAsyncEnumerable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Channeler { get; set; } = request => throw new NotImplementedException();
+
+		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) 
+		{
+			throw new NotImplementedException();
+			//Respond(message.Stream).Start();
+
+			//new Receiver<bool>()
+
+			//new Receiver<bool>(stream => RequestFireAndForget(stream, data, metadata), _ => true).ExecuteAsync(result: true);
+			//var id = StreamDispatch(stream);
+
+
+			//async Task Respond(int stream)
+			//{
+			//	var source = Channeler((data, metadata));     //TODO Handle Errors.
+			//	var enumerator = source.GetAsyncEnumerator();
+			//	try
+			//	{
+			//		while (await enumerator.MoveNextAsync())
+			//		{
+			//			var (Data, Metadata) = enumerator.Current;
+			//			new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
+			//			await Transport.Output.FlushAsync();
+			//		}
+			//		new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
+			//		await Transport.Output.FlushAsync();
+			//	}
+			//	finally { await enumerator.DisposeAsync(); }
+			//}
 		}
 	}
 }
