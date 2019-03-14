@@ -39,22 +39,25 @@ namespace RSocket
 
 			public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation = default)
 			{
-				var enumerator = new MappedEnumerator(Mapper);
+				var enumerator = new Enumerator(Mapper);
 				Subscriber(enumerator);     //TODO Do we want to use this task too? It could fault. Also, cancellation. Nope, this should only await on the first MoveNext, so subscription is lower.
 				return enumerator;
 			}
 
-			private class Enumerator : IAsyncEnumerator<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>, IRSocketStream
+			private class Enumerator : IAsyncEnumerator<T>, IRSocketStream
 			{
+				readonly Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> Mapper;
+
 				public bool IsCompleted { get; private set; } = false;
-				private (ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) Value = default;
-				private ConcurrentQueue<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> Queue;
+				private T Value = default;
+				private ConcurrentQueue<T> Queue;
 				private AsyncManualResetEvent Continue = new AsyncManualResetEvent();
 				private Exception Error;
 
-				public Enumerator()
+				public Enumerator(Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> mapper)
 				{
-					Queue = new ConcurrentQueue<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>();
+					Mapper = mapper;
+					Queue = new ConcurrentQueue<T>();
 				}
 
 				public async ValueTask<bool> MoveNextAsync()
@@ -69,7 +72,7 @@ namespace RSocket
 					}
 				}
 
-				public (ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) Current => Value;
+				public T Current => Value;
 
 				public ValueTask DisposeAsync()
 				{
@@ -82,7 +85,7 @@ namespace RSocket
 				{
 					//TODO Would we really need to interlock this? If the Queue isn't allocated, it's the first time through...?
 					//var value = Interlocked.Exchange<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(ref Value, default);     //TODO Hmmm, no ValueTuples... Could save Queue allocation if only going to get one...
-					Queue.Enqueue(value);
+					Queue.Enqueue(Mapper((value.data, value.metadata)));
 					Continue.Set();
 				}
 
@@ -95,23 +98,23 @@ namespace RSocket
 				}
 			}
 
-			private class MappedEnumerator : Enumerator, IAsyncEnumerator<T>, IRSocketStream
-			{
-				readonly Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> Mapper;
+			//private class MappedEnumerator : Enumerator, IAsyncEnumerator<T>, IRSocketStream
+			//{
+			//	readonly Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> Mapper;
 
-				public MappedEnumerator(Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> mapper)
-				{
-					Mapper = mapper;
-				}
+			//	public MappedEnumerator(Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> mapper)
+			//	{
+			//		Mapper = mapper;
+			//	}
 
-				public new T Current => Mapper(base.Current);
-				//ReadOnlySequence<byte> IAsyncEnumerator<ReadOnlySequence<byte>>.Current => Value.data;
+			//	public new T Current => Mapper(base.Current);
+			//	//ReadOnlySequence<byte> IAsyncEnumerator<ReadOnlySequence<byte>>.Current => Value.data;
 
-				public new ValueTask DisposeAsync()
-				{
-					return base.DisposeAsync();
-				}
-			}
+			//	public new ValueTask DisposeAsync()
+			//	{
+			//		return base.DisposeAsync();
+			//	}
+			//}
 		}
 
 

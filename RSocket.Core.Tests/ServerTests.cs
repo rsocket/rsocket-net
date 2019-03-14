@@ -34,43 +34,43 @@ namespace RSocket.Tests
 		}
 
 		[TestMethod]
-		public void ServerRequestStreamTest()
-		{ 
-			//Server.Streamer =
-			////			IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Streamer
-			//((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-			//{
-			//	AsyncEnumerable.Create(cancel =>
-			//		AsyncEnumerator.Create(
-				
-			//	)
+		public async Task ServerRequestStreamTest()
+		{
+			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
+			{
+				foreach (var index in Enumerable.Range(0, 3))
+				{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
+			}).ToAsyncEnumerable();
 
-			//	return Yield().AsyncEnumerate();
+			var (data, metadata) = ("TEST DATA", "METADATA?_____");
+			var list = await StringClient.RequestStream(data, metadata).ToListAsync();
+			Assert.AreEqual(3, list.Count, "Stream contents missing.");
+			list.ForEach(item => Assert.AreEqual(item, data, "Stream contents mismatch."));
+		}
 
-			//	IEnumerable<Task<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Yield()
-			//	{
-			//		yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-			//		yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-			//		yield return Delay(TimeSpan.FromMilliseconds(10), Task.FromResult((request.Data, request.Metadata)));
-			//		async Task<T> Delay<T>(TimeSpan delay, Task<T> yield) { await Task.Delay(delay); return await yield; }
-			//	}
-			//};
+		[TestMethod]
+		public async Task ServerRequestStreamBinaryTest()
+		{
+			var count = 20;
+			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
+			{
+				foreach (byte index in Enumerable.Range(0, count))
+				{
+					await yield.ReturnAsync((
+						new ReadOnlySequence<byte>(request.Data.ToArray().Skip(index).Take(1).ToArray()),
+						new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(index).Take(1).ToArray())));
+				}
+			}).ToAsyncEnumerable();
 
-			//var astream = StringClient.RequestStream("TEST DATA", "METADATA?_____");
+			var (requestData, requestMetadata) = (Enumerable.Range(1, count).Select(i => (byte)i).ToArray(), Enumerable.Range(100, count).Select(i => (byte)i).ToArray());
+			var list = await Client.RequestStream(result => (Data: result.data.ToArray(), Metadata: result.metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();
+			Assert.AreEqual(count, list.Count, "Stream contents missing.");
 
-			var list = new List<string>();
-			var data = "TEST DATA";
-			var metadata = "METADATA?_____";
-
-			var source = Client.RequestStream<string>(value => Encoding.UTF8.GetString(value.data.ToArray()),
-				new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)),
-				metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
-			var enumerator = source.GetAsyncEnumerator();
-			try { while (enumerator.MoveNextAsync().Result) { list.Add(enumerator.Current); } }
-			finally { enumerator.DisposeAsync().AsTask().Wait(); }
-
-	//		var stream = astream.ToEnumerable().ToList();
-	//		Assert.AreEqual(3, stream.Count, "Stream contents missing.");
+			for (int i = 0; i < list.Count; i++)
+			{
+				Assert.AreEqual(requestData[i], list[i].Data[0], "Data Sequence Mismatch");
+				Assert.AreEqual(requestMetadata[i], list[i].Metadata[0], "Metadata Sequence Mismatch");
+			}
 		}
 
 		[TestInitialize]
