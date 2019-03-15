@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+
 namespace RSocket
 {
 	public interface IRSocketChannel
@@ -27,12 +29,6 @@ namespace RSocket
 		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
 		private int StreamDispatch(IRSocketStream transform) { var id = NewStreamId(); Dispatcher[id] = transform; return id; }
 		//TODO Stream Destruction - i.e. removal from the dispatcher.
-
-		//TODO This isn't going to be used. Remove
-		private ConcurrentDictionary<int, IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>> Dispatcher2 = new ConcurrentDictionary<int, IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>>();
-		private int StreamDispatch(IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> transform) { var id = NewStreamId(); Dispatcher2[id] = transform; return id; }
-
-		//private ConcurrentDictionary<int, IRSocketChannel> Channels = new ConcurrentDictionary<int, IRSocketChannel>();
 
 		protected IDisposable ChannelSubscription;      //TODO Tracking state for channels
 

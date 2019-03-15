@@ -5,6 +5,8 @@ using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RSocket.Transports;
 
+using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+
 namespace RSocket.Tests
 {
 	[TestClass]
@@ -12,7 +14,8 @@ namespace RSocket.Tests
 	{
 
 		[TestClass]
-		public class ClientTests
+        [Ignore]
+        public class ClientTests
 		{
 			Lazy<RSocketClient> _Client;
 			RSocketClient Client => _Client.Value;

@@ -36,11 +36,9 @@ namespace RSocket.Tests
 		[TestMethod]
 		public async Task ServerRequestStreamTest()
 		{
-			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
-			{
-				foreach (var index in Enumerable.Range(0, 3))
-				{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
-			}).ToAsyncEnumerable();
+            Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+                AsyncEnumerable.Range(0, 3)
+                    .Select(i => (request.Data, request.Metadata));
 
 			var (data, metadata) = ("TEST DATA", "METADATA?_____");
 			var list = await StringClient.RequestStream(data, metadata).ToListAsync();
@@ -52,15 +50,11 @@ namespace RSocket.Tests
 		public async Task ServerRequestStreamBinaryDetailsTest()
 		{
 			var count = 20;
-			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
-			{
-				foreach (byte index in Enumerable.Range(0, count))
-				{
-					await yield.ReturnAsync((
-						new ReadOnlySequence<byte>(request.Data.ToArray().Skip(index).Take(1).ToArray()),
-						new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(index).Take(1).ToArray())));
-				}
-			}).ToAsyncEnumerable();
+            Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+                AsyncEnumerable.Range(0, count)
+                    .Select(i => (
+                        new ReadOnlySequence<byte>(request.Data.ToArray().Skip(i).Take(1).ToArray()),
+                        new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
 
 			var (requestData, requestMetadata) = (Enumerable.Range(1, count).Select(i => (byte)i).ToArray(), Enumerable.Range(100, count).Select(i => (byte)i).ToArray());
 			var list = await Client.RequestStream(result => (Data: result.data.ToArray(), Metadata: result.metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();

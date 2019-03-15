@@ -5,7 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RSocket.Transports;
-using async_enumerable_dotnet;
+using System.Linq;
+using System.Reactive.Linq;
 
 namespace RSocket.Tests
 {
@@ -21,11 +22,11 @@ namespace RSocket.Tests
 		[TestMethod]
 		public async Task ServerRequestStreamTest()
 		{
-			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-				AsyncEnumerable.Interval(TimeSpan.FromMilliseconds(10))
-					.Take(3)
-					.Map(i => (request.Data, request.Metadata))
-					.ToAsyncEnumerable();
+            Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+                Observable.Interval(TimeSpan.FromMilliseconds(10))
+                    .Take(3)
+                    .Select(i => (request.Data, request.Metadata))
+                    .ToAsyncEnumerable();
 
 			var (data, metadata) = ("TEST DATA", "METADATA?_____");
 
