@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+
 namespace RSocket
 {
 	public interface IRSocketSerializer { ReadOnlySequence<byte> Serialize<T>(in T item); }         //FUTURE C#8.0 static interface member
@@ -67,7 +69,13 @@ namespace RSocket
 			private readonly RSocketClient Client;
 			public ForStrings(RSocketClient client) { Client = client; }
 			public Task<string> RequestResponse(string data, string metadata = default) => Client.RequestResponse(value => Encoding.UTF8.GetString(value.data.ToArray()), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
-			public IAsyncEnumerable<string> RequestStream(string data, string metadata = default) => Client.RequestStream(value => Encoding.UTF8.GetString(value.data.ToArray()), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
-		}
+            public IAsyncEnumerable<string> RequestStream(string data, string metadata = default)
+            {
+                return Client.RequestStream(value =>
+                {
+                    return Encoding.UTF8.GetString(value.data.ToArray());
+                }, new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+            }
+        }
 	}
 }
