@@ -77,11 +77,17 @@ namespace RSocket.Tests
 		//[TestMethod]
 		//public async Task ServerRequestChannelTest()
 		//{
-		//	Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) => new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
+		//	Server.Channeler = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> incoming) =>
 		//	{
-		//		foreach (var index in Enumerable.Range(0, 3))
-		//		{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
-		//	}).ToAsyncEnumerable();
+		//		Action<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> onNext = value => { };
+		//		Action OnCompleted = () => { };
+		//		var enumerable = new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
+		//		{
+		//			foreach (var index in Enumerable.Range(0, 3))
+		//			{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
+		//		}).ToAsyncEnumerable();
+		//		return (onNext, OnCompleted, enumerable);
+		//	};
 
 		//	var (data, metadata) = ("TEST DATA", "METADATA?_____");
 		//	var list = await StringClient.RequestStream(data, metadata).ToListAsync();
@@ -100,23 +106,5 @@ namespace RSocket.Tests
 			Server.ConnectAsync().Wait();
 			StringClient = new RSocketClient.ForStrings(Client);
 		}
-	}
-
-
-	public class Sample
-	{
-		static Random random = new Random(1234);
-		public int Id = random.Next(1000000);
-		public string Name = nameof(Sample) + random.Next(10000).ToString();
-		public DateTime Created = DateTime.Now;
-
-		public static implicit operator string(Sample value) => string.Join('|', value.Id, value.Name, value.Created);
-		public static implicit operator ReadOnlySequence<byte>(Sample value) => new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(string.Join('|', value.Id, value.Name, value.Created)));
-		public static implicit operator Sample(string value) { var values = value.Split('|'); return new Sample(values[0], values[1], values[2]); }
-		public static implicit operator Sample(ReadOnlySequence<byte> value) => Encoding.UTF8.GetString(value.ToArray());
-
-		public Sample() { }
-		public Sample(string id, string name, string created) { Id = int.Parse(id); Name = name; Created = DateTime.Parse(created); }
-		public ReadOnlySequence<byte> Bytes => this;
 	}
 }
