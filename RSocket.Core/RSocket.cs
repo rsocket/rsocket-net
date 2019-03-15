@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -85,7 +85,7 @@ namespace RSocket
 			return channel;
 		}
 
-		protected class Channel : IRSocketChannel		//TODO hmmm...
+		protected class Channel : IRSocketChannel       //TODO hmmm...
 		{
 			readonly RSocket Socket;
 			readonly int Stream;
@@ -219,37 +219,38 @@ namespace RSocket
 		//		IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Outgoing)>
 		//	 Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
 
-		//void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) 
-		//{
-		//	Channel(message.Stream).Start();
+		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+			throw new NotImplementedException();
+			//	Channel(message.Stream).Start();
 
-		//	//new Receiver<bool>()
+			//	//new Receiver<bool>()
 
-		//	//new Receiver<bool>(stream => RequestFireAndForget(stream, data, metadata), _ => true).ExecuteAsync(result: true);
-		//	//var id = StreamDispatch(stream);
+			//	//new Receiver<bool>(stream => RequestFireAndForget(stream, data, metadata), _ => true).ExecuteAsync(result: true);
+			//	//var id = StreamDispatch(stream);
 
-		//	async Task Channel(int stream)
-		//	{
-		//		var (Incoming, Outoing) = Channeler((data, metadata));     //TODO Handle Errors.
+			//	async Task Channel(int stream)
+			//	{
+			//		var (Incoming, Outoing) = Channeler((data, metadata));     //TODO Handle Errors.
 
 
-		//		using (observable.Subscribe())
-		//		{
-		//			var enumerator = source.GetAsyncEnumerator();
-		//			try
-		//			{
-		//				while (await enumerator.MoveNextAsync())
-		//				{
-		//					var (Data, Metadata) = enumerator.Current;
-		//					new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
-		//					await Transport.Output.FlushAsync();
-		//				}
-		//				new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
-		//				await Transport.Output.FlushAsync();
-		//			}
-		//			finally { await enumerator.DisposeAsync(); }
-		//		}
-		//	}
-		//}
+			//		using (observable.Subscribe())
+			//		{
+			//			var enumerator = source.GetAsyncEnumerator();
+			//			try
+			//			{
+			//				while (await enumerator.MoveNextAsync())
+			//				{
+			//					var (Data, Metadata) = enumerator.Current;
+			//					new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
+			//					await Transport.Output.FlushAsync();
+			//				}
+			//				new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
+			//				await Transport.Output.FlushAsync();
+			//			}
+			//			finally { await enumerator.DisposeAsync(); }
+			//		}
+			//	}
+		}
 	}
 }
