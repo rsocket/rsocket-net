@@ -50,11 +50,18 @@ namespace RSocket.Tests
 		public async Task ServerRequestStreamBinaryDetailsTest()
 		{
 			var count = 20;
-            Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-                AsyncEnumerable.Range(0, count)
-                    .Select(i => (
-                        new ReadOnlySequence<byte>(request.Data.ToArray().Skip(i).Take(1).ToArray()),
-                        new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
+			Server.Stream(request => (Data: request.Data.ToArray(), Metadata: request.Metadata.ToArray()),
+				request => from index in AsyncEnumerable.Range(0, count) select (Data: request.Data.Skip(index).Take(1), Metadata: request.Metadata.Skip(index).Take(1)),
+				result => (
+					new ReadOnlySequence<byte>(result.Data.ToArray()),
+					new ReadOnlySequence<byte>(result.Metadata.ToArray()))
+				);
+			//TODO Split into separate test - this is a good pattern for some things.
+            //Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+            //    AsyncEnumerable.Range(0, count)
+            //        .Select(i => (
+            //            new ReadOnlySequence<byte>(request.Data.ToArray().Skip(i).Take(1).ToArray()),
+            //            new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
 
 			var (requestData, requestMetadata) = (Enumerable.Range(1, count).Select(i => (byte)i).ToArray(), Enumerable.Range(100, count).Select(i => (byte)i).ToArray());
 			var list = await Client.RequestStream(result => (Data: result.data.ToArray(), Metadata: result.metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();
@@ -68,26 +75,30 @@ namespace RSocket.Tests
 		}
 
 
-		//[TestMethod]
-		//public async Task ServerRequestChannelTest()
-		//{
-		//	Server.Channeler = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> incoming) =>
-		//	{
-		//		Action<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> onNext = value => { };
-		//		Action OnCompleted = () => { };
-		//		var enumerable = new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
-		//		{
-		//			foreach (var index in Enumerable.Range(0, 3))
-		//			{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
-		//		}).ToAsyncEnumerable();
-		//		return (onNext, OnCompleted, enumerable);
-		//	};
+		[TestMethod, Ignore]
+		public async Task ServerRequestChannelTest()
+		{
+			//Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> channeler =
+			//	(request, incoming) => incoming.ToAsyncEnumerable();
+			Server.Channeler = (request, incoming) => incoming.ToAsyncEnumerable().Select(_ => { Console.WriteLine("_"); return _; });
 
-		//	var (data, metadata) = ("TEST DATA", "METADATA?_____");
-		//	var list = await StringClient.RequestStream(data, metadata).ToListAsync();
-		//	Assert.AreEqual(3, list.Count, "Stream contents missing.");
-		//	list.ForEach(item => Assert.AreEqual(item, data, "Stream contents mismatch."));
-		//}
+			//Server.Channeler = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> incoming) =>
+			//{
+			//	Action<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> onNext = value => { };
+			//	Action OnCompleted = () => { };
+			//	var enumerable = new System.Collections.Async.AsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>(async yield =>
+			//	{
+			//		foreach (var index in Enumerable.Range(0, 3))
+			//		{ await Task.CompletedTask; await yield.ReturnAsync((request.Data, request.Metadata)); }
+			//	}).ToAsyncEnumerable();
+			//	return (onNext, OnCompleted, enumerable);
+			//};
+
+			var (data, metadata) = ("TEST DATA", "METADATA?_____");
+			var list = await StringClient.RequestChannel(AsyncEnumerable.Range(0, 2).Select(i => $"INPUT {i}"), data, metadata).ToListAsync();
+			Assert.AreEqual(2, list.Count, "Stream contents missing.");
+			//list.ForEach(item => Assert.AreEqual(item, data, "Stream contents mismatch."));
+		}
 
 
 		[TestInitialize]

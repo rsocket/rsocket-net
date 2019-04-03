@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Linq;
@@ -107,6 +107,7 @@ namespace RSocket
 			}
 
 			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data, metadata); var result = pipe.FlushAsync(cancel); return result.IsCompleted ? Task.CompletedTask : result.AsTask(); }  //TODO Consider implementing elsewhere.
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{

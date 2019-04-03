@@ -3,6 +3,8 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Reactive.Linq;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +29,8 @@ namespace RSocket
 		private int NewStreamId() => Interlocked.Add(ref StreamId, 2);  //TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
 
 		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
-		private int StreamDispatch(IRSocketStream transform) { var id = NewStreamId(); Dispatcher[id] = transform; return id; }
+		private int StreamDispatch(int id, IRSocketStream transform) { Dispatcher[id] = transform; return id; }
+		private int StreamDispatch(IRSocketStream transform) => StreamDispatch(NewStreamId(), transform);
 		//TODO Stream Destruction - i.e. removal from the dispatcher.
 
 		protected IDisposable ChannelSubscription;      //TODO Tracking state for channels
@@ -81,16 +84,16 @@ namespace RSocket
 			var id = StreamDispatch(stream);
 			new RSocketProtocol.RequestChannel(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).Write(Transport.Output, data, metadata);
 			await Transport.Output.FlushAsync();
-			var channel = new Channel(this, id);
+			var channel = new ChannelHandler(this, id);
 			return channel;
 		}
 
-		protected class Channel : IRSocketChannel       //TODO hmmm...
+		protected class ChannelHandler : IRSocketChannel       //TODO hmmm...
 		{
 			readonly RSocket Socket;
 			readonly int Stream;
 
-			public Channel(RSocket socket, int stream) { Socket = socket; Stream = stream; }
+			public ChannelHandler(RSocket socket, int stream) { Socket = socket; Stream = stream; }
 
 			public Task Send((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value)
 			{
@@ -176,6 +179,12 @@ namespace RSocket
 		}
 
 
+		public void Stream<TRequest, TResult>(
+			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
+			Func<TRequest, IAsyncEnumerable<TResult>> producer,
+			Func<TResult, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> resultTransform) =>
+			Streamer = (request) => from result in producer(requestTransform(request)) select resultTransform(result);
+
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Streamer { get; set; } = request => throw new NotImplementedException();
 
 		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
@@ -184,44 +193,96 @@ namespace RSocket
 			async Task Stream(int stream)
 			{
 				var source = Streamer((data, metadata));     //TODO Handle Errors.
-				var enumerator = source.GetAsyncEnumerator();
-				try
-				{
-					while (await enumerator.MoveNextAsync())
-					{
-						var (Data, Metadata) = enumerator.Current;
-						new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
-						await Transport.Output.FlushAsync();
-					}
-					new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
-					await Transport.Output.FlushAsync();
-				}
-				finally { await enumerator.DisposeAsync(); }
+				await ForEach(source,
+					action: value => new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata),
+					final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
+
+				//var source = Streamer((data, metadata));     //TODO Handle Errors.
+				//var enumerator = source.GetAsyncEnumerator();
+				//try
+				//{
+				//	while (await enumerator.MoveNextAsync())
+				//	{
+				//		var (Data, Metadata) = enumerator.Current;
+				//		new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
+				//		await Transport.Output.FlushAsync();
+				//	}
+				//	new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
+				//	await Transport.Output.FlushAsync();
+				//}
+				//finally { await enumerator.DisposeAsync(); }
 			}
 		}
 
 
-		//public void Channel<TSource, TResult>(IAsyncEnumerable<TSource> outgoing, 
+		//public void Channel<TSource, TResult>(Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata),
+		//		(IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Incoming,
+		//		IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Outgoing)>
+
+
 		//	Func<TSource, (ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> outgoingMapper,
 		//	Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), TResult> incomingMapper)
 		//{
-		//	var receiver = new Receiver<TSource>(stream => Task.CompletedTask, sourceMapper);
+		//	var observable = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => {
+		//		Subscriber(observer).ConfigureAwait(false);
+		//	});
+		//	return observable
+		//		.Select(value => Mapper((value.data, value.metadata)))
+		//		.ToAsyncEnumerable()
+
+		//		.GetAsyncEnumerator(cancellation);
+
+		//	var receiver = new Receiver<TResult>(stream => Task.CompletedTask, incomingMapper);
 
 		//	Channeler = request =>
 		//	(
-		//		receiver, 
+		//		receiver,
 		//	);
 		//}
 
+		public void Channel<TRequest, TIncoming, TOutgoing>(Func<TRequest, IObservable<TIncoming>, IAsyncEnumerable<TOutgoing>> pipeline,
+			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
+			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TIncoming> incomingTransform,
+			Func<TOutgoing, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> outgoingTransform) =>
+			Channeler = (request, incoming) => from result in pipeline(requestTransform(request), from item in incoming select incomingTransform(item)) select outgoingTransform(result);
 
-		//public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata),
-		//		(IObservable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Incoming,
-		//		IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> Outgoing)>
-		//	 Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
+
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
+
 
 		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			throw new NotImplementedException();
+			Channel(message.Stream).Start();
+			async Task Channel(int stream, CancellationToken cancel = default)
+			{
+				//TODO Elsewhere in previous changes, bad Disposable.Empty
+				var inc = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => () => StreamDispatch(stream, observer));
+				var outgoing = Channeler((data, metadata), inc);     //TODO Handle Errors.
+
+				await ForEach(outgoing,
+					action: value => new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata),
+					final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
+
+				//var outgoingstream = ForEach(outgoing,
+				//	action: value => new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata),
+				//	final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
+
+				//var enumerator = outgoing.GetAsyncEnumerator();
+				//try
+				//{
+				//	while (await enumerator.MoveNextAsync())
+				//	{
+				//		var (Data, Metadata) = enumerator.Current;
+				//		new RSocketProtocol.Payload(stream, Data, Metadata, next: true).Write(Transport.Output, Data, Metadata);
+				//		await Transport.Output.FlushAsync();
+				//	}
+				//	new RSocketProtocol.Payload(stream, complete: true).Write(Transport.Output);
+				//	await Transport.Output.FlushAsync();
+				//}
+				//finally { await enumerator.DisposeAsync(); }
+			}
+
+
 			//	Channel(message.Stream).Start();
 
 			//	//new Receiver<bool>()
@@ -251,6 +312,18 @@ namespace RSocket
 			//			finally { await enumerator.DisposeAsync(); }
 			//		}
 			//	}
+		}
+
+		internal static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, CancellationToken cancel = default, Func<Task> final = default)
+		{
+			//No idea why this isn't public... https://github.com/dotnet/reactive/blob/master/Ix.NET/Source/System.Linq.Async/System/Linq/Operators/ForEach.cs#L58
+			var enumerator = AsyncEnumerableExtensions.WithCancellation(source, cancel).ConfigureAwait(false).GetAsyncEnumerator();
+			try
+			{
+				while (await enumerator.MoveNextAsync()) { await action(enumerator.Current); }
+				await final?.Invoke();
+			}
+			finally { await enumerator.DisposeAsync(); }
 		}
 	}
 }

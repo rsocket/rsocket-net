@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -57,6 +57,7 @@ namespace RSocket
                 return observable
                     .Select(value => Mapper((value.data, value.metadata)))
                     .ToAsyncEnumerable()
+					
                     .GetAsyncEnumerator(cancellation);
             }
 		}
