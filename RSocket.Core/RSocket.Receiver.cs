@@ -34,8 +34,9 @@ namespace RSocket
                     Subscriber(observer).ConfigureAwait(false);
                     return Disposable.Empty;
                 });
-                var (metadata, data) = await observable.ToTask(cancellation);
-                return Mapper((data, metadata));
+
+				var (metadata, data) = await observable.ToTask(cancellation);
+				return Mapper((data, metadata));
 			}
 
 			public async Task<T> ExecuteAsync(T result, CancellationToken cancellation = default)
