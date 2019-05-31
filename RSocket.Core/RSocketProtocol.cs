@@ -29,14 +29,15 @@ namespace RSocket
 		//TODO Feature QuickStart in the fashion of the existing ones
 		//TODO Test Both WS and TCP with >Memory<T> buffer size. Since they don't accumulate in the state machine, they probably can overflow.
 
-		public const int MESSAGEFRAMESIZE = INT24SIZE;	//This may be large than the FRAMELENGTHSIZE if the messages are padded inside of pipelines.
-		//static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
-		//static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
+		public const int MESSAGEFRAMESIZE = INT24SIZE;  //This may be large than the FRAMELENGTHSIZE if the messages are padded inside of pipelines.
+														//static public int MessageFrame(int length, bool isEndOfMessage) => isEndOfMessage ? length | (0b1 << sizeof(int) * 8 - 1) : length;	//High bit is EoM mark. Can't use twos-complement because negative zero is a legal value.
+														//static public (int length, bool isEndofMessage) MessageFrame(int frame) => ((frame & ~(0b1 << sizeof(int) * 8 - 1)), (frame & (0b1 << sizeof(int) * 8 - 1)) != 0);
 		static public (int Length, bool IsEndofMessage) MessageFrame(int frame) => (frame, true);
 		static public int MessageFrame(int length, bool isEndOfMessage) => length;
 		static public void MessageFrameWrite(int length, bool isEndOfMessage, Span<byte> target) { target[2] = (byte)((length >> 8 * 0) & 0xFF); target[1] = (byte)((length >> 8 * 1) & 0xFF); target[0] = (byte)((length >> 8 * 2) & 0xFF); }
 		static public (int Length, bool IsEndOfMessage) MessageFramePeek(ReadOnlySequence<byte> sequence) { var reader = new SequenceReader<byte>(sequence); return reader.TryRead(out byte b1) && reader.TryRead(out byte b2) && reader.TryRead(out byte b3) ? ((b1 << 8 * 2) | (b2 << 8 * 1) | (b3 << 8 * 0), true) : (0, false); }
 
+		static Task Flush(PipeWriter pipe, CancellationToken cancel) { var result = pipe.FlushAsync(cancel); return result.IsCompleted ? Task.CompletedTask : result.AsTask(); }
 
 		static bool TryReadRemaining(in Header header, int innerlength, ref SequenceReader<byte> reader, out int metadatalength)
 		{
@@ -52,6 +53,7 @@ namespace RSocket
 			datalength = header.Remaining - innerlength - header.MetadataHeaderLength - metadatalength;
 			return true;
 		}
+
 
 
 		public ref struct Payload
@@ -106,8 +108,8 @@ namespace RSocket
 				return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
-			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data, metadata); var result = pipe.FlushAsync(cancel); return result.IsCompleted ? Task.CompletedTask : result.AsTask(); }  //TODO Consider implementing elsewhere.
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{
@@ -116,8 +118,8 @@ namespace RSocket
 				written += writer.Write(data);
 			}
 
-			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
-			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
+			public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 
 			public override string ToString() => $"{Header.ToString()} {ToStringFlags()}, Metadata[{MetadataLength}], Data[{DataLength}]";
 			string ToStringFlags() => Header.ToStringFlags(new[] { (HasFollows, nameof(HasFollows), string.Empty), (IsComplete, nameof(IsComplete), string.Empty), (IsNext, nameof(IsNext), string.Empty) });
@@ -215,7 +217,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
@@ -226,8 +229,8 @@ namespace RSocket
 				return written;
 			}
 
-			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
-			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
+			public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -278,7 +281,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
@@ -289,8 +293,8 @@ namespace RSocket
 				return written;
 			}
 
-			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
-			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
+			public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -335,7 +339,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
@@ -345,8 +350,8 @@ namespace RSocket
 				return written;
 			}
 
-			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
-			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
+			public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -390,7 +395,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
@@ -400,8 +406,8 @@ namespace RSocket
 				return written;
 			}
 
-			public ReadOnlySequence<byte> ReadMetadata(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
-			public ReadOnlySequence<byte> ReadData(ref SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
+			public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
 		}
 
 
@@ -435,7 +441,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
@@ -500,6 +507,7 @@ namespace RSocket
 			}
 
 			public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, CancellationToken cancel = default) { Write(pipe); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer)
 			{
@@ -543,7 +551,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, CancellationToken cancel = default) { Write(pipe, data: data); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data)
 			{
@@ -590,7 +599,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> metadata) { var writer = BufferWriter.Get(pipe); this.Write(writer, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> metadata) { var writer = BufferWriter.Get(pipe); this.Write(writer, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, metadata: metadata); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> metadata)
 			{
@@ -634,7 +644,8 @@ namespace RSocket
 				return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> extra) { var writer = BufferWriter.Get(pipe); this.Write(writer, extra); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> extra) { var writer = BufferWriter.Get(pipe); this.Write(writer, extra: extra); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> extra, CancellationToken cancel = default) { Write(pipe, extra: extra); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> extra)
 			{
@@ -674,7 +685,8 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, metadata: metadata); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> metadata = default)
 			{
@@ -711,7 +723,8 @@ namespace RSocket
 
 			public bool Validate(bool canContinue = false) => true;
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, CancellationToken cancel = default) { Write(pipe, data: data); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default)
 			{
@@ -764,7 +777,7 @@ namespace RSocket
 				ResumeToken = resumeToken;
 				MetadataMimeType = metadataMimeType;
 				DataMimeType = dataMimeType;
-				ResumeToken = resumeToken;
+				ResumeToken = resumeToken;		//TODO Two of these?
 				MetadataLength = (int)metadata.Length;
 				DataLength = (int)data.Length;
 				HasResume = resumeToken != default && resumeToken.Length > 0;
@@ -819,7 +832,8 @@ namespace RSocket
 			}
 
 			//TODO So common, should be library..?
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data, metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata:metadata); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{
@@ -834,6 +848,10 @@ namespace RSocket
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 			}
+
+			public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
+			public void Read(ref SequenceReader<byte> reader, out ReadOnlySequence<byte> metadata, out ReadOnlySequence<byte> data) { metadata = ReadMetadata(reader); data = ReadData(reader); reader.Advance(metadata.Length + data.Length); }
 		}
 
 

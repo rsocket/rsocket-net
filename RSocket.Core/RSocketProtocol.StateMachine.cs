@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -85,19 +85,19 @@ namespace RSocket
 						break;
 					case Types.Request_Response:
 						var requestresponse = new RequestResponse(header, ref reader);
-						if (requestresponse.Validate()) { OnRequestResponse(sink, requestresponse, requestresponse.ReadMetadata(ref reader), requestresponse.ReadData(ref reader)); }
+						if (requestresponse.Validate()) { OnRequestResponse(sink, requestresponse, requestresponse.ReadMetadata(reader), requestresponse.ReadData(reader)); }
 						break;
 					case Types.Request_Fire_And_Forget:
 						var requestfireandforget = new RequestFireAndForget(header, ref reader);
-						if (requestfireandforget.Validate()) { OnRequestFireAndForget(sink, requestfireandforget, requestfireandforget.ReadMetadata(ref reader), requestfireandforget.ReadData(ref reader)); }
+						if (requestfireandforget.Validate()) { OnRequestFireAndForget(sink, requestfireandforget, requestfireandforget.ReadMetadata(reader), requestfireandforget.ReadData(reader)); }
 						break;
 					case Types.Request_Stream:
 						var requeststream = new RequestStream(header, ref reader);
-						if (requeststream.Validate()) { OnRequestStream(sink, requeststream, requeststream.ReadMetadata(ref reader), requeststream.ReadData(ref reader)); }
+						if (requeststream.Validate()) { OnRequestStream(sink, requeststream, requeststream.ReadMetadata(reader), requeststream.ReadData(reader)); }
 						break;
 					case Types.Request_Channel:
 						var requestchannel = new RequestChannel(header, ref reader);
-						if (requestchannel.Validate()) { OnRequestChannel(sink, requestchannel, requestchannel.ReadMetadata(ref reader), requestchannel.ReadData(ref reader)); }
+						if (requestchannel.Validate()) { OnRequestChannel(sink, requestchannel, requestchannel.ReadMetadata(reader), requestchannel.ReadData(reader)); }
 						break;
 					case Types.Request_N:
 						var requestne = new RequestN(header, ref reader);
@@ -110,7 +110,7 @@ namespace RSocket
 						Decoded(payload.ToString());
 						if (payload.Validate())
 						{
-							OnPayload(sink, payload, payload.ReadMetadata(ref reader), payload.ReadData(ref reader));
+							OnPayload(sink, payload, payload.ReadMetadata(reader), payload.ReadData(reader));
 							//reader.Sequence.Slice(reader.Position, payload.MetadataLength), reader.Sequence.Slice(reader.Sequence.GetPosition(payload.MetadataLength, reader.Position), payload.DataLength));
 						}
 						break;
