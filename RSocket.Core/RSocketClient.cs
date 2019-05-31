@@ -20,16 +20,18 @@ namespace RSocket
 
 		public RSocketClient(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options) { }
 
-		public async Task ConnectAsync()
+		public Task ConnectAsync(RSocketOptions options = default, byte[] data = default, byte[] metadata = default) => ConnectAsync(options, data: data == default ? default : new ReadOnlySequence<byte>(data), metadata: metadata == default ? default : new ReadOnlySequence<byte>(metadata));
+
+		public async Task ConnectAsync(RSocketOptions options = default, ReadOnlySequence<byte> metadata = default, ReadOnlySequence<byte> data = default)
 		{
+			options = options ?? RSocketOptions.Default;
 			await Transport.StartAsync();
 			Handler = Connect(CancellationToken.None);
-			////TODO Move defaults to policy object, also, maybe not inline, like prefer a method.
-			new RSocketProtocol.Setup(keepalive: TimeSpan.FromSeconds(60), lifetime: TimeSpan.FromSeconds(180), metadataMimeType: "binary", dataMimeType: "binary").Write(Transport.Output);
-			await Transport.Output.FlushAsync();
+			await Setup(options.KeepAlive, options.Lifetime, options.MetadataMimeType, options.DataMimeType, data: data, metadata: metadata);
 		}
 
-		//Ugh, these are all garbage. Remove in favor of the transformation ones.
+
+		//TODO Ugh, these are all garbage. Remove in favor of the transformation ones.
 		public Task<IRSocketChannel> RequestChannel<TData>(IRSocketStream stream, TData data, ReadOnlySpan<byte> metadata = default, int initial = INITIALDEFAULT) => RequestChannel(stream, RequestDataSerializer.Serialize(data), metadata, initial);
 		public Task<IRSocketChannel> RequestChannel<TMetadata>(IRSocketStream stream, ReadOnlySpan<byte> data, TMetadata metadata = default, int initial = INITIALDEFAULT) => RequestChannel(stream, data, RequestMetadataSerializer.Serialize(metadata), initial);
 		public Task<IRSocketChannel> RequestChannel<TData, TMetadata>(IRSocketStream stream, TData data, TMetadata metadata = default, int initial = INITIALDEFAULT) => RequestChannel(stream, RequestDataSerializer.Serialize(data), RequestMetadataSerializer.Serialize(metadata), initial);
