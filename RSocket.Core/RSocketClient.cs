@@ -22,7 +22,7 @@ namespace RSocket
 
 		public Task ConnectAsync(RSocketOptions options = default, byte[] data = default, byte[] metadata = default) => ConnectAsync(options ?? RSocketOptions.Default, data: data == default ? default : new ReadOnlySequence<byte>(data), metadata: metadata == default ? default : new ReadOnlySequence<byte>(metadata));
 
-		async Task ConnectAsync(RSocketOptions options, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		public async Task ConnectAsync(RSocketOptions options, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			await Transport.StartAsync();
 			Handler = Connect(CancellationToken.None);
