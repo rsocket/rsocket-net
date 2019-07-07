@@ -35,8 +35,8 @@ namespace RSocket
                     return Disposable.Empty;
                 });
 
-				var (metadata, data) = await observable.ToTask(cancellation);
-				return Mapper((data, metadata));
+				var value = await observable.ToTask(cancellation);
+				return Mapper((value.data, value.metadata));
 			}
 
 			public async Task<T> ExecuteAsync(T result, CancellationToken cancellation = default)
@@ -58,7 +58,6 @@ namespace RSocket
                 return observable
                     .Select(value => Mapper((value.data, value.metadata)))
                     .ToAsyncEnumerable()
-					
                     .GetAsyncEnumerator(cancellation);
             }
 		}
