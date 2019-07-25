@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Collections.Generic;
 using System.IO.Pipelines;
@@ -20,7 +20,9 @@ namespace RSocket.Transports
 
 		internal Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
-		private volatile bool Aborted;		//TODO Implement cooperative cancellation
+#pragma warning disable CS0649
+		private volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
+#pragma warning restore CS0649
 
 		public Uri Url { get; private set; }
 		private LoggerFactory Logger;

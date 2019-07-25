@@ -1,24 +1,12 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.IO;
 
-namespace RSocket.Serializers
+namespace RSocketSample
 {
-	static public class ProtobufNetSerializerExtension
+	public static class ProtobufNetSerializer
 	{
-		static public TRSocketClient UsingProtobufNetSerialization<TRSocketClient>(this TRSocketClient client, bool useData = true, bool useMetadata = true) where TRSocketClient : RSocketClient
-		{
-			var serializer = new ProtobufNetSerializer();
-			if (useData) { client.RequestDataSerializer = serializer;  client.ResponseDataDeserializer = serializer; }
-			if (useMetadata) { client.RequestMetadataSerializer = serializer; client.ResponseMetadataDeserializer = serializer; }
-			return client;
-		}
-	}
-
-
-	public sealed class ProtobufNetSerializer : IRSocketSerializer, IRSocketDeserializer
-	{
-		public ReadOnlySequence<byte> Serialize<T>(in T item)
+		static public ReadOnlySequence<byte> Serialize<T>(in T item)
 		{
 			if (item == default) { return default; }
 			using (var stream = new MemoryStream())     //According to source, access to the buffer is safe after disposal (See. Dispose()): https://github.com/dotnet/coreclr/blob/master/src/System.Private.CoreLib/shared/System/IO/MemoryStream.cs#L133
@@ -34,7 +22,7 @@ namespace RSocket.Serializers
 			}
 		}
 
-		public T Deserialize<T>(in ReadOnlySequence<byte> data)
+		static public T Deserialize<T>(in ReadOnlySequence<byte> data)
 		{
 			using (var stream = new MemoryStream(data.ToArray(), false))        //TODO A Span<byte> backed stream would be better here.
 			{

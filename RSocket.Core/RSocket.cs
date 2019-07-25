@@ -41,22 +41,6 @@ namespace RSocket
 			Options = options ?? RSocketOptions.Default;
 		}
 
-		//public RSocket(IRSocketServerTransport transport, RSocketOptions options = default)
-		//{
-		//	Transport = new ServerTransport(transport);
-		//	Options = options ?? RSocketOptions.Default;
-		//}
-
-		//private struct ServerTransport : IRSocketTransport
-		//{
-		//	IRSocketServerTransport Transport;
-		//	public ServerTransport(IRSocketServerTransport transport) { Transport = transport; }
-		//	public PipeReader Input => Transport.Input;
-		//	public PipeWriter Output => Transport.Output;
-		//	public Task StartAsync(CancellationToken cancel = default) => Transport.StartAsync(cancel);
-		//	public Task StopAsync() => Transport.StopAsync();
-		//}
-
 		/// <summary>Binds the RSocket to its Transport and begins handling messages.</summary>
 		/// <param name="cancel">Cancellation for the handler. Requesting cancellation will stop message handling.</param>
 		/// <returns>The handler task.</returns>
@@ -100,7 +84,6 @@ namespace RSocket
 
 		public Task RequestStream(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			if (initial <= INITIALDEFAULT) { initial = Options.InitialRequestSize; }
 			var id = StreamDispatch(stream);
 			return new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
 		}
@@ -141,10 +124,6 @@ namespace RSocket
 			}
 		}
 
-		//void Schedule(Task task)
-		//{
-		//	//if (!task.IsCompleted) { task.Start(); }         //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
-		//}
 
 		void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
 		{
@@ -153,7 +132,6 @@ namespace RSocket
 		}
 
 
-		//void IRSocketProtocol.Setup(in RSocketProtocol.Setup message) => Setup(message);
 		public virtual void Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
 		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
 		void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
@@ -174,18 +152,6 @@ namespace RSocket
 				var value = await Responder((data, metadata));     //TODO Handle Errors.
 				await new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true, complete: true).WriteFlush(Transport.Output, value.Data, value.Metadata);
 			});
-			//async Task Respond(int stream)
-			//{
-			//	var value = await Responder((data, metadata));     //TODO Handle Errors.
-			//	await new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true).WriteFlush(Transport.Output, value.Data, value.Metadata);
-			//}
-
-			//ScheduleTask(Respond(message.Stream));
-			//async Task Respond(int stream)
-			//{
-			//	var value = await Responder((data, metadata));     //TODO Handle Errors.
-			//	await new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true).WriteFlush(Transport.Output, value.Data, value.Metadata);
-			//}
 		}
 
 
@@ -206,15 +172,6 @@ namespace RSocket
 					action: value => new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true).WriteFlush(Transport.Output, value.Data, value.Metadata),
 					final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
 			});
-
-			//Schedule(Stream(message.Stream));
-			//async Task Stream(int stream)
-			//{
-			//	var source = Streamer((data, metadata));     //TODO Handle Errors.
-			//	await ForEach(source,
-			//		action: value => new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true).WriteFlush(Transport.Output, value.Data, value.Metadata),
-			//		final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
-			//}
 		}
 
 
@@ -241,29 +198,12 @@ namespace RSocket
 					action: value => new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata),
 					final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
 			});
-			//Schedule(Channel(message.Stream));
-			//async Task Channel(int stream, CancellationToken cancel = default)
-			//{
-			//	//TODO Elsewhere in previous changes, bad Disposable.Empty
-			//	var inc = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => () => StreamDispatch(stream, observer));
-			//	var outgoing = Channeler((data, metadata), inc);     //TODO Handle Errors.
-
-			//	await ForEach(outgoing,
-			//		action: value => new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata),
-			//		final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
-			//}
 		}
 
-		internal static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, CancellationToken cancel = default, Func<Task> final = default)
+		static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, CancellationToken cancel = default, Func<Task> final = default)
 		{
-			//No idea why this isn't public... https://github.com/dotnet/reactive/blob/master/Ix.NET/Source/System.Linq.Async/System/Linq/Operators/ForEach.cs#L58
-			var enumerator = AsyncEnumerableExtensions.WithCancellation(source, cancel).ConfigureAwait(false).GetAsyncEnumerator();
-			try
-			{
-				while (await enumerator.MoveNextAsync()) { await action(enumerator.Current); }
-				await final?.Invoke();
-			}
-			finally { await enumerator.DisposeAsync(); }
+			await source.ForEachAsync(item => action(item), cancel);
+			await final?.Invoke();
 		}
 	}
 }

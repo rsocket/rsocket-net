@@ -126,48 +126,6 @@ namespace RSocket
 		}
 
 
-
-
-		//public ref struct RequestChannel2
-		//{
-		//	public const ushort FLAG_METADATA = 0b___01_00000000;
-		//	public const ushort FLAG_FOLLOWS = 0b____00_10000000;
-		//	public const ushort FLAG_COMPLETE = 0b___00_01000000;
-		//	public bool MetadataPresent { get => (Header.Flags & FLAG_METADATA) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_METADATA) : (ushort)(Header.Flags & ~FLAG_METADATA); }
-		//	public bool Follows { get => (Header.Flags & FLAG_FOLLOWS) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_FOLLOWS) : (ushort)(Header.Flags & ~FLAG_FOLLOWS); }
-		//	public bool Complete { get => (Header.Flags & FLAG_COMPLETE) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_COMPLETE) : (ushort)(Header.Flags & ~FLAG_COMPLETE); }
-
-		//	private Header Header;
-		//	public Int32 InitialRequest;
-		//	public ReadOnlySpan<byte> Metadata;
-		//	public ReadOnlySpan<byte> Data;
-		//	bool HasMetadata => Metadata != default;
-		//	bool HasData => Data != null && Data.Length > 0;
-
-		//	public RequestChannel(Int32 id, ReadOnlySpan<byte> data, ReadOnlySpan<byte> metadata = default, Int32 initialRequest = 0, bool follows = false, bool complete = false)
-		//	{
-		//		Header = new Header(Types.Request_Channel);
-		//		InitialRequest = initialRequest;        //TODO MUST be > 0
-		//		Data = data;
-		//		Metadata = metadata;
-		//		MetadataPresent = HasMetadata;
-		//		Follows = follows;
-		//		Complete = complete;
-		//	}
-
-		//	public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
-
-		//	int Write(BufferWriter writer)
-		//	{
-		//		var written = Header.Write(writer);
-		//		writer.WriteInt32BigEndian(InitialRequest);
-		//		written += sizeof(Int32);
-		//		if (HasMetadata) { written += writer.Write(Metadata); }
-		//		if (HasData) { written += writer.Write(Data); }
-		//		return written;
-		//	}
-		//}
-
 		public ref struct RequestChannel
 		{
 			public const ushort FLAG_FOLLOWS = 0b___00_10000000;
@@ -199,14 +157,6 @@ namespace RSocket
 				Header = header;
 				reader.TryRead(out int initialRequest); InitialRequest = initialRequest;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
-
-				//if (header.HasMetadata)
-				//{
-				//	reader.TryReadUInt24BigEndian(out int length);
-				//	MetadataLength = length;
-				//	DataLength = framelength - header.Length - (sizeof(int) - 1) - MetadataLength;
-				//}
-				//else { MetadataLength = 0; DataLength = framelength - header.Length - MetadataLength; }
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -262,15 +212,7 @@ namespace RSocket
 			{
 				Header = header;
 				reader.TryRead(out int initialRequest); InitialRequest = initialRequest;
-
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
-				//if (header.HasMetadata)
-				//{
-				//	reader.TryReadUInt24BigEndian(out int length);
-				//	MetadataLength = length;
-				//	DataLength = framelength - header.Length - (sizeof(int) - 1) - MetadataLength;
-				//}
-				//else { MetadataLength = 0; DataLength = framelength - header.Length - MetadataLength; }
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -323,13 +265,6 @@ namespace RSocket
 			{
 				Header = header;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
-
-				//if (header.HasMetadata)
-				//{
-				//	reader.TryReadUInt24BigEndian(out int length); MetadataLength = length;     //TODO name fix.. maybe should if..throw to scope the assignment?
-				//	DataLength = framelength - header.Length - (sizeof(int) - 1) - MetadataLength;
-				//}
-				//else { MetadataLength = 0; DataLength = framelength - header.Length - MetadataLength; }
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -380,12 +315,6 @@ namespace RSocket
 			{
 				Header = header;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
-				//if (header.HasMetadata)
-				//{
-				//	reader.TryReadUInt24BigEndian(out int length); MetadataLength = length;		//TODO name fix.. maybe should if..throw to scope the assignment?
-				//	DataLength = framelength - header.Length - (sizeof(int) - 1) - MetadataLength;
-				//}
-				//else { MetadataLength = 0; DataLength = framelength - header.Length - MetadataLength; }
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -451,39 +380,6 @@ namespace RSocket
 				return written;
 			}
 		}
-
-
-		//public ref struct RequestResponse2
-		//{
-		//	public const ushort FLAG_METADATA = 0b__01_00000000;
-		//	public const ushort FLAG_FOLLOWS = 0b___00_10000000;
-		//	public bool MetadataPresent { get => (Header.Flags & FLAG_METADATA) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_METADATA) : (ushort)(Header.Flags & ~FLAG_METADATA); }
-		//	public bool Follows { get => (Header.Flags & FLAG_FOLLOWS) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_FOLLOWS) : (ushort)(Header.Flags & ~FLAG_FOLLOWS); }
-
-		//	private Header Header;
-		//	public string Metadata;
-		//	public byte[] Data;
-		//	bool HasMetadata => !string.IsNullOrEmpty(Metadata);
-		//	bool HasData => Data != null && Data.Length > 0;
-
-		//	public RequestResponse(byte[] data, string metadata = null, bool follows = false)
-		//	{
-		//		Header = new Header(Types.Request_Response);
-		//		Metadata = metadata;
-		//		Data = data;
-		//		MetadataPresent = HasMetadata;
-		//		Follows = follows;
-		//	}
-
-		//	public void Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); this.Write(writer); writer.Flush(); BufferWriter.Return(writer); }
-
-		//	void Write(BufferWriter writer)
-		//	{
-		//		Header.Write(writer);
-		//		if (HasMetadata) { writer.Write(Metadata); }
-		//		if (HasData) { writer.Write(Data); }
-		//	}
-		//}
 
 
 		public ref struct Cancel
@@ -803,26 +699,8 @@ namespace RSocket
 
 				MetadataLength = DataLength = 0;	//Initialize so we can use InnerLength.
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
-				//if (header.HasMetadata)		//TODO This is so common that it should probably be a common function.
-				//{
-				//	reader.TryReadUInt24BigEndian(out int length);
-				//	MetadataLength = length;
-				//	DataLength = framelength - header.Length - (sizeof(int) - 1) - MetadataLength;
-				//}
-				//else { MetadataLength = 0; DataLength = framelength - header.Length - MetadataLength; }
 			}
 
-			////public int Write(PipeWriter pipe) { var writer = BufferWriter.Get(pipe); var written = this.Write(writer); writer.Flush(); BufferWriter.Return(writer); return written; }
-			//public void Write(PipeWriter pipe)
-			//{
-			//	var writer = BufferWriter.Get(pipe);
-			//var frame = writer.Frame();
-			//	var written = this.Write(writer);
-
-			//	writer.Frame(frame, written);
-			//	writer.Flush();
-			//	BufferWriter.Return(writer);
-			//}
 
 			public bool Validate(bool canContinue = false)
 			{

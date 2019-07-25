@@ -34,22 +34,14 @@ namespace RSocket
 
 				//Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a standard message frame whether or not the underlying transport signals length, EoM, etc.
 				var (Length, IsEndOfMessage) = MessageFramePeek(buffer);
-				//if (!TryReadInt24BigEndian(buffer, ref position, out int frame)) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }
-				//var (framelength, ismessageend) = MessageFrame(frame);
 				if (buffer.Length < Length + MESSAGEFRAMESIZE) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
 
 				await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
 				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
-				//TODO - this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
+				//TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
 			}
 			pipereader.Complete();
 
-			//int ReadFraming(in ReadOnlySequence<byte> sequence, ref SequencePosition sequenceposition)
-			//{
-			//	if (!TryReadInt32BigEndian(sequence, ref sequenceposition, out int frame)) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }
-			//	var (framelength, ismessageend) = MessageFrame(frame);
-
-			//}
 
 			//This is the non-async portion of the handler. SequenceReader<T> and the other stack-allocated items cannot be used in an async context.
 			Task Process(int framelength, ReadOnlySequence<byte> sequence)
@@ -95,11 +87,7 @@ namespace RSocket
 					case Types.Payload:
 						var payload = new Payload(header, ref reader);
 						Decoded(payload.ToString());
-						if (payload.Validate())
-						{
-							OnPayload(sink, payload, payload.ReadMetadata(reader), payload.ReadData(reader));
-							//reader.Sequence.Slice(reader.Position, payload.MetadataLength), reader.Sequence.Slice(reader.Sequence.GetPosition(payload.MetadataLength, reader.Position), payload.DataLength));
-						}
+						if (payload.Validate()) { OnPayload(sink, payload, payload.ReadMetadata(reader), payload.ReadData(reader)); }
 						break;
 					case Types.Error:
 						var error = new Error(header, ref reader);
