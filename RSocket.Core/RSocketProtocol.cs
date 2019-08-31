@@ -155,7 +155,7 @@ namespace RSocket
 			public RequestChannel(in Header header, ref SequenceReader<byte> reader)
 			{
 				Header = header;
-				reader.TryRead(out int initialRequest); InitialRequest = initialRequest;
+				reader.TryReadBigEndian(out int initialRequest); InitialRequest = initialRequest;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
 			}
 
@@ -211,7 +211,7 @@ namespace RSocket
 			public RequestStream(in Header header, ref SequenceReader<byte> reader)
 			{
 				Header = header;
-				reader.TryRead(out int initialRequest); InitialRequest = initialRequest;
+				reader.TryReadBigEndian(out int initialRequest); InitialRequest = initialRequest;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
 			}
 
@@ -359,7 +359,7 @@ namespace RSocket
 			public RequestN(in Header header, ref SequenceReader<byte> reader)
 			{
 				Header = header;
-				reader.TryRead(out int requestNumber); RequestNumber = requestNumber;
+				reader.TryReadBigEndian(out int requestNumber); RequestNumber = requestNumber;
 			}
 
 			public bool Validate(bool canContinue = false)
