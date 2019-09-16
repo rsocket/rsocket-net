@@ -251,7 +251,7 @@ namespace RSocket
 			{
 				var written = Header.Write(writer, Length);
 				written += writer.WriteInt32BigEndian(InitialRequest);
-				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
+				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }	//TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 				return written;
 			}
@@ -301,7 +301,7 @@ namespace RSocket
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
 				var written = Header.Write(writer, Length);
-				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
+				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }	//TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 				return written;
 			}
@@ -351,7 +351,7 @@ namespace RSocket
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{
 				var written = Header.Write(writer, Length);
-				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
+				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }	//TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 				return written;
 			}
@@ -505,8 +505,8 @@ namespace RSocket
 				Header = header;
 				reader.TryRead(out int timeToLive); TimeToLive = timeToLive;
 				reader.TryRead(out int numberOfRequests); NumberOfRequests = numberOfRequests;
-				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);       //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
-																							 //MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length - sizeof(int) - sizeof(int) : 0;          //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
+				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);	//SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
+				//MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length - sizeof(int) - sizeof(int) : 0;          //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -591,8 +591,8 @@ namespace RSocket
 			public MetadataPush(in Header header, ref SequenceReader<byte> reader)
 			{
 				Header = header;
-				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);       //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
-																							 //MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length : 0; //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
+				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);	//SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
+				//MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length : 0; //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -694,7 +694,7 @@ namespace RSocket
 				ResumeToken = resumeToken;
 				MetadataMimeType = metadataMimeType;
 				DataMimeType = dataMimeType;
-				ResumeToken = resumeToken;      //TODO Two of these?
+				ResumeToken = resumeToken;	//TODO Two of these?
 				MetadataLength = (int)metadata.Length;
 				DataLength = (int)data.Length;
 				HasResume = resumeToken != null && resumeToken.Length > 0;
@@ -707,7 +707,7 @@ namespace RSocket
 				reader.TryReadBigEndian(out UInt16 minorVersion); MinorVersion = minorVersion;
 				reader.TryReadBigEndian(out Int32 keepAlive); KeepAlive = keepAlive;
 				reader.TryReadBigEndian(out Int32 lifetime); Lifetime = lifetime;
-				if ((header.Flags & FLAG_RESUME) != 0)      //TODO Duplicate test logic here
+				if ((header.Flags & FLAG_RESUME) != 0)	//TODO Duplicate test logic here
 				{
 					reader.TryReadBigEndian(out UInt16 resumeTokenLength);
 					ResumeToken = new byte[resumeTokenLength];
@@ -718,7 +718,7 @@ namespace RSocket
 				var mmtr = reader.TryReadPrefix(out MetadataMimeType);
 				var dmtr = reader.TryReadPrefix(out DataMimeType);
 
-				MetadataLength = DataLength = 0;    //Initialize so we can use InnerLength.
+				MetadataLength = DataLength = 0;	//Initialize so we can use InnerLength.
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
 			}
 
@@ -742,9 +742,9 @@ namespace RSocket
 				written += writer.WriteInt32BigEndian(KeepAlive);
 				written += writer.WriteInt32BigEndian(Lifetime);
 				if (HasResume) { written += writer.WriteUInt16BigEndian(ResumeToken.Length) + writer.Write(ResumeToken); }
-				written += writer.WritePrefixByte(MetadataMimeType);    //TODO THIS IS ASCII!!! See Spec!!
-				written += writer.WritePrefixByte(DataMimeType);       //TODO THIS IS ASCII!!! See Spec!!
-				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
+				written += writer.WritePrefixByte(MetadataMimeType);	//TODO THIS IS ASCII!!! See Spec!!
+				written += writer.WritePrefixByte(DataMimeType);	//TODO THIS IS ASCII!!! See Spec!!
+				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }	//TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 			}
 
@@ -764,7 +764,7 @@ namespace RSocket
 			internal const ushort FLAG_METADATA = 0b__01_00000000;
 			public bool CanIgnore { get => (Flags & FLAG_IGNORE) != 0; set => Flags = value ? (ushort)(Flags | FLAG_IGNORE) : (ushort)(Flags & ~FLAG_IGNORE); }
 			public bool HasMetadata { get => (Flags & FLAG_METADATA) != 0; set => Flags = value ? (ushort)(Flags | FLAG_METADATA) : (ushort)(Flags & ~FLAG_METADATA); }
-			public int MetadataHeaderLength => HasMetadata ? METADATALENGTHSIZE : 0;        //TODO Only here?
+			public int MetadataHeaderLength => HasMetadata ? METADATALENGTHSIZE : 0;	//TODO Only here?
 
 			public Int32 Stream;
 			public Types Type;
@@ -774,7 +774,7 @@ namespace RSocket
 			public int Length => sizeof(Int32) + sizeof(UInt16);
 
 			private int FrameLength;
-			public int Remaining => FrameLength - Length;       //TODO Temporary refactoring
+			public int Remaining => FrameLength - Length;	//TODO Temporary refactoring
 
 			public Header(Types type, Int32 stream = 0, in ReadOnlySequence<byte> metadata = default)
 			{
@@ -796,7 +796,7 @@ namespace RSocket
 
 			public int Write(BufferWriter writer, int length)
 			{
-				writer.WriteInt24BigEndian(length);     //Not included in total length.
+				writer.WriteInt24BigEndian(length);	//Not included in total length.
 				writer.WriteInt32BigEndian(Stream);
 				writer.WriteUInt16BigEndian((((int)Type << FRAMETYPE_OFFSET) & FRAMETYPE_TYPE) | (Flags & FLAGS));//  (Ignore ? FLAG_IGNORE : 0) | (Metadata ? FLAG_METADATA : 0));
 				return Length;
