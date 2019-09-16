@@ -25,26 +25,42 @@ namespace RSocket
 		{
 			//The original implementation was a state-machine parser with resumability. It doesn't seem like the other implementations follow this pattern and the .NET folks are still figuring this out too - see the internal JSON parser discussion for how they're handling state machine persistence across async boundaries when servicing a Pipeline. So, this version of the handler only processes complete messages at some cost to memory buffer scalability.
 			//Note that this means that the Pipeline must be configured to have enough buffering for a complete message before source-quenching. This also means that the downstream consumers don't really have to support resumption, so the interface no longer has the partial buffer methods in it.
-			while (!cancellation.IsCancellationRequested)
+
+			try
 			{
-				var read = await pipereader.ReadAsync(cancellation);
-				var buffer = read.Buffer;
-				if (buffer.IsEmpty && read.IsCompleted) { break; }
-				var position = buffer.Start;
+				while (true)
+				{
+					var read = await pipereader.ReadAsync(cancellation);
+					var buffer = read.Buffer;
 
-				//Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a standard message frame whether or not the underlying transport signals length, EoM, etc.
-				var (Length, IsEndOfMessage) = MessageFramePeek(buffer);
-				if (buffer.Length < Length + MESSAGEFRAMESIZE) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
+					while (TryParseMessage(ref buffer, out int frameLength, out var payload))
+					{
+						await Process(frameLength, payload);
+					}
 
-				await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
-				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
+					if (read.IsCompleted)
+					{
+						if (!buffer.IsEmpty)
+						{
+							// Partial frame received and there's no more data coming
+							sink.Error(new Error(ErrorCodes.Connection_Error));
+						}
+						break;
+					}
+
+					pipereader.AdvanceTo(buffer.Start, buffer.End);
+
 				//TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
+				}
 			}
-			pipereader.Complete();
+			finally
+			{
+				pipereader.Complete();
+			}
 
 
 			//This is the non-async portion of the handler. SequenceReader<T> and the other stack-allocated items cannot be used in an async context.
-			Task Process(int framelength, ReadOnlySequence<byte> sequence)
+			Task Process(int framelength, in ReadOnlySequence<byte> sequence)
 			{
 				var reader = new SequenceReader<byte>(sequence);
 				var header = new Header(ref reader, framelength);

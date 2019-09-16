@@ -37,6 +37,27 @@ namespace RSocket
 		static public void MessageFrameWrite(int length, bool isEndOfMessage, Span<byte> target) { target[2] = (byte)((length >> 8 * 0) & 0xFF); target[1] = (byte)((length >> 8 * 1) & 0xFF); target[0] = (byte)((length >> 8 * 2) & 0xFF); }
 		static public (int Length, bool IsEndOfMessage) MessageFramePeek(ReadOnlySequence<byte> sequence) { var reader = new SequenceReader<byte>(sequence); return reader.TryRead(out byte b1) && reader.TryRead(out byte b2) && reader.TryRead(out byte b3) ? ((b1 << 8 * 2) | (b2 << 8 * 1) | (b3 << 8 * 0), true) : (0, false); }
 
+		static public bool TryParseMessage(ref ReadOnlySequence<byte> buffer, out int frameLength, out ReadOnlySequence<byte> payload)
+		{
+			//Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a standard message frame whether or not the underlying transport signals length, EoM, etc.
+			var (length, _) = MessageFramePeek(buffer);
+
+			if (buffer.Length < length + MESSAGEFRAMESIZE)
+			{
+				payload = default;
+				frameLength = 0;
+				return false;
+			}
+
+			frameLength = length;
+			payload = buffer.Slice(MESSAGEFRAMESIZE, length);
+
+			// Trim to the unparsed data
+			buffer = buffer.Slice(payload.End);
+
+			return true;
+		}
+
 		static Task Flush(PipeWriter pipe, CancellationToken cancel) { var result = pipe.FlushAsync(cancel); return result.IsCompleted ? Task.CompletedTask : result.AsTask(); }
 
 		static bool TryReadRemaining(in Header header, int innerlength, ref SequenceReader<byte> reader, out int metadatalength)
@@ -74,7 +95,7 @@ namespace RSocket
 			public int Length => Header.Length + InnerLength + Header.MetadataHeaderLength + MetadataLength + DataLength;
 
 
-			public Payload(int stream, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false)	//TODO Parameter ordering, isn't Next much more likely than C or F?
+			public Payload(int stream, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false)    //TODO Parameter ordering, isn't Next much more likely than C or F?
 			{
 				Header = new Header(Types.Payload, stream, metadata: metadata);
 				DataLength = (int)data.Length;
@@ -442,8 +463,8 @@ namespace RSocket
 
 			public bool Validate(bool canContinue = false)
 			{
-				if (Header.Stream == 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(Header.Stream), $"Invalid {nameof(KeepAlive)} Message."); }		//SPEC: KEEPALIVE frames MUST always use Stream ID 0 as they pertain to the Connection.
-				if (LastReceivedPosition < 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(LastReceivedPosition), LastReceivedPosition, $"Invalid {nameof(KeepAlive)} Message."); }	//SPEC: Value MUST be > 0. (optional. Set to all 0s when not supported.)
+				if (Header.Stream == 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(Header.Stream), $"Invalid {nameof(KeepAlive)} Message."); }     //SPEC: KEEPALIVE frames MUST always use Stream ID 0 as they pertain to the Connection.
+				if (LastReceivedPosition < 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(LastReceivedPosition), LastReceivedPosition, $"Invalid {nameof(KeepAlive)} Message."); }  //SPEC: Value MUST be > 0. (optional. Set to all 0s when not supported.)
 				else return true;
 			}
 
@@ -485,7 +506,7 @@ namespace RSocket
 				reader.TryRead(out int timeToLive); TimeToLive = timeToLive;
 				reader.TryRead(out int numberOfRequests); NumberOfRequests = numberOfRequests;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);       //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
-				//MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length - sizeof(int) - sizeof(int) : 0;          //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
+																							 //MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length - sizeof(int) - sizeof(int) : 0;          //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included, even if the(M)etadata flag is set true.
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -571,7 +592,7 @@ namespace RSocket
 			{
 				Header = header;
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength);       //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
-				//MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length : 0; //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
+																							 //MetadataLength = header.HasMetadata ? MetadataLength = framelength - header.Length : 0; //SPEC: This frame only supports Metadata, so the Metadata Length header MUST NOT be included.
 			}
 
 			public bool Validate(bool canContinue = false)
@@ -659,7 +680,7 @@ namespace RSocket
 				+ sizeof(byte) + Encoding.ASCII.GetByteCount(MetadataMimeType)
 				+ sizeof(byte) + Encoding.ASCII.GetByteCount(DataMimeType);
 			public int Length => Header.Length + InnerLength + Header.MetadataHeaderLength + MetadataLength + DataLength;
-			
+
 
 			public Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) : this((int)keepalive.TotalMilliseconds, (int)lifetime.TotalMilliseconds, string.IsNullOrEmpty(metadataMimeType) ? string.Empty : metadataMimeType, string.IsNullOrEmpty(dataMimeType) ? string.Empty : dataMimeType, data: data, metadata: metadata) { }
 
@@ -673,10 +694,10 @@ namespace RSocket
 				ResumeToken = resumeToken;
 				MetadataMimeType = metadataMimeType;
 				DataMimeType = dataMimeType;
-				ResumeToken = resumeToken;		//TODO Two of these?
+				ResumeToken = resumeToken;      //TODO Two of these?
 				MetadataLength = (int)metadata.Length;
 				DataLength = (int)data.Length;
-				HasResume = resumeToken != default && resumeToken.Length > 0;
+				HasResume = resumeToken != null && resumeToken.Length > 0;
 			}
 
 			public Setup(in Header header, ref SequenceReader<byte> reader)
@@ -697,7 +718,7 @@ namespace RSocket
 				var mmtr = reader.TryReadPrefix(out MetadataMimeType);
 				var dmtr = reader.TryReadPrefix(out DataMimeType);
 
-				MetadataLength = DataLength = 0;	//Initialize so we can use InnerLength.
+				MetadataLength = DataLength = 0;    //Initialize so we can use InnerLength.
 				TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
 			}
 
@@ -711,7 +732,7 @@ namespace RSocket
 
 			//TODO So common, should be library..?
 			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
-			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata:metadata); return Flush(pipe, cancel); }
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
 
 			void Write(BufferWriter writer, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{
@@ -722,7 +743,7 @@ namespace RSocket
 				written += writer.WriteInt32BigEndian(Lifetime);
 				if (HasResume) { written += writer.WriteUInt16BigEndian(ResumeToken.Length) + writer.Write(ResumeToken); }
 				written += writer.WritePrefixByte(MetadataMimeType);    //TODO THIS IS ASCII!!! See Spec!!
-				written += writer.WritePrefixByte(DataMimeType);	   //TODO THIS IS ASCII!!! See Spec!!
+				written += writer.WritePrefixByte(DataMimeType);       //TODO THIS IS ASCII!!! See Spec!!
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
 				written += writer.Write(data);
 			}
@@ -743,7 +764,7 @@ namespace RSocket
 			internal const ushort FLAG_METADATA = 0b__01_00000000;
 			public bool CanIgnore { get => (Flags & FLAG_IGNORE) != 0; set => Flags = value ? (ushort)(Flags | FLAG_IGNORE) : (ushort)(Flags & ~FLAG_IGNORE); }
 			public bool HasMetadata { get => (Flags & FLAG_METADATA) != 0; set => Flags = value ? (ushort)(Flags | FLAG_METADATA) : (ushort)(Flags & ~FLAG_METADATA); }
-			public int MetadataHeaderLength => HasMetadata ? METADATALENGTHSIZE : 0;		//TODO Only here?
+			public int MetadataHeaderLength => HasMetadata ? METADATALENGTHSIZE : 0;        //TODO Only here?
 
 			public Int32 Stream;
 			public Types Type;
@@ -775,7 +796,7 @@ namespace RSocket
 
 			public int Write(BufferWriter writer, int length)
 			{
-				writer.WriteInt24BigEndian(length);		//Not included in total length.
+				writer.WriteInt24BigEndian(length);     //Not included in total length.
 				writer.WriteInt32BigEndian(Stream);
 				writer.WriteUInt16BigEndian((((int)Type << FRAMETYPE_OFFSET) & FRAMETYPE_TYPE) | (Flags & FLAGS));//  (Ignore ? FLAG_IGNORE : 0) | (Metadata ? FLAG_METADATA : 0));
 				return Length;
