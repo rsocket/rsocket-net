@@ -87,14 +87,13 @@ namespace RSocket.Transports
 						{
 							socket.Options.SetRequestHeader(key, headers[key]);
 						}
-						socket.Options.KeepAliveInterval = new TimeSpan(1, 1, 1);
-						try
+
+						if (subprotocol != null)
 						{
-							await socket.ConnectAsync(Transport.Url, Cancel);
+							socket.Options.AddSubProtocol(subprotocol);
 						}
-						catch (Exception e)
-						{
-						}
+
+						await socket.ConnectAsync(Transport.Url, Cancel);
 						return socket;
 					}
 				}
@@ -155,7 +154,7 @@ namespace RSocket.Transports
 				Debug.Assert(context.WebSockets.IsWebSocketRequest, "Not a websocket request");
 
 				var subProtocol = _options.SubProtocolSelector?.Invoke(context.WebSockets.WebSocketRequestedProtocols);
-				IDictionary<string, string> headers = _options.Headers != null ? _options.Headers() : new Dictionary<string, string>();
+				var headers = _options.Headers != null ? _options.Headers() : new Dictionary<string, string>();
 				using (var ws = await context.WebSockets.AcceptWebSocketAsync(subProtocol, headers))
 				{
 					Log.SocketOpened(_logger, subProtocol);
