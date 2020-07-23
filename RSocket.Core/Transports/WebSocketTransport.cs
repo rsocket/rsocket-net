@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net.WebSockets;
@@ -79,11 +79,22 @@ namespace RSocket.Transports
 
 					public WebSocketManager(WebSocketTransport transport, CancellationToken cancel = default) { Transport = transport; Cancel = cancel; }
 
-					public async Task<WebSocket> AcceptWebSocketAsync(string subprotocol)     //https://github.com/aspnet/AspNetCore/blob/master/src/Middleware/WebSockets/src/WebSocketMiddleware.cs
+					public async Task<WebSocket> AcceptWebSocketAsync(string subprotocol, IDictionary<string, string> headers)     //https://github.com/aspnet/AspNetCore/blob/master/src/Middleware/WebSockets/src/WebSocketMiddleware.cs
 					{
 						//So in the SignalR code, this is where the WebSocketOptions are actually applied. So junky, so overabstracted. This is why the constructors are inverted so short out all of this madness.
 						var socket = new ClientWebSocket();
-						await socket.ConnectAsync(Transport.Url, Cancel);
+						foreach (string key in headers.Keys)
+						{
+							socket.Options.SetRequestHeader(key, headers[key]);
+						}
+						socket.Options.KeepAliveInterval = new TimeSpan(1, 1, 1);
+						try
+						{
+							await socket.ConnectAsync(Transport.Url, Cancel);
+						}
+						catch (Exception e)
+						{
+						}
 						return socket;
 					}
 				}
@@ -144,8 +155,8 @@ namespace RSocket.Transports
 				Debug.Assert(context.WebSockets.IsWebSocketRequest, "Not a websocket request");
 
 				var subProtocol = _options.SubProtocolSelector?.Invoke(context.WebSockets.WebSocketRequestedProtocols);
-
-				using (var ws = await context.WebSockets.AcceptWebSocketAsync(subProtocol))
+				IDictionary<string, string> headers = _options.Headers != null ? _options.Headers() : new Dictionary<string, string>();
+				using (var ws = await context.WebSockets.AcceptWebSocketAsync(subProtocol, headers))
 				{
 					Log.SocketOpened(_logger, subProtocol);
 
@@ -531,6 +542,8 @@ namespace RSocket.Transports
 		// https://github.com/aspnet/HttpAbstractions/blob/a6bdb9b1ec6ed99978a508e71a7f131be7e4d9fb/src/Microsoft.AspNetCore.Http.Abstractions/WebSocketManager.cs#L23
 		// Unfortunately, IList<T> does not implement IReadOnlyList<T> :(
 		public Func<IList<string>, string> SubProtocolSelector { get; set; }
+
+		public Func<IDictionary<string, string>> Headers { get; set; }
 	}
 	#endregion
 }
