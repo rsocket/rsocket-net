@@ -8,7 +8,7 @@ namespace RSocketSample
 	{
 		static public ReadOnlySequence<byte> Serialize<T>(in T item)
 		{
-			if (item == default) { return default; }
+			if (item == null) { return default; }
 			using (var stream = new MemoryStream())     //According to source, access to the buffer is safe after disposal (See. Dispose()): https://github.com/dotnet/coreclr/blob/master/src/System.Private.CoreLib/shared/System/IO/MemoryStream.cs#L133
 			{
 				ProtoBuf.Serializer.Serialize(stream, item);    //TODO Probably need a Stream -> IBufferWriter. I think the .NET folks have made one...
@@ -16,7 +16,7 @@ namespace RSocketSample
 				{
 					var seq = new ReadOnlySequence<byte>(buffer.Array, buffer.Offset, buffer.Count);
 
-					return new ReadOnlySequence<byte>(stream.ToArray());    //TODO not great, but the stream is disposing, so we'd lose the buffer. 
+					return new ReadOnlySequence<byte>(stream.ToArray());    //TODO not great, but the stream is disposing, so we'd lose the buffer.
 				}
 				else { throw new InvalidOperationException("Unable to get MemoryStream buffer"); }
 			}
