@@ -1,4 +1,4 @@
-name: Branches Java CI
+name: General CI
 
 on: [push, pull_request]
 
