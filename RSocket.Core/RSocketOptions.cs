@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 
 namespace RSocket
 {
 	public class RSocketOptions
 	{
 		public const int INITIALDEFAULT = int.MinValue;
-		public const string BINARYMIMETYPE = "binary";
+		public const string BINARYMIMETYPE = "application/octet-stream";
 
 		public TimeSpan KeepAlive { get; set; }
 		public TimeSpan Lifetime { get; set; }
