@@ -2,10 +2,8 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO.Pipelines;
 using System.Reactive.Linq;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,8 +18,7 @@ namespace RSocket
 
 	public partial class RSocket : IRSocketProtocol
 	{
-		public const int INITIALDEFAULT = int.MaxValue;
-		RSocketOptions Options { get; set; }
+		PrefetchOptions Options { get; set; }
 
 		//TODO Hide.
 		public IRSocketTransport Transport { get; set; }
@@ -35,10 +32,10 @@ namespace RSocket
 
 		protected IDisposable ChannelSubscription;      //TODO Tracking state for channels
 
-		public RSocket(IRSocketTransport transport, RSocketOptions options = default)
+		public RSocket(IRSocketTransport transport, PrefetchOptions options = default)
 		{
 			Transport = transport;
-			Options = options ?? RSocketOptions.Default;
+			Options = options ?? PrefetchOptions.Default;
 		}
 
 		/// <summary>Binds the RSocket to its Transport and begins handling messages.</summary>
