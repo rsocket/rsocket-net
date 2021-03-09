@@ -3,7 +3,8 @@ using System;
 namespace RSocket
 {
 
-	public class PrefetchOptions {
+	public class PrefetchOptions
+	{
 		public int InitialRequestSize { get; set; } = 8;
 
 		public int GetInitialRequestSize(int initial) => initial <= 0 ? InitialRequestSize : initial;

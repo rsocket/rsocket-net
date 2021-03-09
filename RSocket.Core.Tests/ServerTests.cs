@@ -36,9 +36,9 @@ namespace RSocket.Tests
 		[TestMethod]
 		public async Task ServerRequestStreamTest()
 		{
-            Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-                AsyncEnumerable.Range(0, 3)
-                    .Select(i => (request.Data, request.Metadata));
+			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+				AsyncEnumerable.Range(0, 3)
+					.Select(i => (request.Data, request.Metadata));
 
 			var (data, metadata) = ("TEST DATA", "METADATA?_____");
 			var list = await StringClient.RequestStream(data, metadata).ToListAsync();
@@ -57,11 +57,11 @@ namespace RSocket.Tests
 					new ReadOnlySequence<byte>(result.Metadata.ToArray()))
 				);
 			//TODO Split into separate test - this is a good pattern for some things.
-            //Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-            //    AsyncEnumerable.Range(0, count)
-            //        .Select(i => (
-            //            new ReadOnlySequence<byte>(request.Data.ToArray().Skip(i).Take(1).ToArray()),
-            //            new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
+			//Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+			//    AsyncEnumerable.Range(0, count)
+			//        .Select(i => (
+			//            new ReadOnlySequence<byte>(request.Data.ToArray().Skip(i).Take(1).ToArray()),
+			//            new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
 
 			var (requestData, requestMetadata) = (Enumerable.Range(1, count).Select(i => (byte)i).ToArray(), Enumerable.Range(100, count).Select(i => (byte)i).ToArray());
 			var list = await Client.RequestStream(result => (Data: result.data.ToArray(), Metadata: result.metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();
@@ -80,7 +80,7 @@ namespace RSocket.Tests
 		{
 			//Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> channeler =
 			//	(request, incoming) => incoming.ToAsyncEnumerable();
-			Server.Channeler = (request, incoming) => incoming.ToAsyncEnumerable().Select(_ => { Console.WriteLine("_"); return _; });
+			Server.Channeler = (request, incoming, subscription) => incoming.ToAsyncEnumerable().Select(_ => { Console.WriteLine("_"); return _; });
 
 			//Server.Channeler = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> incoming) =>
 			//{

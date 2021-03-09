@@ -20,6 +20,7 @@ namespace RSocket
 		static void OnRequestResponse(IRSocketProtocol sink, in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestResponse(message, metadata, data);
 		static void OnRequestFireAndForget(IRSocketProtocol sink, in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestFireAndForget(message, metadata, data);
 		static void OnRequestChannel(IRSocketProtocol sink, in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestChannel(message, metadata, data);
+		static void OnRequestN(IRSocketProtocol sink, in RSocketProtocol.RequestN message) => sink.RequestN(message);
 
 		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation)
 		{
@@ -54,7 +55,7 @@ namespace RSocket
 					case Types.Reserved: throw new InvalidOperationException($"Protocol Reserved! [{header.Type}]");
 					case Types.Setup:
 						var setup = new Setup(header, ref reader);
-						OnSetup(sink, setup);	//TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
+						OnSetup(sink, setup);   //TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
 						break;
 					case Types.Lease:
 						var lease = new Lease(header, ref reader);
@@ -80,6 +81,7 @@ namespace RSocket
 						break;
 					case Types.Request_N:
 						var requestne = new RequestN(header, ref reader);
+						if (requestne.Validate()) { OnRequestN(sink, requestne); }
 						break;
 					case Types.Cancel:
 						var cancel = new Cancel(header, ref reader);
@@ -102,7 +104,7 @@ namespace RSocket
 					case Types.Extension: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Extension Unsupported! [{header.Type}]"); } else break;
 					default: if (!header.CanIgnore) { throw new InvalidOperationException($"Protocol Unknown Type! [{header.Type}]"); } else break;
 				}
-                return Task.CompletedTask;
+				return Task.CompletedTask;
 			}
 		}
 	}
