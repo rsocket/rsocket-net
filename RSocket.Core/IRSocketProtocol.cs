@@ -8,13 +8,14 @@ namespace RSocket
 	/// </summary>
 	public interface IRSocketProtocol
 	{
-		void Setup(in RSocketProtocol.Setup message);
-		void Error(in RSocketProtocol.Error message);
-		void Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
-		void RequestN(in RSocketProtocol.RequestN message);
+		void Setup(RSocketProtocol.Setup message);
+		void Error(RSocketProtocol.Error message);
+		void Payload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		void RequestStream(RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		void RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		void RequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		void RequestChannel(RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
+		void RequestN(RSocketProtocol.RequestN message);
+		void Cancel(RSocketProtocol.Cancel message);
 	}
 }

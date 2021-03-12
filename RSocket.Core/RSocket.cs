@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
 using System.Reactive.Disposables;
 using System.Reactive.Threading.Tasks;
 
@@ -15,13 +15,13 @@ namespace RSocket
 {
 	public interface IRSocketChannel
 	{
-		Task Send((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value);
+		Task Send(PayloadContent value);
 		Task Complete();
 	}
 
 	public partial class RSocket : IRSocketProtocol
 	{
-		PrefetchOptions Options { get; set; }
+		internal PrefetchOptions Options { get; set; }
 
 		//TODO Hide.
 		public IRSocketTransport Transport { get; set; }
@@ -31,9 +31,28 @@ namespace RSocket
 		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
 		private int StreamDispatch(int id, IRSocketStream transform) { Dispatcher[id] = transform; return id; }
 		private int StreamDispatch(IRSocketStream transform) => StreamDispatch(NewStreamId(), transform);
+		private IRSocketStream StreamRemove(int id)
+		{
+			this.Dispatcher.TryRemove(id, out var transform);
+			return transform;
+		}
 
 		private ConcurrentDictionary<int, IObserver<int>> RequestNDispatcher = new ConcurrentDictionary<int, IObserver<int>>();
 		private int RequestNDispatch(int id, IObserver<int> transform) { RequestNDispatcher[id] = transform; return id; }
+		private IObserver<int> RequestNRemove(int id)
+		{
+			this.RequestNDispatcher.TryRemove(id, out var transform);
+			return transform;
+		}
+
+		private ConcurrentDictionary<int, IFrameHandler> FrameHandlerDispatcher = new ConcurrentDictionary<int, IFrameHandler>();
+		private int FrameHandlerDispatch(int id, IFrameHandler frameHandler) { FrameHandlerDispatcher[id] = frameHandler; return id; }
+		private int FrameHandlerDispatch(IFrameHandler frameHandler) => FrameHandlerDispatch(NewStreamId(), frameHandler);
+		private IFrameHandler FrameHandlerRemove(int id)
+		{
+			this.FrameHandlerDispatcher.TryRemove(id, out var frameHandler);
+			return frameHandler;
+		}
 
 		//TODO Stream Destruction - i.e. removal from the dispatcher.
 
@@ -55,9 +74,9 @@ namespace RSocket
 		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 
 		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
-			Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
+			Func<PayloadContent, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => (default, sourcemapper(_)), value => resultmapper(value));
+			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => new PayloadContent(default, sourcemapper(_)), value => resultmapper(value));
 
 		public async Task<IRSocketChannel> RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
@@ -67,7 +86,16 @@ namespace RSocket
 			return channel;
 		}
 
-		public async Task RequestChannel(ISubscriber<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> subscriber, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> source, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
+		public async Task RequestChannel(ISubscriber<PayloadContent> subscriber, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> source, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
+		{
+			/*
+			 * A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
+			 */
+
+			throw new NotImplementedException();
+		}
+
+		public IObservable<PayloadContent> RequestChannel(IObservable<PayloadContent> source, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			/*
 			 * A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
@@ -75,63 +103,72 @@ namespace RSocket
 
 			var streamId = this.NewStreamId();
 
-			var observable = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer =>
+			var inc = Observable.Create<PayloadContent>(observer =>
 			{
-				StreamReceiver receiver = new StreamReceiver(subscriber, observer);
-				StreamDispatch(streamId, receiver);
-				Subscription subscription = new Subscription(streamId, Transport.Output);
-				subscriber.OnSubscribe(subscription);
+				IObserver<int> incomingMonitorObserver = null;
+				IObservable<int> incomingMonitor = Observable.Create<int>(observer =>
+				{
+					incomingMonitorObserver = observer;
+					return Disposable.Empty;
+				});
 
-				new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata).ConfigureAwait(false);
-				return Disposable.Empty;
+				RequestChannelRequesterFrameHandler frameHandler = new RequestChannelRequesterFrameHandler(this, streamId, observer, metadata, data, source);
+				var incomingMonitorTask = incomingMonitor.ToAsyncEnumerable().LastOrDefaultAsync().AsTask();
+				this.FrameHandlerDispatch(streamId, frameHandler);
+
+				new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial)).WriteFlush(this.Transport.Output, data, metadata).ConfigureAwait(false);
+
+				Schedule(streamId, async (stream, cancel) =>
+				{
+					try
+					{
+						await Task.WhenAll(frameHandler.AsTask(), incomingMonitorTask);
+					}
+					finally
+					{
+						this.FrameHandlerRemove(streamId);
+						frameHandler.Dispose();
+						Console.WriteLine("RequestChannel.client.frameHandler.Dispose()");
+					}
+				});
+
+				return () =>
+				{
+					incomingMonitorObserver.OnCompleted();
+				};
 			});
 
-			IObserver<int> requestNObserver = null;
-			var requestNObservable = Observable.Create<int>(observer =>
-			{
-				requestNObserver = observer;
-				RequestNDispatch(streamId, observer);
-				return Disposable.Empty;
-			});
+			var incoming = new IncomingStreamWrapper<PayloadContent>(inc, this, streamId);
 
-			var payloadSource = MakeControllablePayloads(requestNObservable, source);
-			var channel = new ChannelHandler(this, streamId);
-			var sourceTask = ForEach(payloadSource,
-				  action: async value =>
-				  {
-					  await channel.Send((value.Metadata, value.Data));
-				  },
-				  final: async () =>
-				  {
-					  await channel.Complete();
-					  requestNObserver.OnCompleted();
-				  });
-
-			await Task.WhenAll(sourceTask, observable.ToAsyncEnumerable().LastOrDefaultAsync().AsTask());
+			return incoming;
 		}
 
-		protected class ChannelHandler : IRSocketChannel       //TODO hmmm...
+		protected internal class ChannelHandler : IRSocketChannel       //TODO hmmm...
 		{
 			readonly RSocket Socket;
 			readonly int Stream;
 
 			public ChannelHandler(RSocket socket, int stream) { Socket = socket; Stream = stream; }
 
-			public Task Send((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value)
+			public Task Send(PayloadContent value)
 			{
-				if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				return new RSocketProtocol.Payload(Stream, value.data, value.metadata, next: true).WriteFlush(Socket.Transport.Output, value.data, value.metadata);
+				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
+				return new RSocketProtocol.Payload(Stream, value.Data, value.Metadata, next: true).WriteFlush(Socket.Transport.Output, value.Data, value.Metadata);
+				//if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
+				//return new RSocketProtocol.Payload(Stream, value.data, value.metadata, next: true).WriteFlush(Socket.Transport.Output, value.data, value.metadata);
 			}
 
 			public Task Complete()
 			{
-				if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
+				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
 				return new RSocketProtocol.Payload(Stream, complete: true).WriteFlush(Socket.Transport.Output);
+				//if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
+				//return new RSocketProtocol.Payload(Stream, complete: true).WriteFlush(Socket.Transport.Output);
 			}
 		}
 
 
-		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
+		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<PayloadContent, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<T>(stream => RequestStream(stream, data, metadata), value => resultmapper(value));
 
@@ -141,23 +178,26 @@ namespace RSocket
 			return new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
 		}
 
-		public async Task RequestStream(ISubscriber<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> subscriber, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
+		public async Task RequestStream(ISubscriber<PayloadContent> subscriber, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			var observable = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer =>
+			var streamId = this.NewStreamId();
+
+			RequestStreamRequesterFrameHandler frameHandler = new RequestStreamRequesterFrameHandler(this, streamId, subscriber, metadata, data, initial);
+
+			this.FrameHandlerDispatch(streamId, frameHandler);
+			try
 			{
-				StreamReceiver receiver = new StreamReceiver(subscriber, observer);
-				var streamId = StreamDispatch(receiver);
-				Subscription subscription = new Subscription(streamId, Transport.Output);
-				subscriber.OnSubscribe(subscription);
-				new RSocketProtocol.RequestStream(streamId, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata).ConfigureAwait(false);
-
-				return Disposable.Empty;
-			});
-
-			await observable.LastOrDefaultAsync();
+				await frameHandler.AsTask();
+			}
+			finally
+			{
+				this.FrameHandlerRemove(streamId);
+				frameHandler.Dispose();
+				Console.WriteLine("RequestStream.client.frameHandler.Dispose()");
+			}
 		}
 
-		public virtual Task<T> RequestResponse<T>(Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
+		public virtual Task<T> RequestResponse<T>(Func<PayloadContent, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
 
@@ -179,32 +219,29 @@ namespace RSocket
 		}
 
 
-		void IRSocketProtocol.Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void IRSocketProtocol.Payload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			//Console.WriteLine($"{value.Header.Stream:0000}===>{Encoding.UTF8.GetString(value.Data.ToArray())}");
-			if (Dispatcher.TryGetValue(message.Stream, out var transform))
+			this.HandlerMessage(message.Stream, handler =>
 			{
-				if (message.IsNext) { transform.OnNext((metadata, data)); }
-				if (message.IsComplete) { transform.OnCompleted(); }
-			}
-			else
-			{
-				//TODO Log missing stream here.
-			}
+				handler.HandlePayload(message, metadata, data);
+			});
 		}
 
 
 		void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
 		{
 			var task = operation(stream, cancel);
-			if (!task.IsCompleted) { task.ConfigureAwait(false); }         //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
+			if (!task.IsCompleted)
+			{
+				task.ConfigureAwait(false); //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
+			}
 		}
 
 
-		public virtual void Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
-		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
-																												//void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
-		void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		public virtual void Setup(RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
+		void IRSocketProtocol.Error(RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
+																											 //void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
+		void IRSocketProtocol.RequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			this.HandleRequestFireAndForget(message, metadata, data);
 		}
@@ -222,7 +259,7 @@ namespace RSocket
 
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Responder { get; set; } = request => throw new NotImplementedException();
 
-		void IRSocketProtocol.RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
@@ -240,96 +277,89 @@ namespace RSocket
 
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IAsyncEnumerable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Streamer { get; set; } = request => throw new NotImplementedException();
 
-		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void IRSocketProtocol.RequestStream(RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			int initialRequest = message.InitialRequest;
 
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
-				IObserver<int> requestNObserver = null;
-				var requestNObservable = Observable.Create<int>(observer =>
+				RequestStreamResponderFrameHandler frameHandler = new RequestStreamResponderFrameHandler(this, message, metadata, data);
+
+				this.FrameHandlerDispatch(message.Stream, frameHandler);
+				try
 				{
-					requestNObserver = observer;
-					RequestNDispatch(stream, observer);
-					observer.OnNext(initialRequest);
-					return Disposable.Empty;
-				});
+					await frameHandler.AsTask();
+				}
+				finally
+				{
+					this.FrameHandlerRemove(message.Stream);
+					frameHandler.Dispose();
+					Console.WriteLine("RequestStream.server.frameHandler.Dispose()");
+				}
+				return;
 
-				var source = Streamer((data, metadata));     //TODO Handle Errors.
-				source = MakeControllablePayloads(requestNObservable, source);
 
-				await ForEach(source,
-					action: async value =>
-					 {
-						 await new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true).WriteFlush(Transport.Output, value.Data, value.Metadata);
-					 },
-					final: async () =>
-					 {
-						 await new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output);
-						 requestNObserver.OnCompleted();
-					 });
 			});
 		}
 
 		//TODO, probably need to have an IAE<T> pipeline overload too.
 
 		public void Channel<TRequest, TIncoming, TOutgoing>(Func<TRequest, IObservable<TIncoming>, IAsyncEnumerable<TOutgoing>> pipeline,
-			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
-			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TIncoming> incomingTransform,
-			Func<TOutgoing, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> outgoingTransform) =>
+			Func<PayloadContent, TRequest> requestTransform,
+			Func<PayloadContent, TIncoming> incomingTransform,
+			Func<TOutgoing, PayloadContent> outgoingTransform) =>
 			Channeler = (request, incoming, subscription) => from result in pipeline(requestTransform(request), from item in incoming select incomingTransform(item)) select outgoingTransform(result);
 
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>, ISubscription, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Channeler { get; set; } = (request, incoming, subscription) => throw new NotImplementedException();
+		public Func<PayloadContent, IObservable<PayloadContent>, ISubscription, IAsyncEnumerable<PayloadContent>> Channeler { get; set; } = (request, incoming, subscription) => throw new NotImplementedException();
 
+		public Func<PayloadContent, IObservable<PayloadContent>, IObservable<PayloadContent>> Channeler1 { get; set; } = (request, incoming) => throw new NotImplementedException();
 
-		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void IRSocketProtocol.RequestChannel(RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			int initialRequest = message.InitialRequest;
-
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
-				var inc = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer =>
+				RequestChannelResponderFrameHandler frameHandler = new RequestChannelResponderFrameHandler(this, message, metadata, data);
+
+				this.FrameHandlerDispatch(message.Stream, frameHandler);
+				try
 				{
-					StreamDispatch(stream, observer);
-					return Disposable.Empty;
-				});
-
-				IObserver<int> requestNObserver = null;
-				var requestNObservable = Observable.Create<int>(observer =>
+					await frameHandler.AsTask();
+				}
+				finally
 				{
-					requestNObserver = observer;
-					RequestNDispatch(stream, observer);
-					observer.OnNext(initialRequest);
-					return Disposable.Empty;
-				});
-
-				Subscription subscription = new Subscription(stream, this.Transport.Output);
-
-				var outgoing = Channeler((data, metadata), inc, subscription);     //TODO Handle Errors.
-				outgoing = MakeControllablePayloads(requestNObservable, outgoing);
-
-				await ForEach(outgoing,
-					action: async value =>
-					 {
-						 await new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata);
-					 },
-					final: async () =>
-					{
-						await new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output);
-						requestNObserver.OnCompleted();
-					});
+					this.FrameHandlerRemove(message.Stream);
+					frameHandler.Dispose();
+					Console.WriteLine("RequestChannel.server.frameHandler.Dispose()");
+				}
 			});
 		}
 
-		public void RequestN(in RSocketProtocol.RequestN message)
+
+		public void RequestN(RSocketProtocol.RequestN message)
 		{
-			if (RequestNDispatcher.TryGetValue(message.Stream, out var transform))
+			this.HandlerMessage(message.Stream, handler =>
 			{
-				transform.OnNext(message.RequestNumber);
+				handler.HandleRequestN(message);
+			});
+		}
+		public void Cancel(RSocketProtocol.Cancel message)
+		{
+			this.HandlerMessage(message.Stream, handler =>
+			{
+				handler.HandleCancel(message);
+			});
+		}
+
+		void HandlerMessage(int streamId, Action<IFrameHandler> act)
+		{
+			if (this.FrameHandlerDispatcher.TryGetValue(streamId, out var frameHandler))
+			{
+				act(frameHandler);
 			}
 			else
 			{
-				//TODO Log missing stream here.
+				Console.WriteLine("TODO Log missing handler here");
+				//TODO Log missing handler here.
 			}
 		}
 
@@ -340,7 +370,8 @@ namespace RSocket
 				action(item);
 			}, cancel);
 
-			await final?.Invoke();
+			if (!cancel.IsCancellationRequested)
+				await final?.Invoke();
 		}
 	}
 }

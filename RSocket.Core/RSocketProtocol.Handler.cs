@@ -21,6 +21,7 @@ namespace RSocket
 		static void OnRequestFireAndForget(IRSocketProtocol sink, in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestFireAndForget(message, metadata, data);
 		static void OnRequestChannel(IRSocketProtocol sink, in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestChannel(message, metadata, data);
 		static void OnRequestN(IRSocketProtocol sink, in RSocketProtocol.RequestN message) => sink.RequestN(message);
+		static void OnCancel(IRSocketProtocol sink, in RSocketProtocol.Cancel message) => sink.Cancel(message);
 
 		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation)
 		{
@@ -85,6 +86,8 @@ namespace RSocket
 						break;
 					case Types.Cancel:
 						var cancel = new Cancel(header, ref reader);
+						Console.WriteLine("case Types.Cancel");
+						if (cancel.Validate()) { OnCancel(sink, cancel); }
 						break;
 					case Types.Payload:
 						var payload = new Payload(header, ref reader);

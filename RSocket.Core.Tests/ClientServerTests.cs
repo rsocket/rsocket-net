@@ -5,7 +5,7 @@ using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RSocket.Transports;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
 
 namespace RSocket.Tests
 {

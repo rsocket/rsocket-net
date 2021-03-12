@@ -79,11 +79,14 @@ namespace RSocket.Transports
 #else
 					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
 					var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment); Debug.Assert(isArray);
+					//Console.WriteLine("socket.ReceiveAsync start");
 					var received = await socket.ReceiveAsync(arraySegment, SocketFlags.None);   //TODO Cancellation?
 #endif
+					//Console.WriteLine("socket.ReceiveAsync over");
 					//Log.MessageReceived(_logger, receive.MessageType, receive.Count, receive.EndOfMessage);
 					Back.Output.Advance(received);
 					var flushResult = await Back.Output.FlushAsync();
+					//Console.WriteLine("Back.Output.FlushAsync over");
 					if (flushResult.IsCanceled || flushResult.IsCompleted) { break; }
 				}
 			}

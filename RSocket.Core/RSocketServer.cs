@@ -21,7 +21,7 @@ namespace RSocket
 			Handler = Connect(CancellationToken.None);
 		}
 
-		public override void Setup(in RSocketProtocol.Setup value)
+		public override void Setup(RSocketProtocol.Setup value)
 		{
 
 		}

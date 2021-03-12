@@ -10,11 +10,11 @@ using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> m
 
 namespace RSocket
 {
-	internal class StreamReceiver : IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>
+	internal class StreamReceiver : IObserver<PayloadContent>
 	{
-		ISubscriber<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> _subscriber;
-		IRSocketStream _stream;
-		public StreamReceiver(ISubscriber<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> subscriber, IRSocketStream stream)
+		ISubscriber<PayloadContent> _subscriber;
+		IObserver<PayloadContent> _stream;
+		public StreamReceiver(ISubscriber<PayloadContent> subscriber, IObserver<PayloadContent> stream)
 		{
 			this._subscriber = subscriber;
 			this._stream = stream;
@@ -30,9 +30,11 @@ namespace RSocket
 			this._subscriber.OnError(error);
 			this._stream.OnError(error);
 		}
-		public void OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value)
+		public void OnNext(PayloadContent value)
 		{
-			this._subscriber.OnNext(value);
+			//if(complete)
+
+			this._subscriber.OnNext(value); //TODO: handle error
 			this._stream.OnNext(value);
 		}
 	}

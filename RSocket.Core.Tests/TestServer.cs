@@ -9,7 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Concurrent;
 using RSocket.Transports;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
 
 namespace RSocket.Tests
 {
@@ -27,7 +27,7 @@ namespace RSocket.Tests
 		//public override void Setup(in RSocketProtocol.Setup value) => All.Add(new Message.Setup(value));
 		//public override void RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => All.Add(new Message.RequestStream(message));
 
-		
+
 		public class Message
 		{
 			public bool IsServer { get; }
@@ -66,9 +66,9 @@ namespace RSocket.Tests
 
 		public class StreamReceiver : List<(byte[] Metadata, byte[] Data)>, IRSocketStream
 		{
-			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnCompleted() => this.Add((null, null));
-			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnError(Exception error) => throw new NotImplementedException(); //Next(metadata, data);
-			void IObserver<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>.OnNext((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value) => this.Add((value.metadata.ToArray(), value.data.ToArray()));
+			void IObserver<PayloadContent>.OnCompleted() => this.Add((null, null));
+			void IObserver<PayloadContent>.OnError(Exception error) => throw new NotImplementedException(); //Next(metadata, data);
+			void IObserver<PayloadContent>.OnNext(PayloadContent value) => this.Add((value.Metadata.ToArray(), value.Data.ToArray()));
 		}
 	}
 }

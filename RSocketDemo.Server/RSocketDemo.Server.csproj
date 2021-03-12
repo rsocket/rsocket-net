@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>netcoreapp2.1</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<Title>RSocket-Net Samples</Title>
+		<Authors>RSocket Team</Authors>
+		<Description>RSocket Protocol implementation for .NET</Description>
+		<Copyright>RSocket Authors</Copyright>
+		<PackageProjectUrl>http://rsocket.io/</PackageProjectUrl>
+		<PackageIconUrl>https://github.com/rsocket/rsocket-artwork/raw/master/rsocket-logo/PNG/r-socket-pink.png</PackageIconUrl>
+		<RepositoryUrl>https://github.com/rsocket/rsocket-net</RepositoryUrl>
+		<PackageTags>RSocket, Protocol, Network, Reactive, Reactive-Streams</PackageTags>
+		<Version>0.2.7</Version>
+		<PackageVersion>0.2.7</PackageVersion>
+		<AssemblyVersion>0.2.7</AssemblyVersion>
+		<FileVersion>0.2.7</FileVersion>
+		<ProductVersion>0.2.7</ProductVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <Compile Remove="新文件夹\**" />
+	  <EmbeddedResource Remove="新文件夹\**" />
+	  <None Remove="新文件夹\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!--<PackageReference Include="Microsoft.AspNetCore.App.Ref" Version="3.1.10" />-->
+		<!--<PackageReference Include="Microsoft.Extensions.Hosting" Version="3.0.0" />-->
+		<!--<PackageReference Include="Microsoft.AspNetCore.Connections.Abstractions" Version="5.0.3" />-->
+		<!--<PackageReference Include="Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets" Version="2.2.1" />-->
+		<PackageReference Include="protobuf-net" Version="2.4.0" />
+		<PackageReference Include="System.Linq.Async" Version="4.0.0-preview.6.build.801" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\RSocket.Core\RSocket.Core.csproj" />
+		<ProjectReference Include="..\RSocketDemo.Common\RSocketDemo.Common.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\LICENSE" Pack="true" PackagePath="LICENSE" />
+	</ItemGroup>
+</Project>

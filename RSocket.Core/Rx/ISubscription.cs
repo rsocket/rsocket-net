@@ -19,6 +19,9 @@ namespace RSocket
 		PipeWriter _pipe;
 
 		bool _canceled = false;
+
+		internal event Action OnCancel;
+
 		public Subscription(int streamId, PipeWriter pipe)
 		{
 			this._streamId = streamId;
@@ -39,8 +42,11 @@ namespace RSocket
 			if (this._canceled)
 				return;
 
+			var cancel = new Cancel(this._streamId);
+			cancel.WriteFlush(this._pipe).GetAwaiter().GetResult();
+			this.OnCancel();
+
 			this._canceled = true;
-			throw new NotImplementedException();
 		}
 	}
 }

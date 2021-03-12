@@ -64,7 +64,7 @@ namespace RSocket.Tests
 			//            new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
 
 			var (requestData, requestMetadata) = (Enumerable.Range(1, count).Select(i => (byte)i).ToArray(), Enumerable.Range(100, count).Select(i => (byte)i).ToArray());
-			var list = await Client.RequestStream(result => (Data: result.data.ToArray(), Metadata: result.metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();
+			var list = await Client.RequestStream(result => (Data: result.Data.ToArray(), Metadata: result.Metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();
 			Assert.AreEqual(count, list.Count, "Stream contents missing.");
 
 			for (int i = 0; i < list.Count; i++)
