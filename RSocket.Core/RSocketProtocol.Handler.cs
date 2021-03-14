@@ -91,12 +91,16 @@ namespace RSocket
 						break;
 					case Types.Payload:
 						var payload = new Payload(header, ref reader);
+#if DEBUG
 						Decoded(payload.ToString());
+#endif
 						if (payload.Validate()) { OnPayload(sink, payload, payload.ReadMetadata(reader), payload.ReadData(reader)); }
 						break;
 					case Types.Error:
 						var error = new Error(header, ref reader);
+#if DEBUG
 						Decoded(error.ToString());
+#endif
 						OnError(sink, error);
 						break;
 					case Types.Metadata_Push:

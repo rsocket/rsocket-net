@@ -10,7 +10,10 @@ namespace RSocketDemo
 {
 	public class RequestStreamSubscriber : SubscriberBase<PayloadContent>
 	{
+		TaskCompletionSource<bool> _incomingTaskSignal = new TaskCompletionSource<bool>();
 		public List<string> MsgList { get; set; } = new List<string>();
+
+		public int MaxReceives { get; set; } = int.MaxValue;
 
 		public RequestStreamSubscriber(int requestSize) : base(requestSize)
 		{
@@ -19,23 +22,27 @@ namespace RSocketDemo
 		public override void DoOnNext(PayloadContent value)
 		{
 			string data = Encoding.UTF8.GetString(value.Data.ToArray());
-			Console.WriteLine(data);
+			Console.WriteLine($"收到服务端消息-{data}");
 			this.MsgList.Add(data);
 
-			if (this.MsgList.Count > 5)
-				this.Subscription.Cancel();
+			if (this.MsgList.Count >= MaxReceives)
+				this.Subscription.Dispose();
 		}
 
-		public override void OnSubscribe(ISubscription subscription)
+		public override void OnCompleted()
 		{
-			base.OnSubscribe(subscription);
+			base.OnCompleted();
+			this._incomingTaskSignal.TrySetResult(true);
+		}
 
-			//Task.Run(() =>
-			//{
-			//	Thread.Sleep(5000);
-			//	Console.WriteLine("this.Subscription.Cancel()");
-			//	this.Subscription.Cancel();
-			//});
+		public void OnSubscribe(ISubscription sub)
+		{
+			this.Subscription = sub;
+		}
+
+		public async Task Block()
+		{
+			await this._incomingTaskSignal.Task;
 		}
 	}
 }

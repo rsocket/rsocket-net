@@ -18,6 +18,7 @@ using System.Reactive.Subjects;
 
 namespace RSocketDemo
 {
+
 	class Program
 	{
 		static RSocketServer _server;
@@ -34,44 +35,53 @@ namespace RSocketDemo
 				await _client.ConnectAsync();
 
 				//await RequestStreamTest();
-				//await RequestChannelTest();
-				await RequestChannelCancelTest();
+				//await RequestStreamTest1();
+
+				await RequestChannelTest();
+				await RequestChannelTest1();
 
 				Console.ReadKey();
 			}
-
-		}
-
-		async Task Test()
-		{
-
 		}
 
 		static async Task RequestStreamTest()
 		{
 			int initialRequest = int.MaxValue;
 			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-			await _client.RequestStream(subscriber, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
+			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
 
-			Console.WriteLine(subscriber.MsgList.Count);
-			foreach (var item in subscriber.MsgList)
+			await foreach (var item in result.ToAsyncEnumerable())
 			{
-				Console.WriteLine(item);
+				Console.WriteLine($"收到服务端消息-{item.Data.ConvertToString()}");
 			}
 
+			Console.WriteLine($"RequestStream 结束");
+			Console.ReadKey();
+		}
+		static async Task RequestStreamTest1()
+		{
+			int initialRequest = 2;
+			//int initialRequest = int.MaxValue;
+
+			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
+
+			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
+			subscriber.MaxReceives = 5;
+			var subscription = result.Subscribe(subscriber);
+			ISubscription sub = subscription as ISubscription;
+			subscriber.OnSubscribe(sub);
+
+			await subscriber.Block();
+
+			Console.WriteLine($"收到服务端消息条数-{subscriber.MsgList.Count}");
+
+			Console.WriteLine($"RequestStream 结束");
 			Console.ReadKey();
 		}
 
 
 		static async Task RequestChannelTest()
 		{
-			var source = Observable.Range(1, 5).Select(a =>
-		   {
-			   //Thread.Sleep(1000);
-			   return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
-		   }
-			);
-
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
 			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
@@ -83,74 +93,75 @@ namespace RSocketDemo
 			//	subscriber.Subscription.Cancel();
 			//});
 
-			var result = _client.RequestChannel(source, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
+			var result = RequestChannel(10, initialRequest);
 
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
-				Console.WriteLine($"服务端消息-{item.Data.ConvertToString()}");
+				Console.WriteLine($"收到服务端消息-{item.Data.ConvertToString()}");
 			}
 
+			Console.WriteLine($"RequestChannel 结束");
 			Console.ReadKey();
 		}
-		static async Task RequestChannelCancelTest()
+		static async Task RequestChannelTest1()
 		{
-			var source = Observable.Range(1, 5).Select(a =>
+			int initialRequest = 2;
+			//int initialRequest = int.MaxValue;
+
+			var result = RequestChannel(10, initialRequest);
+
+			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
+			subscriber.MaxReceives = 5;
+			var subscription = result.Subscribe(subscriber);
+			ISubscription sub = subscription as ISubscription;
+			subscriber.OnSubscribe(sub);
+
+			await subscriber.Block();
+
+			Console.WriteLine($"收到服务端消息条数-{subscriber.MsgList.Count}");
+
+			Console.WriteLine($"RequestChannel 结束");
+			Console.ReadKey();
+		}
+
+		static IObservable<PayloadContent> RequestChannel(int outputs, int initialRequest)
+		{
+			IObserver<int> ob = null;
+			var source = Observable.Create<int>(o =>
 			{
-				//Thread.Sleep(1000);
+				ob = o;
+				Task.Run(() =>
+				{
+					for (int i = 0; i < outputs; i++)
+					{
+						Thread.Sleep(1000);
+						o.OnNext(i);
+					}
+
+					o.OnCompleted();
+				});
+
+				return () =>
+				{
+					Console.WriteLine("客户端stream dispose");
+				};
+			}).Select(a =>
+			{
+				Console.WriteLine($"生成客户端消息-{a}");
 				return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
 			}
 			);
 
-			//int initialRequest = 1;
-			int initialRequest = int.MaxValue;
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-
-			var result = _client.RequestChannel(source, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
-
-			result.Subscribe(subscriber);
-
-			while (true)
-			{
-				Console.ReadKey();
-				Console.WriteLine(subscriber.MsgList.Count);
-			}
-
-			//await foreach (var item in result.ToAsyncEnumerable())
+			//var t = Task.Run(() =>
 			//{
-			//	Console.WriteLine($"服务端消息-{item.Data.ConvertToString()}");
-			//}
+			//	Thread.Sleep(10000);
+			//	Console.WriteLine("subscriber.Subscription.Cancel()");
+			//	subscriber.Subscription.Cancel();
+			//});
 
-			Console.ReadKey();
-		}
+			var result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
 
-		static async Task RequestChannelTest1()
-		{
-			var source = Observable.Range(1, 5).ToAsyncEnumerable().Select(a =>
-			{
-				Thread.Sleep(1000);
-				return ($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
-			}
-			);
-
-			//int initialRequest = 2;
-			int initialRequest = int.MaxValue;
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-
-			var t = Task.Run(() =>
-			{
-				Thread.Sleep(10000);
-				Console.WriteLine("subscriber.Subscription.Cancel()");
-				subscriber.Subscription.Cancel();
-			});
-
-			await _client.RequestChannel(subscriber, source, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
-
-			foreach (var item in subscriber.MsgList)
-			{
-				Console.WriteLine($"服务端消息-{item}");
-			}
-
-			Console.ReadKey();
+			return result;
 		}
 	}
 }

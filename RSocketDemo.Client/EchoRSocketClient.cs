@@ -23,26 +23,18 @@ namespace RSocketDemo
 				result => result                                    // resultTransform
 			);
 
-			// Request/Stream
-			Stream(
-				request => request,                                 // requestTransform
-				request =>
-				{
-					string data = Encoding.UTF8.GetString(request.Data.ToArray());
-					Console.WriteLine($"收到服务端RequestStream信息-{data}");
-					return AsyncEnumerable.Repeat(request, 2);
-				}, // producer
-				result => result                                    // resultTransform
-			);
+			//// Request/Stream
+			//Stream(
+			//	request => request,                                 // requestTransform
+			//	request =>
+			//	{
+			//		string data = Encoding.UTF8.GetString(request.Data.ToArray());
+			//		Console.WriteLine($"收到服务端RequestStream信息-{data}");
+			//		return AsyncEnumerable.Repeat(request, 2);
+			//	}, // producer
+			//	result => result                                    // resultTransform
+			//);
 
-
-			this.Channeler = (request, incoming, subscription) => incoming.ToAsyncEnumerable().Select(_ =>
-			{
-				string data = Encoding.UTF8.GetString(_.Data.ToArray());
-				Console.WriteLine($"收到服务端RequestChanneler信息-{data}");
-
-				return _;
-			});
 		}
 
 

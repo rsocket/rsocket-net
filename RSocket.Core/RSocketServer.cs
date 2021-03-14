@@ -10,7 +10,7 @@ namespace RSocket
 		public RSocketServer(IRSocketTransport transport, PrefetchOptions options = default) : base(transport, options) { }
 
 		private int StreamId = 2;       //SPEC: Stream IDs on the server MUST start at 2 and increment by 2 sequentially, such as 2, 4, 6, 8, etc.
-		protected override int NewStreamId()
+		protected internal override int NewStreamId()
 		{
 			return Interlocked.Add(ref StreamId, 2);
 		}

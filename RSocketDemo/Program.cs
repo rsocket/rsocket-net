@@ -127,7 +127,7 @@ namespace RSocketDemo
 
 			int initialRequest = 2000;
 			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-			await _client.RequestChannel(subscriber, source, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
+			//await _client.RequestChannel(subscriber, source, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
 
 			foreach (var item in subscriber.MsgList)
 			{
@@ -156,7 +156,11 @@ namespace RSocketDemo
 			list = await xx.Take(5).ToListAsync();
 
 			var cts = new CancellationTokenSource();
-			Task cancelTask = Task.Delay(-1, cts.Token);
+
+			cts.Token.Register(() =>
+			{
+				Console.WriteLine(1111111);
+			});
 
 			//cts.Cancel();
 
@@ -183,44 +187,39 @@ namespace RSocketDemo
 			 //return Disposable.Empty;
 		 });
 
-			var iiii = source.Subscribe((a) =>
-			   {
-				   Console.WriteLine(a);
-			   }, () =>
-			   {
-				   Console.WriteLine("over");
-			   });
-
-			//var iiiiiii = source.Subscribe((a) =>
-			//{
-			//	Console.WriteLine(a + 100);
-			//}, () =>
-			//{
-			//	Console.WriteLine("over1111111");
-			//});
-
-			var e = source.ToAsyncEnumerable().GetAsyncEnumerator();
+			
 
 
-			//var tttttttt = Task.Run(async () =>
-			//{
-			//	Console.WriteLine("start");
-			//	try
-			//	{
-			//		await e.MoveNextAsync();
-			//	}
-			//	catch
-			//	{
-			//		Console.WriteLine("ex");
-			//	}
-			//	Console.WriteLine("over");
-			//});
+			var tttttttt = Task.Run(async () =>
+			{
+				Console.WriteLine("start");
+				try
+				{
+					await foreach (var item in source.ToAsyncEnumerable())
+					{
+						Console.WriteLine(item);
+					}
 
-			ob.OnNext(1);
+					//var e = source.ToAsyncEnumerable().GetAsyncEnumerator(cts.Token);
+					//while (await e.MoveNextAsync())
+					//{
+					//	Console.WriteLine(e.Current);
+					//}
+				}
+				catch
+				{
+					Console.WriteLine("ex");
+				}
+				Console.WriteLine("over");
+			});
+
+			//ob.OnNext(1);
 			Console.ReadKey();
 			ob.OnNext(2);
+			Console.ReadKey();
+			cts.Cancel();
+			Console.ReadKey();
 			ob.OnCompleted();
-			iiii.Dispose();
 
 			ob.OnNext(3);
 
@@ -228,7 +227,7 @@ namespace RSocketDemo
 			//tttttttt.Dispose();
 			//Console.ReadKey();
 			ob.OnCompleted();
-			Console.WriteLine(await e.MoveNextAsync());
+			 
 			Console.ReadKey();
 			await foreach (var item in source.ToAsyncEnumerable())
 			{
@@ -276,75 +275,7 @@ namespace RSocketDemo
 
 
 
-			await source.ToAsyncEnumerable().ForEachAsync(a =>
-			  {
-				  //Thread.Sleep(1000);
-
-				  //if (a > 2)
-				  //{
-				  //	cts.Cancel();
-				  //}
-
-				  Console.WriteLine(a);
-
-			  });
-
-			var ttttt = await Task.Run(async delegate
-			 {
-				 Console.WriteLine(1111111);
-				 await cancelTask;
-				 Console.WriteLine(2222222);
-				 return 42;
-			 });
-
-			Console.ReadKey();
-			ob.OnNext(2);
-			cts.Cancel();
-			ob.OnNext(3);
-			Console.ReadKey();
-
-			var xxxxxx = source.ToAsyncEnumerable();
-
-			//source.LastOrDefaultAsync();
-			var a = await source.LastOrDefaultAsync();
-
-			var enumerator = x.GetAsyncEnumerator();
-
-			var ss = source.ToAsyncEnumerable();
-
-			var t = ss.ForEachAwaitAsync(async a =>
-			{
-				Console.WriteLine(a);
-
-				var count = a;
-				while (count > 0)
-				{
-					var next = await enumerator.MoveNextAsync();
-
-					if (next)
-					{
-						Console.WriteLine(enumerator.Current);
-						count--;
-						continue;
-					}
-					else
-					{
-						//没有数据了
-						Console.WriteLine("没有数据了");
-						ob.OnCompleted();
-						break;
-					}
-				}
-			});
-
-			Console.WriteLine(5555);
-			while (true)
-			{
-				Console.WriteLine("ob.OnNext(5);");
-				ob.OnNext(5);
-				Console.WriteLine("ob.OnNext(5); over");
-				Console.ReadKey();
-			}
+	 
 
 			Console.ReadKey();
 		}

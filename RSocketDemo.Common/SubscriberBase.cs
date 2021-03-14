@@ -6,12 +6,14 @@ using System.Threading;
 
 namespace RSocketDemo
 {
-	public class SubscriberBase<T> : Subscriber<T>
+	public class SubscriberBase<T> : IObserver<T>
 	{
 		int _requests = 0;
 		int _responsed = 0;
 
 		public int RequestSize { get; set; }
+
+		public ISubscription Subscription { get; set; }
 
 		public SubscriberBase(int requestSize)
 		{
@@ -19,17 +21,17 @@ namespace RSocketDemo
 			this._requests = requestSize;
 		}
 
-		public override void OnCompleted()
+		public virtual void OnCompleted()
 		{
-			base.OnCompleted();
+
 		}
 
-		public override void OnError(Exception error)
+		public virtual void OnError(Exception error)
 		{
-			base.OnError(error);
+
 		}
 
-		public override void OnNext(T value)
+		public virtual void OnNext(T value)
 		{
 			try
 			{
@@ -39,11 +41,11 @@ namespace RSocketDemo
 				if (this._responsed == this._requests)
 				{
 					Random random = new Random();
-					int requestN = random.Next(1, 3);
+					int requestN = random.Next(1, 5);
 					//requestN = int.MaxValue;
-					requestN = 1;
+					//requestN = 1;
 					this._requests = this._requests + requestN;
-					this.Subscription.Request(requestN);
+					this.Subscription?.Request(requestN);
 					//Console.WriteLine($"this.Subscription.Request {Thread.CurrentThread.ManagedThreadId}");
 				}
 			}

@@ -30,23 +30,9 @@ namespace RSocketDemo
 				result => result                                    // resultTransform
 			);
 
-			// Request/Stream
-			Stream(
-				request => request,                                 // requestTransform
-				request =>
-				{
-					Console.WriteLine("收到客户端Stream信息");
-
-					return AsyncEnumerable.Range(1, 20).Select(a => ($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence()));
-
-					//return AsyncEnumerable.Repeat(request, 20);
-				}, // producer
-				result => result                                    // resultTransform
-			);
-
 
 			//this.Channeler = this.ForReuqestChannel;
-			this.Channeler = this.ForReuqestChannel1;
+			//this.Channeler = this.ForReuqestChannel1;
 		}
 
 		IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)> ForReuqestChannel((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> incoming, ISubscription subscription)

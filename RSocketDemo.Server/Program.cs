@@ -33,41 +33,11 @@ namespace RSocketDemo
 
 			SocketTransportFactory socketTransportFactory = new SocketTransportFactory();
 			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint);
-			var ttt = host.ExecuteAsync(CancellationToken.None);
-
+			await host.ExecuteAsync(CancellationToken.None);
+			Console.WriteLine("server");
 			Console.ReadKey();
 		}
 
-
-		static async Task RequestStreamTest()
-		{
-			int initialRequest = 2;
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-			await _client.RequestStream(subscriber, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
-
-			foreach (var item in subscriber.MsgList)
-			{
-				Console.WriteLine(item);
-			}
-
-			Console.ReadKey();
-		}
-
-		static async Task RequestChannelTest()
-		{
-			var source = Observable.Range(1, 15).ToAsyncEnumerable().Select(a => ($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence()));
-
-			int initialRequest = 2000;
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-			await _client.RequestChannel(subscriber, source, "data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
-
-			foreach (var item in subscriber.MsgList)
-			{
-				Console.WriteLine($"服务端消息-{item}");
-			}
-
-			Console.ReadKey();
-		}
 
 		static async Task Test()
 		{

@@ -31,28 +31,21 @@ namespace RSocketDemo
 				result => result                                    // resultTransform
 			);
 
-			// Request/Stream
-			Stream(
-				request => request,                                 // requestTransform
-				request =>
-				{
-					Console.WriteLine("收到客户端Stream信息");
-
-					return AsyncEnumerable.Range(1, 20).Select(a => ($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence()));
-
-					//return AsyncEnumerable.Repeat(request, 20);
-				}, // producer
-				result => result                                    // resultTransform
-			);
-
+			this.Streamer = this.ForRequestStream;
 
 			//this.Channeler = this.ForReuqestChannel;
 			this.Channeler = this.ForReuqestChannel1;
-
-			this.Channeler1 = ForReuqestChannel11;
 		}
 
-		IAsyncEnumerable<PayloadContent> ForReuqestChannel(PayloadContent request, IObservable<PayloadContent> incoming, ISubscription subscription)
+		public IObservable<PayloadContent> ForRequestStream((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
+		{
+			Console.WriteLine($"收到客户端信息RequestStream-{request.Data.ToString()},{request.Metadata.ToString()}");
+			return this.ToRequesterStream();
+		}
+
+
+
+		IAsyncEnumerable<PayloadContent> ForReuqestChannel((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<PayloadContent> incoming, ISubscription subscription)
 		{
 			subscription.Request(int.MaxValue);
 			return incoming.ToAsyncEnumerable().Select(_ =>
@@ -64,49 +57,37 @@ namespace RSocketDemo
 			});
 		}
 
-		IAsyncEnumerable<PayloadContent> ForReuqestChannel1(PayloadContent request, IObservable<PayloadContent> incoming, ISubscription subscription)
+		IObservable<PayloadContent> ForReuqestChannel1((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<PayloadContent> incoming)
 		{
-			subscription.Request(int.MaxValue);
+			IDisposable subscription = incoming.Subscribe(a =>
+		   {
+			   Console.WriteLine($"收到客户端信息-{a.Data.ConvertToString()}-{Thread.CurrentThread.ManagedThreadId}");
+		   }, error =>
+		   {
+			   Console.WriteLine($"服务端onError");
+		   }, () =>
+		   {
+			   Console.WriteLine($"服务端onCompleted");
+		   });
 
-			incoming.ToAsyncEnumerable().Select(_ =>
-		  {
-			  //string d = Encoding.UTF8.GetString(_.data.ToArray());
-			  //Console.WriteLine($"收到客户端信息-{d}");
-
-			  return _;
-		  }).ForEachAsync(a =>
-		  {
-			  Console.WriteLine($"收到客户端信息-{a.Data.ConvertToString()}-{Thread.CurrentThread.ManagedThreadId}");
-			  Thread.Sleep(1000);
-		  });
-
-			return Observable.Range(1, 20).ToAsyncEnumerable().Select(a =>
+			ISubscription sub = subscription as ISubscription;
+			if (sub != null)
 			{
-				Thread.Sleep(1000);
-				Console.WriteLine($"发送服务端-{Thread.CurrentThread.ManagedThreadId}");
-				return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
+				Console.WriteLine($"服务端向客户端Request-{int.MaxValue}");
+				sub.Request(int.MaxValue);
 			}
+
+			return this.ToRequesterStream();
+
+			return Observable.Range(1, 10).Select(a =>
+		   {
+			   return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
+		   }
 			);
 		}
 
-		IObservable<PayloadContent> ForReuqestChannel11(PayloadContent request, IObservable<PayloadContent> incoming)
+		IObservable<PayloadContent> ToRequesterStream()
 		{
-			incoming.Subscribe(a =>
-			{
-				Console.WriteLine($"收到客户端信息-{a.Data.ConvertToString()}-{Thread.CurrentThread.ManagedThreadId}");
-			}, () =>
-			{
-				Console.WriteLine($"服务端onCompleted");
-			}, error =>
-			{
-				Console.WriteLine($"服务端onError");
-			},
-			subscription =>
-			{
-				subscription.Request(int.MaxValue);
-			});
-
-
 			IObserver<int> ob = null;
 			var p = Observable.Create<int>(o =>
 			{
@@ -115,7 +96,8 @@ namespace RSocketDemo
 				{
 					for (int i = 0; i < 10; i++)
 					{
-						//Thread.Sleep();
+						Thread.Sleep(1000);
+						Console.WriteLine($"生成服务端消息-{i}");
 						o.OnNext(i);
 					}
 
@@ -124,22 +106,14 @@ namespace RSocketDemo
 
 				return () =>
 				{
-					Console.WriteLine("服务端 dispose");
+					Console.WriteLine("服务端stream dispose");
 				};
 			});
 
 			return p.Select(a =>
 			{
-				Console.WriteLine($"生成服务端消息-{Thread.CurrentThread.ManagedThreadId}");
 				return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
 			}
-			);
-
-			return Observable.Range(1, 10).Select(a =>
-		   {
-			   Console.WriteLine($"生成服务端消息-{Thread.CurrentThread.ManagedThreadId}");
-			   return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
-		   }
 			);
 		}
 	}

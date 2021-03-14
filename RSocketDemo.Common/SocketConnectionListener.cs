@@ -31,7 +31,7 @@ namespace RSocketDemo
 
 			Socket listenSocket;
 
-			listenSocket = new Socket(EndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+			listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			BindSocket();
 
 			void BindSocket()
@@ -50,7 +50,7 @@ namespace RSocketDemo
 			EndPoint = listenSocket.LocalEndPoint;
 
 			listenSocket.Listen(100);
-
+			Console.WriteLine("服务器开始监听...");
 			_listenSocket = listenSocket;
 		}
 

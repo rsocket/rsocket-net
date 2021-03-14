@@ -34,6 +34,7 @@ namespace RSocketDemo
 			while (true)
 			{
 				RSocketConnection connectionContext = await _connectionListener.AcceptAsync(stoppingToken);
+				Console.WriteLine($"监听到一个客户端连接...{connectionContext.ConnectionId}");
 				// AcceptAsync will return null upon disposing the listener
 				if (connectionContext == null)
 				{

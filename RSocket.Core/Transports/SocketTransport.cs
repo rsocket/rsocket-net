@@ -49,8 +49,13 @@ namespace RSocket.Transports
 			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
 			Endpoint = new IPEndPoint(dns.AddressList[0], Url.Port);
 
-			Socket = new Socket(Endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-			Socket.Connect(dns.AddressList, Url.Port);  //TODO Would like this to be async... Why so serious???
+			IPAddress ip = IPAddress.Parse("127.0.0.1");
+			Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			clientSocket.Connect(new IPEndPoint(ip, 8888)); //配置服务器IP与端口
+			Socket = clientSocket;
+
+			//Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			//Socket.Connect(dns.AddressList, Url.Port);  //TODO Would like this to be async... Why so serious???
 
 			Running = ProcessSocketAsync(Socket);
 		}
