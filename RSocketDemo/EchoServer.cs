@@ -19,16 +19,16 @@ namespace RSocketDemo
 		{
 
 
-			// Request/Response
-			Respond(
-				request => request,                                 // requestTransform
-				request =>
-				{
-					Console.WriteLine("收到客户端Respond信息");
-					return AsyncEnumerable.Repeat(request, echoes);
-				}, // producer
-				result => result                                    // resultTransform
-			);
+			//// Request/Response
+			//Respond(
+			//	request => request,                                 // requestTransform
+			//	request =>
+			//	{
+			//		Console.WriteLine("收到客户端Respond信息");
+			//		return AsyncEnumerable.Repeat(request, echoes);
+			//	}, // producer
+			//	result => result                                    // resultTransform
+			//);
 
 
 			//this.Channeler = this.ForReuqestChannel;

@@ -26,18 +26,26 @@ namespace RSocketDemo
 			this.MsgList.Add(data);
 
 			if (this.MsgList.Count >= MaxReceives)
+			{
 				this.Subscription.Dispose();
+				this.SetCompleted();
+			}
 		}
 
 		public override void OnCompleted()
 		{
 			base.OnCompleted();
+			this.SetCompleted();
+		}
+
+		void SetCompleted()
+		{
 			this._incomingTaskSignal.TrySetResult(true);
 		}
 
-		public void OnSubscribe(ISubscription sub)
+		public void OnSubscribe(ISubscription subscription)
 		{
-			this.Subscription = sub;
+			this.Subscription = subscription;
 		}
 
 		public async Task Block()

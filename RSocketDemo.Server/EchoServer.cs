@@ -18,18 +18,7 @@ namespace RSocketDemo
 		public EchoServer(IRSocketTransport transport, RSocketOptions options = default, int echoes = 2)
 			: base(transport, options)
 		{
-
-
-			// Request/Response
-			Respond(
-				request => request,                                 // requestTransform
-				request =>
-				{
-					Console.WriteLine("收到客户端Respond信息");
-					return AsyncEnumerable.Repeat(request, echoes);
-				}, // producer
-				result => result                                    // resultTransform
-			);
+			this.Responder = this.ForRequestResponse;
 
 			this.Streamer = this.ForRequestStream;
 
@@ -37,9 +26,20 @@ namespace RSocketDemo
 			this.Channeler = this.ForReuqestChannel1;
 		}
 
+		public override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+			Console.WriteLine($"收到客户端信息 RequestFireAndForget -{data.ConvertToString()},{metadata.ConvertToString()}");
+		}
+
+		public async ValueTask<PayloadContent> ForRequestResponse((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
+		{
+			Console.WriteLine($"收到客户端信息 RequestResponse -{request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
+			return new PayloadContent(request.Data, request.Metadata);
+		}
+
 		public IObservable<PayloadContent> ForRequestStream((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
-			Console.WriteLine($"收到客户端信息RequestStream-{request.Data.ToString()},{request.Metadata.ToString()}");
+			Console.WriteLine($"收到客户端信息 RequestStream -{request.Data.ToString()},{request.Metadata.ToString()}");
 			return this.ToRequesterStream();
 		}
 
@@ -57,9 +57,9 @@ namespace RSocketDemo
 			});
 		}
 
-		IObservable<PayloadContent> ForReuqestChannel1((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<PayloadContent> incoming)
+		IObservable<PayloadContent> ForReuqestChannel1((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IPublisher<PayloadContent> incoming)
 		{
-			IDisposable subscription = incoming.Subscribe(a =>
+			ISubscription subscription = incoming.Subscribe(a =>
 		   {
 			   Console.WriteLine($"收到客户端信息-{a.Data.ConvertToString()}-{Thread.CurrentThread.ManagedThreadId}");
 		   }, error =>
@@ -70,12 +70,8 @@ namespace RSocketDemo
 			   Console.WriteLine($"服务端onCompleted");
 		   });
 
-			ISubscription sub = subscription as ISubscription;
-			if (sub != null)
-			{
-				Console.WriteLine($"服务端向客户端Request-{int.MaxValue}");
-				sub.Request(int.MaxValue);
-			}
+			Console.WriteLine($"服务端向客户端Request-{int.MaxValue}");
+			subscription.Request(int.MaxValue);
 
 			return this.ToRequesterStream();
 

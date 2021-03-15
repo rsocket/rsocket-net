@@ -37,16 +37,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="FrameHandlers\RequestChannelRequesterFrameHandler.cs" />
-    <Compile Remove="FrameHandlers\RequestChannelResponderFrameHandler.cs" />
-    <Compile Remove="FrameHandlers\RequestStreamRequesterFrameHandler.cs" />
-    <Compile Remove="FrameHandlers\RequestStreamResponderFrameHandler1.cs" />
-    <Compile Remove="Rx\IPublisher.cs" />
-    <Compile Remove="Rx\ISubscriber.cs" />
-    <Compile Remove="Rx\RequestChannelIncomingStream.cs" />
-    <Compile Remove="Rx\RequestNReceiver.cs" />
-    <Compile Remove="Rx\RequestStreamIncomingStream.cs" />
-    <Compile Remove="Rx\StreamReceiver.cs" />
+    
   </ItemGroup>
 
   <ItemGroup>

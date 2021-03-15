@@ -170,6 +170,8 @@ namespace RSocketDemo
 			 ob = o;
 			 //o.OnNext(1);
 			 //ob.OnCompleted();
+			 //Console.WriteLine("bbbb");
+			 //ob.OnCompleted();
 
 			 //for (int i = 0; i < int.MaxValue; i++)
 			 //{
@@ -187,8 +189,58 @@ namespace RSocketDemo
 			 //return Disposable.Empty;
 		 });
 
-			
+			//Console.WriteLine(source.ToAsyncEnumerable().FirstAsync());
 
+			var t = Task.Run(() =>
+			{
+				Console.WriteLine("9999999");
+
+			});
+			//Console.WriteLine(t.Status);
+
+			//await t;
+			//Console.WriteLine(t.Status);
+			//Console.ReadKey();
+
+			var t1 = t.ContinueWith(async a =>
+				{
+					//await a;
+					Console.WriteLine("111111111");
+					Thread.Sleep(1000);
+					ob.OnNext(10000);
+					Console.WriteLine("22222222222");
+					ob.OnNext(20000);
+					//await Task.Delay(1);
+					ob.OnCompleted();
+					Console.WriteLine("3333333");
+				});
+
+
+			Console.WriteLine((await source.ToAsyncEnumerable().ToListAsync()).Count);
+
+			//t.RunSynchronously(TaskScheduler.Current);
+
+
+			while (true)
+			{
+				Console.WriteLine(t.Status);
+				Console.WriteLine(t1.Status);
+				Console.ReadKey();
+				//await t;
+			}
+
+
+			ob.OnNext(2);
+
+			var ddd = source.Subscribe(a =>
+			  {
+				  Console.WriteLine(a);
+			  }, () =>
+			  {
+				  Console.WriteLine("completed");
+			  });
+			ob.OnNext(11111111);
+			ddd.Dispose();
 
 			var tttttttt = Task.Run(async () =>
 			{
@@ -227,7 +279,7 @@ namespace RSocketDemo
 			//tttttttt.Dispose();
 			//Console.ReadKey();
 			ob.OnCompleted();
-			 
+
 			Console.ReadKey();
 			await foreach (var item in source.ToAsyncEnumerable())
 			{
@@ -275,7 +327,7 @@ namespace RSocketDemo
 
 
 
-	 
+
 
 			Console.ReadKey();
 		}

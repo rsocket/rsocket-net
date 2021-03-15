@@ -34,14 +34,36 @@ namespace RSocketDemo
 				_client = new EchoRSocketClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue });
 				await _client.ConnectAsync();
 
+				await RequestFireAndForgetTest();
+
+				//await RequestResponseTest();
+
 				//await RequestStreamTest();
 				//await RequestStreamTest1();
 
-				await RequestChannelTest();
-				await RequestChannelTest1();
+				//await RequestChannelTest();
+				//await RequestChannelTest1();
 
 				Console.ReadKey();
 			}
+		}
+
+		static async Task RequestFireAndForgetTest()
+		{
+			await _client.RequestFireAndForget("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
+
+			Console.WriteLine($"RequestFireAndForget 结束");
+			Console.ReadKey();
+		}
+
+		static async Task RequestResponseTest()
+		{
+			var result = await _client.RequestResponse("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
+
+			Console.WriteLine($"收到服务端消息-{result.Data.ConvertToString()}");
+
+			Console.WriteLine($"RequestResponse 结束");
+			Console.ReadKey();
 		}
 
 		static async Task RequestStreamTest()
@@ -113,8 +135,7 @@ namespace RSocketDemo
 			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 5;
 			var subscription = result.Subscribe(subscriber);
-			ISubscription sub = subscription as ISubscription;
-			subscriber.OnSubscribe(sub);
+			subscriber.OnSubscribe(subscription);
 
 			await subscriber.Block();
 
@@ -124,7 +145,7 @@ namespace RSocketDemo
 			Console.ReadKey();
 		}
 
-		static IObservable<PayloadContent> RequestChannel(int outputs, int initialRequest)
+		static IPublisher<PayloadContent> RequestChannel(int outputs, int initialRequest)
 		{
 			IObserver<int> ob = null;
 			var source = Observable.Create<int>(o =>

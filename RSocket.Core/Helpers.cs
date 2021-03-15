@@ -42,7 +42,11 @@ namespace RSocket
 					lock (lockObject)
 					{
 						Interlocked.Add(ref requests, requestN);
+
+#if DEBUG
 						Console.WriteLine($"requests: {requests}");
+#endif
+
 						if (requests < 0)
 						{
 							requests = int.MaxValue;
@@ -53,7 +57,9 @@ namespace RSocket
 					{
 						try
 						{
+#if DEBUG
 							Console.WriteLine($"requests: {requests}, responsed {responsed},");
+#endif
 							if (streamEnumerator == null)
 								streamEnumerator = stream.ToAsyncEnumerable().GetAsyncEnumerator();
 
@@ -87,13 +93,17 @@ namespace RSocket
 				if (streamEnumerator != null)
 				{
 					await streamEnumerator.DisposeAsync();
-					Console.WriteLine("await requestNEnumerator.DisposeAsync()");
+#if DEBUG
+					Console.WriteLine("await streamEnumerator.DisposeAsync()");
+#endif
 				}
 
 				if (requestNEnumerator != null)
 				{
 					await requestNEnumerator.DisposeAsync();
+#if DEBUG
 					Console.WriteLine("await requestNEnumerator.DisposeAsync()");
+#endif
 				}
 			}
 		}

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	internal class RequesterIncomingStream : IObservable<PayloadContent>
+	class RequesterIncomingStream : IPublisher<PayloadContent>, IObservable<PayloadContent>
 	{
 		RSocket Socket;
 		IObservable<PayloadContent> _outputs;
@@ -23,7 +23,12 @@ namespace RSocket
 			this._channelBuilder = channelBuilder;
 		}
 
-		public IDisposable Subscribe(IObserver<PayloadContent> observer)
+		IDisposable IObservable<PayloadContent>.Subscribe(IObserver<PayloadContent> observer)
+		{
+			return (this as IPublisher<PayloadContent>).Subscribe(observer);
+		}
+
+		ISubscription IPublisher<PayloadContent>.Subscribe(IObserver<PayloadContent> observer)
 		{
 			var streamId = this.Socket.NewStreamId();
 
@@ -47,6 +52,10 @@ namespace RSocket
 
 						await this._channelBuilder(streamId).ConfigureAwait(false); //TODO handle error
 						await Task.WhenAll(frameHandlerTask, incomingTask);
+
+#if DEBUG
+						Console.WriteLine($"Requester task status: incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
+#endif
 					}
 					finally
 					{
@@ -66,14 +75,13 @@ namespace RSocket
 #if DEBUG
 					Task.Run(() =>
 					{
-						Thread.Sleep(2000);
-						Console.WriteLine($"incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
+						Console.WriteLine($"Requester task status: incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
 					});
 #endif
 				};
 			});
 
-			var subscription = new IncomingStreamWrapper<PayloadContent>(inc, this.Socket, streamId).Subscribe(observer);
+			var subscription = (new IncomingPublisher<PayloadContent>(inc, this.Socket, streamId) as IPublisher<PayloadContent>).Subscribe(observer);
 			return subscription;
 		}
 

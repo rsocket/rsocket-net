@@ -7,7 +7,8 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), System.IObservable<RSocket.PayloadContent>, System.IObservable<RSocket.PayloadContent>>;
+using static RSocket.RSocketProtocol;
+using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), RSocket.IPublisher<RSocket.PayloadContent>, System.IObservable<RSocket.PayloadContent>>;
 
 namespace RSocket
 {
@@ -17,18 +18,12 @@ namespace RSocket
 		ReadOnlySequence<byte> _data;
 		Channeler _channeler;
 
-		IncomingStreamWrapper<PayloadContent> _incoming;
+		IncomingPublisher<PayloadContent> _incoming;
 		Task _incomingTask;
 		IObservable<int> _requestNObservable;
-		IObserver<PayloadContent> _incomingReceiver;
-		IObserver<int> _requestNReceiver;
 
-		IObserver<PayloadContent> _outputSubscriber;
-		IDisposable _outputSubscriberSubscription;
-
-		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket)
+		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId)
 		{
-			this.StreamId = streamId;
 			this._metadata = metadata;
 			this._data = data;
 			this._channeler = channeler;
@@ -37,7 +32,7 @@ namespace RSocket
 
 			var inc = Observable.Create<PayloadContent>(observer =>
 			{
-				this._incomingReceiver = observer;
+				this.IncomingReceiver = observer;
 
 				TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
 				this._incomingTask = incomingTaskSignal.Task;
@@ -48,13 +43,12 @@ namespace RSocket
 				};
 			});
 
-			this._incoming = new IncomingStreamWrapper<PayloadContent>(inc, socket, streamId);
+			this._incoming = new IncomingPublisher<PayloadContent>(inc, socket, streamId);
 
 			var requestNObservable = Observable.Create<int>(observer =>
 			{
-				this._requestNReceiver = observer;
-				this._requestNReceiver.OnNext(initialRequest);
-				this.NotifyOutputPublisher(initialRequest);
+				this.RequestNReceiver = observer;
+				this.HandleRequestN(new RequestN(this.StreamId, this._data, this._metadata, initialRequest: initialRequest));
 				return Disposable.Empty;
 			});
 
@@ -63,49 +57,17 @@ namespace RSocket
 			this.OutputCts.Token.Register(this.StopOutging);
 		}
 
-		public int StreamId { get; set; }
-
-		void NotifyOutputPublisher(int n)
-		{
-			ISubscription sub = this._outputSubscriberSubscription as ISubscription;
-			sub?.Request(n);
-		}
-
-		protected override IObserver<PayloadContent> GetPayloadHandler()
-		{
-			return this._incomingReceiver;
-		}
-
-		public override void HandleRequestN(RSocketProtocol.RequestN message)
-		{
-			var handler = this.GetRequestNHandler();
-
-#if DEBUG
-			if (handler == null)
-				Console.WriteLine("missing reuqest(n) handler");
-#endif
-
-			if (handler != null)
-			{
-				handler.OnNext(message.RequestNumber);
-				this.NotifyOutputPublisher(message.RequestNumber);
-			}
-		}
-		protected override IObserver<int> GetRequestNHandler()
-		{
-			return this._requestNReceiver;
-		}
 
 		void StopIncoming()
 		{
-			this._incomingReceiver?.OnCompleted();
+			this.IncomingReceiver?.OnCompleted();
 		}
 		void StopOutging()
 		{
 			//cancel sending payload.
-			this._outputSubscriber?.OnCompleted();
-			this._requestNReceiver?.OnCompleted();
-			this._outputSubscriberSubscription?.Dispose();
+			this.OutputSubscriber?.OnCompleted();
+			this.RequestNReceiver?.OnCompleted();
+			this.OutputSubscriberSubscription?.Dispose();
 		}
 
 		public override async Task AsTask()
@@ -114,8 +76,8 @@ namespace RSocket
 
 			var outputStream = Observable.Create<PayloadContent>(observer =>
 			{
-				this._outputSubscriber = observer;
-				this._outputSubscriberSubscription = outgoing.Subscribe(observer);
+				this.OutputSubscriber = observer;
+				this.OutputSubscriberSubscription = outgoing.Subscribe(observer);
 
 				return Disposable.Empty;
 			});
@@ -130,7 +92,7 @@ namespace RSocket
 				final: async () =>
 				{
 					await new RSocketProtocol.Payload(this.StreamId, complete: true).WriteFlush(this.Socket.Transport.Output);
-					this._requestNReceiver.OnCompleted();
+					this.RequestNReceiver.OnCompleted();
 				}, cancel: this.OutputCts.Token);
 
 			this.OnPrepare();

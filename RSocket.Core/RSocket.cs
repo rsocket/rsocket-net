@@ -79,14 +79,11 @@ namespace RSocket
 			return channel;
 		}
 
-		public IObservable<PayloadContent> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IObservable<PayloadContent> source, int initial = RSocketOptions.INITIALDEFAULT)
+		public IPublisher<PayloadContent> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IObservable<PayloadContent> source, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			/*
 			 * A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 			 */
-
-			//var incoming = new RequestChannelIncomingStream(this, data, metadata, this.Options.GetInitialRequestSize(initial), source);
-			//return incoming;
 
 			Func<int, Task> channelBuilder = async streamId =>
 			 {
@@ -161,26 +158,15 @@ namespace RSocket
 			};
 
 			var incoming = new RequestResponseRequesterIncomingStream(this, channelBuilder);
-			var ret = await incoming.FirstAsync();
+			var ret = await incoming.ToAsyncEnumerable().FirstAsync();
 			return ret;
 		}
 
-		public virtual async Task RequestFireAndForget(
-			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		public virtual async Task RequestFireAndForget(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
 			var streamId = this.NewStreamId();
 			await new RSocketProtocol.RequestFireAndForget(streamId, data, metadata).WriteFlush(this.Transport.Output, data, metadata);
 		}
-
-		internal void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
-		{
-			var task = operation(stream, cancel);
-			if (!task.IsCompleted)
-			{
-				task.ConfigureAwait(false); //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
-			}
-		}
-
 
 		public virtual void Setup(RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
 		void IRSocketProtocol.Error(RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
@@ -198,10 +184,10 @@ namespace RSocket
 		public void Respond<TRequest, TResult>(
 			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
 			Func<TRequest, IAsyncEnumerable<TResult>> producer,
-			Func<TResult, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> resultTransform) =>
+			Func<TResult, PayloadContent> resultTransform) =>
 			Responder = (request) => (from result in producer(requestTransform(request)) select resultTransform(result)).FirstAsync();
 
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Responder { get; set; } = request => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<PayloadContent>> Responder { get; set; } = request => throw new NotImplementedException();
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
@@ -246,7 +232,7 @@ namespace RSocket
 		//	Func<TOutgoing, PayloadContent> outgoingTransform) =>
 		//	Channeler1 = (request, incoming) => from result in pipeline(requestTransform(request), from item in incoming select incomingTransform(item)) select outgoingTransform(result);
 
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<PayloadContent>, IObservable<PayloadContent>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<PayloadContent>, IObservable<PayloadContent>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
 
 		void IRSocketProtocol.RequestChannel(RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
@@ -308,6 +294,16 @@ namespace RSocket
 #if DEBUG
 				Console.WriteLine("Responder.frameHandler.Dispose()");
 #endif
+			}
+		}
+
+		internal void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
+		{
+			var task = operation(stream, cancel);
+
+			if (!task.IsCompleted)
+			{
+				task.ConfigureAwait(false); //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
 			}
 		}
 	}
