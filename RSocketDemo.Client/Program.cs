@@ -36,13 +36,13 @@ namespace RSocketDemo
 
 				await RequestFireAndForgetTest();
 
-				//await RequestResponseTest();
+				await RequestResponseTest();
 
-				//await RequestStreamTest();
-				//await RequestStreamTest1();
+				await RequestStreamTest();
+				await RequestStreamTest1();
 
-				//await RequestChannelTest();
-				//await RequestChannelTest1();
+				await RequestChannelTest();
+				await RequestChannelTest1();
 
 				Console.ReadKey();
 			}
@@ -90,8 +90,7 @@ namespace RSocketDemo
 			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 5;
 			var subscription = result.Subscribe(subscriber);
-			ISubscription sub = subscription as ISubscription;
-			subscriber.OnSubscribe(sub);
+			subscriber.OnSubscribe(subscription);
 
 			await subscriber.Block();
 
@@ -108,14 +107,7 @@ namespace RSocketDemo
 			int initialRequest = int.MaxValue;
 			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
 
-			//var t = Task.Run(() =>
-			//{
-			//	Thread.Sleep(10000);
-			//	Console.WriteLine("subscriber.Subscription.Cancel()");
-			//	subscriber.Subscription.Cancel();
-			//});
-
-			var result = RequestChannel(10, initialRequest);
+			var result = RequestChannel(2, initialRequest);
 
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
@@ -172,13 +164,6 @@ namespace RSocketDemo
 				return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
 			}
 			);
-
-			//var t = Task.Run(() =>
-			//{
-			//	Thread.Sleep(10000);
-			//	Console.WriteLine("subscriber.Subscription.Cancel()");
-			//	subscriber.Subscription.Cancel();
-			//});
 
 			var result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
 

@@ -15,7 +15,6 @@ namespace RSocket.Transports
 	//TODO Readd transport logging - worth it during debugging.
 	public class SocketTransport : IRSocketTransport
 	{
-		private IPEndPoint Endpoint;
 		private Socket Socket;
 
 		internal Task Running { get; private set; } = Task.CompletedTask;
@@ -47,20 +46,15 @@ namespace RSocket.Transports
 		{
 			var dns = await Dns.GetHostEntryAsync(Url.Host);
 			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
-			Endpoint = new IPEndPoint(dns.AddressList[0], Url.Port);
 
-			IPAddress ip = IPAddress.Parse("127.0.0.1");
-			Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			clientSocket.Connect(new IPEndPoint(ip, 8888)); //配置服务器IP与端口
-			Socket = clientSocket;
-
-			//Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			//Socket.Connect(dns.AddressList, Url.Port);  //TODO Would like this to be async... Why so serious???
+			IPAddress ip = dns.AddressList[0];
+			Socket = new Socket(ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+			Socket.Connect(ip, Url.Port);  //TODO Would like this to be async... Why so serious???
 
 			Running = ProcessSocketAsync(Socket);
 		}
 
-		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
+		public Task StopAsync() => Task.CompletedTask;      //TODO More graceful shutdown
 
 		private async Task ProcessSocketAsync(Socket socket)
 		{
@@ -134,7 +128,7 @@ namespace RSocket.Transports
 
 		private async Task StartReceiving(Socket socket)
 		{
-			var token = default(CancellationToken);	//Cancellation?.Token ?? default;
+			var token = default(CancellationToken); //Cancellation?.Token ?? default;
 
 			try
 			{

@@ -56,10 +56,7 @@ namespace RSocket
 
 				if (message.IsComplete)
 				{
-					handler.OnCompleted();  //I don't know why the thread stops after running this code, this means that all code after this line will not be executed.
-#if DEBUG
-					Console.WriteLine("The message was never printed.");   //This code isn't running, it really makes me angry. Can you tell me why and how to fix it!!!
-#endif
+					handler.OnCompleted();
 				}
 			}
 		}

@@ -9,7 +9,7 @@ namespace RSocket
 {
 	class RequestStreamRequesterIncomingStream : RequesterIncomingStream
 	{
-		public RequestStreamRequesterIncomingStream(RSocket socket, Func<int, Task> channelBuilder) : base(socket, GetOutputs(), channelBuilder)
+		public RequestStreamRequesterIncomingStream(RSocket socket, Func<int, Task> channelEstablisher) : base(socket, GetOutputs(), channelEstablisher)
 		{
 
 		}

@@ -24,7 +24,6 @@ namespace RSocketDemo
 		static RSocketClient _client;
 		static async Task Main(string[] args)
 		{
-			//Task tttt = TastTest(act);
 			//await Test();
 
 			IPAddress iP = IPAddress.Parse("127.0.0.1");

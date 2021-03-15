@@ -90,7 +90,7 @@ namespace RSocketDemo
 				ob = o;
 				Task.Run(() =>
 				{
-					for (int i = 0; i < 10; i++)
+					for (int i = 0; i < 5; i++)
 					{
 						Thread.Sleep(1000);
 						Console.WriteLine($"生成服务端消息-{i}");

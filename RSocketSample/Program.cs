@@ -58,9 +58,9 @@ namespace RSocketSample
 	{
 		public EchoServer(IRSocketTransport transport, RSocketOptions options = default, int echoes = 2) : base(transport, options)
 		{
-			Stream(request => request,
-				request => AsyncEnumerable.Repeat(request, echoes),
-				result => result);
+			//Stream(request => request,
+			//	request => AsyncEnumerable.Repeat(request, echoes),
+			//	result => result);
 		}
 	}
 }

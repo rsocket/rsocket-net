@@ -85,12 +85,12 @@ namespace RSocket
 			 * A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 			 */
 
-			Func<int, Task> channelBuilder = async streamId =>
-			 {
-				 await new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial)).WriteFlush(this.Transport.Output, data, metadata);
-			 };
+			Func<int, Task> channelEstablisher = async streamId =>
+			{
+				await new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial)).WriteFlush(this.Transport.Output, data, metadata);
+			};
 
-			var incoming = new RequesterIncomingStream(this, source, channelBuilder);
+			var incoming = new RequesterIncomingStream(this, source, channelEstablisher);
 			return incoming;
 		}
 
@@ -129,14 +129,14 @@ namespace RSocket
 			return new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
 		}
 
-		public IObservable<PayloadContent> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
+		public IPublisher<PayloadContent> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			Func<int, Task> channelBuilder = async streamId =>
+			Func<int, Task> channelEstablisher = async streamId =>
 			{
 				await new RSocketProtocol.RequestStream(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial)).WriteFlush(this.Transport.Output, data, metadata);
 			};
 
-			var incoming = new RequestStreamRequesterIncomingStream(this, channelBuilder);
+			var incoming = new RequestStreamRequesterIncomingStream(this, channelEstablisher);
 			return incoming;
 		}
 
@@ -152,12 +152,12 @@ namespace RSocket
 
 		public virtual async Task<PayloadContent> RequestResponse(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
-			Func<int, Task> channelBuilder = async streamId =>
+			Func<int, Task> channelEstablisher = async streamId =>
 			{
 				await new RSocketProtocol.RequestResponse(streamId, data, metadata).WriteFlush(Transport.Output, data, metadata);
 			};
 
-			var incoming = new RequestResponseRequesterIncomingStream(this, channelBuilder);
+			var incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
 			var ret = await incoming.ToAsyncEnumerable().FirstAsync();
 			return ret;
 		}

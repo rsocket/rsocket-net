@@ -14,13 +14,13 @@ namespace RSocket
 	{
 		RSocket Socket;
 		IObservable<PayloadContent> _outputs;
-		Func<int, Task> _channelBuilder;
+		Func<int, Task> _channelEstablisher;
 
-		public RequesterIncomingStream(RSocket socket, IObservable<PayloadContent> outputs, Func<int, Task> channelBuilder)
+		public RequesterIncomingStream(RSocket socket, IObservable<PayloadContent> outputs, Func<int, Task> channelEstablisher)
 		{
 			this.Socket = socket;
 			this._outputs = outputs;
-			this._channelBuilder = channelBuilder;
+			this._channelEstablisher = channelEstablisher;
 		}
 
 		IDisposable IObservable<PayloadContent>.Subscribe(IObserver<PayloadContent> observer)
@@ -50,7 +50,7 @@ namespace RSocket
 
 						this.OnSubscribe(streamId, frameHandler); //TODO handle error
 
-						await this._channelBuilder(streamId).ConfigureAwait(false); //TODO handle error
+						await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
 						await Task.WhenAll(frameHandlerTask, incomingTask);
 
 #if DEBUG

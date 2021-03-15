@@ -140,29 +140,7 @@ namespace RSocketDemo
 		static async Task Test()
 		{
 			IObserver<int> ob = null;
-			Action<IObserver<int>> act = a =>
-			{
-				ob = a;
-			};
-
-
-			var x = Observable.Range(1, 10).ToAsyncEnumerable();
-
-			//x.ForEachAsync
-			var xx = Observable.Range(1, 10).ToAsyncEnumerable();
-
-			var list = await xx.Take(5).ToListAsync();
-
-			list = await xx.Take(5).ToListAsync();
-
 			var cts = new CancellationTokenSource();
-
-			cts.Token.Register(() =>
-			{
-				Console.WriteLine(1111111);
-			});
-
-			//cts.Cancel();
 
 			var source = Observable.Create<int>((o) =>
 		 {
@@ -183,132 +161,31 @@ namespace RSocketDemo
 			 return () =>
 		   {
 			   Console.WriteLine("disposing");
-			   //cts.Cancel();
 		   };
-
-			 //return Disposable.Empty;
 		 });
 
-			//Console.WriteLine(source.ToAsyncEnumerable().FirstAsync());
 
-			var t = Task.Run(() =>
-			{
-				Console.WriteLine("9999999");
+			var t = Task.Run(async () =>
+				 {
+					 //await a;
+					 Console.WriteLine("111111111");
+					 Thread.Sleep(1000);
+					 ob.OnNext(10000);
+					 Console.WriteLine("22222222222");
+					 ob.OnNext(20000);
+					 //await Task.Delay(1);
+					 ob.OnCompleted();
 
-			});
-			//Console.WriteLine(t.Status);
-
-			//await t;
-			//Console.WriteLine(t.Status);
-			//Console.ReadKey();
-
-			var t1 = t.ContinueWith(async a =>
-				{
-					//await a;
-					Console.WriteLine("111111111");
-					Thread.Sleep(1000);
-					ob.OnNext(10000);
-					Console.WriteLine("22222222222");
-					ob.OnNext(20000);
-					//await Task.Delay(1);
-					ob.OnCompleted();
-					Console.WriteLine("3333333");
-				});
-
+					 Console.WriteLine("3333333");
+				 });
 
 			Console.WriteLine((await source.ToAsyncEnumerable().ToListAsync()).Count);
-
-			//t.RunSynchronously(TaskScheduler.Current);
-
 
 			while (true)
 			{
 				Console.WriteLine(t.Status);
-				Console.WriteLine(t1.Status);
 				Console.ReadKey();
-				//await t;
 			}
-
-
-			ob.OnNext(2);
-
-			var ddd = source.Subscribe(a =>
-			  {
-				  Console.WriteLine(a);
-			  }, () =>
-			  {
-				  Console.WriteLine("completed");
-			  });
-			ob.OnNext(11111111);
-			ddd.Dispose();
-
-			var tttttttt = Task.Run(async () =>
-			{
-				Console.WriteLine("start");
-				try
-				{
-					await foreach (var item in source.ToAsyncEnumerable())
-					{
-						Console.WriteLine(item);
-					}
-
-					//var e = source.ToAsyncEnumerable().GetAsyncEnumerator(cts.Token);
-					//while (await e.MoveNextAsync())
-					//{
-					//	Console.WriteLine(e.Current);
-					//}
-				}
-				catch
-				{
-					Console.WriteLine("ex");
-				}
-				Console.WriteLine("over");
-			});
-
-			//ob.OnNext(1);
-			Console.ReadKey();
-			ob.OnNext(2);
-			Console.ReadKey();
-			cts.Cancel();
-			Console.ReadKey();
-			ob.OnCompleted();
-
-			ob.OnNext(3);
-
-			//await e.DisposeAsync();
-			//tttttttt.Dispose();
-			//Console.ReadKey();
-			ob.OnCompleted();
-
-			Console.ReadKey();
-			await foreach (var item in source.ToAsyncEnumerable())
-			{
-				Console.WriteLine(item);
-			}
-			Console.Read();
-			var tttttt = Task.Run(async () =>
-			 {
-				 try
-				 {
-					 await source.ToAsyncEnumerable().ForEachAsync(a =>
-					   {
-						   Console.WriteLine(a);
-					   }, cts.Token);
-				 }
-				 catch (Exception ex)
-				 {
-					 Console.WriteLine("ex");
-				 }
-
-				 //var e = source.ToAsyncEnumerable().GetAsyncEnumerator();
-
-				 //Console.WriteLine("start");
-				 //while (await e.MoveNextAsync())
-				 //{
-				 // Console.WriteLine(e.Current);
-				 //}
-				 Console.WriteLine("over");
-			 });
 
 			int i = 0;
 			while (true)
@@ -322,87 +199,7 @@ namespace RSocketDemo
 				ob.OnCompleted();
 			}
 
-			//source = Observable.Range(1, 10);
-			//cts.Cancel();
-
-
-
-
-
 			Console.ReadKey();
-		}
-
-		static async Task TastTest(Action<IObserver<int>> act)
-		{
-			var observable = Observable.Create<int>(observer =>
-			{
-				//var id = StreamDispatch(receiver);
-				//Subscriber(observer).ConfigureAwait(false);
-
-				act(observer);
-				observer.OnError(new Exception());
-				return Disposable.Empty;
-			});
-
-			//return observable.ToTask();
-
-			//await observable.LastOrDefaultAsync();
-
-			var result = await observable.ToAsyncEnumerable().ToListAsync();
-
-			//return result;
-
-			//await result.ForEachAsync(a =>
-			//{
-			//	Console.WriteLine(a);
-			//});
-
-			//try
-			//{
-			//	await foreach (var item in result)
-			//	{
-			//		Console.WriteLine(item);
-			//	}
-			//}
-			//catch (Exception ex)
-			//{
-			//	//receiver.OnError(ex);
-			//	throw;
-			//}
-		}
-
-		static void Bind()
-		{
-			//if (_listenSocket != null)
-			//{
-			//	throw new InvalidOperationException(SocketsStrings.TransportAlreadyBound);
-			//}
-
-			IPAddress iP = IPAddress.Parse("127.0.0.1");
-			IPEndPoint EndPoint = new IPEndPoint(iP, 8888);
-
-			Socket listenSocket;
-
-			listenSocket = new Socket(EndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-			BindSocket();
-
-			void BindSocket()
-			{
-				try
-				{
-					listenSocket.Bind(EndPoint);
-				}
-				catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressAlreadyInUse)
-				{
-					throw new Exception(e.Message, e);
-				}
-			}
-
-			//EndPoint = listenSocket.LocalEndPoint;
-
-			listenSocket.Listen(100);
-
-			//_listenSocket = listenSocket;
 		}
 	}
 }
