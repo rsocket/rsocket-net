@@ -27,9 +27,9 @@ namespace RSocket
 		public int StreamId { get; set; }
 		public CancellationTokenSource OutputCts { get; set; } = new CancellationTokenSource();
 
-		public IObserver<PayloadContent> IncomingReceiver { get; set; }
+		public IObserver<Payload> IncomingReceiver { get; set; }
 		public IObserver<int> RequestNReceiver { get; set; }
-		public IObserver<PayloadContent> OutputSubscriber { get; set; }
+		public IObserver<Payload> OutputSubscriber { get; set; }
 		public IDisposable OutputSubscriberSubscription { get; set; }
 
 		public virtual void HandlePayload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
@@ -45,7 +45,7 @@ namespace RSocket
 			{
 				if (message.IsNext)
 				{
-					handler.OnNext(new PayloadContent(data, metadata));
+					handler.OnNext(new Payload(data, metadata));
 				}
 
 				if (message.IsComplete)
@@ -54,7 +54,7 @@ namespace RSocket
 				}
 			}
 		}
-		protected virtual IObserver<PayloadContent> GetPayloadHandler()
+		protected virtual IObserver<Payload> GetPayloadHandler()
 		{
 			return this.IncomingReceiver;
 		}

@@ -12,14 +12,14 @@ namespace RSocket
 {
 	public class RequesterFrameHandler : FrameHandlerBase
 	{
-		IObservable<PayloadContent> _outgoing;
+		IObservable<Payload> _outgoing;
 
 		IObservable<int> _requestNObservable;
 
 		public RequesterFrameHandler(RSocket socket
 			, int streamId
-			, IObserver<PayloadContent> incomingReceiver
-			, IObservable<PayloadContent> outgoing) : base(socket, streamId)
+			, IObserver<Payload> incomingReceiver
+			, IObservable<Payload> outgoing) : base(socket, streamId)
 		{
 			this._outgoing = outgoing;
 
@@ -67,7 +67,7 @@ namespace RSocket
 		{
 			var outgoing = this._outgoing;
 
-			var outputStream = Observable.Create<PayloadContent>(observer =>
+			var outputStream = Observable.Create<Payload>(observer =>
 			{
 				this.OutputSubscriber = observer;
 				this.OutputSubscriberSubscription = outgoing.Subscribe(observer);

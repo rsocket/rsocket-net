@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static RSocket.RSocketProtocol;
-using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), RSocket.IPublisher<RSocket.PayloadContent>, System.IObservable<RSocket.PayloadContent>>;
+using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), RSocket.IPublisher<RSocket.Payload>, System.IObservable<RSocket.Payload>>;
 
 namespace RSocket
 {
@@ -18,7 +18,7 @@ namespace RSocket
 		ReadOnlySequence<byte> _data;
 		Channeler _channeler;
 
-		IncomingPublisher<PayloadContent> _incoming;
+		IncomingPublisher<Payload> _incoming;
 		Task _incomingTask;
 		IObservable<int> _requestNObservable;
 
@@ -30,7 +30,7 @@ namespace RSocket
 
 			TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
 
-			var inc = Observable.Create<PayloadContent>(observer =>
+			var inc = Observable.Create<Payload>(observer =>
 			{
 				this.IncomingReceiver = observer;
 
@@ -43,7 +43,7 @@ namespace RSocket
 				};
 			});
 
-			this._incoming = new IncomingPublisher<PayloadContent>(inc, socket, streamId);
+			this._incoming = new IncomingPublisher<Payload>(inc, socket, streamId);
 
 			var requestNObservable = Observable.Create<int>(observer =>
 			{
@@ -74,7 +74,7 @@ namespace RSocket
 		{
 			var outgoing = this._channeler((this._data, this._metadata), this._incoming);     //TODO Handle Errors.
 
-			var outputStream = Observable.Create<PayloadContent>(observer =>
+			var outputStream = Observable.Create<Payload>(observer =>
 			{
 				this.OutputSubscriber = observer;
 				this.OutputSubscriberSubscription = outgoing.Subscribe(observer);

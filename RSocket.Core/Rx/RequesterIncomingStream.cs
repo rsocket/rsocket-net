@@ -10,29 +10,29 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	class RequesterIncomingStream : IPublisher<PayloadContent>, IObservable<PayloadContent>
+	class RequesterIncomingStream : IPublisher<Payload>, IObservable<Payload>
 	{
 		RSocket Socket;
-		IObservable<PayloadContent> _outputs;
+		IObservable<Payload> _outputs;
 		Func<int, Task> _channelEstablisher;
 
-		public RequesterIncomingStream(RSocket socket, IObservable<PayloadContent> outputs, Func<int, Task> channelEstablisher)
+		public RequesterIncomingStream(RSocket socket, IObservable<Payload> outputs, Func<int, Task> channelEstablisher)
 		{
 			this.Socket = socket;
 			this._outputs = outputs;
 			this._channelEstablisher = channelEstablisher;
 		}
 
-		IDisposable IObservable<PayloadContent>.Subscribe(IObserver<PayloadContent> observer)
+		IDisposable IObservable<Payload>.Subscribe(IObserver<Payload> observer)
 		{
-			return (this as IPublisher<PayloadContent>).Subscribe(observer);
+			return (this as IPublisher<Payload>).Subscribe(observer);
 		}
 
-		ISubscription IPublisher<PayloadContent>.Subscribe(IObserver<PayloadContent> observer)
+		ISubscription IPublisher<Payload>.Subscribe(IObserver<Payload> observer)
 		{
 			var streamId = this.Socket.NewStreamId();
 
-			var inc = Observable.Create<PayloadContent>(observer =>
+			var inc = Observable.Create<Payload>(observer =>
 			{
 				RequesterFrameHandler frameHandler = new RequesterFrameHandler(this.Socket, streamId, observer, this._outputs);
 				this.Socket.FrameHandlerDispatch(streamId, frameHandler);
@@ -78,7 +78,7 @@ namespace RSocket
 				};
 			});
 
-			var subscription = (new IncomingPublisher<PayloadContent>(inc, this.Socket, streamId) as IPublisher<PayloadContent>).Subscribe(observer);
+			var subscription = (new IncomingPublisher<Payload>(inc, this.Socket, streamId) as IPublisher<Payload>).Subscribe(observer);
 			return subscription;
 		}
 

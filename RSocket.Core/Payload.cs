@@ -5,7 +5,7 @@ using System.Text;
 
 namespace RSocket
 {
-	public struct PayloadContent
+	public struct Payload
 	{
 		ReadOnlySequence<byte> _data;
 		ReadOnlySequence<byte> _metadata;
@@ -13,7 +13,7 @@ namespace RSocket
 		public ReadOnlySequence<byte> Data { get { return this._data; } }
 		public ReadOnlySequence<byte> Metadata { get { return this._metadata; } }
 
-		public PayloadContent(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)
+		public Payload(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)
 		{
 			this._data = data;
 			this._metadata = metadata;

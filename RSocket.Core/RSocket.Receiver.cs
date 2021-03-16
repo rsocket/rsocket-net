@@ -11,7 +11,7 @@ using System.Reactive.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Threading.Tasks;
 
-using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
+using IRSocketStream = System.IObserver<RSocket.Payload>;
 
 namespace RSocket
 {
@@ -20,9 +20,9 @@ namespace RSocket
 		public class Receiver<T> : IAsyncEnumerable<T>
 		{
 			readonly Func<IRSocketStream, Task> Subscriber;
-			readonly Func<PayloadContent, T> Mapper;
+			readonly Func<Payload, T> Mapper;
 
-			public Receiver(Func<IRSocketStream, Task> subscriber, Func<PayloadContent, T> mapper)
+			public Receiver(Func<IRSocketStream, Task> subscriber, Func<Payload, T> mapper)
 			{
 				Subscriber = subscriber;
 				Mapper = mapper;
@@ -30,7 +30,7 @@ namespace RSocket
 
 			public async Task<T> ExecuteAsync(CancellationToken cancellation = default)
 			{
-				var observable = Observable.Create<PayloadContent>(observer =>
+				var observable = Observable.Create<Payload>(observer =>
 				{
 					Subscriber(observer).ConfigureAwait(false);
 					return Disposable.Empty;
@@ -42,7 +42,7 @@ namespace RSocket
 
 			public async Task<T> ExecuteAsync(T result, CancellationToken cancellation = default)
 			{
-				var observable = Observable.Create<PayloadContent>(observer =>
+				var observable = Observable.Create<Payload>(observer =>
 				{
 					Subscriber(observer).ConfigureAwait(false);
 					observer.OnCompleted();
@@ -55,7 +55,7 @@ namespace RSocket
 
 			public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation = default)
 			{
-				var observable = Observable.Create<PayloadContent>(observer =>
+				var observable = Observable.Create<Payload>(observer =>
 				{
 					Subscriber(observer).ConfigureAwait(false);
 					return Disposable.Empty;
@@ -69,12 +69,12 @@ namespace RSocket
 
 		public class Receiver<TSource, T> : Receiver<T>
 		{
-			public Receiver(Func<IRSocketStream, Task<IRSocketChannel>> subscriber, IAsyncEnumerable<TSource> source, Func<TSource, PayloadContent> sourcemapper, Func<PayloadContent, T> resultmapper) :
+			public Receiver(Func<IRSocketStream, Task<IRSocketChannel>> subscriber, IAsyncEnumerable<TSource> source, Func<TSource, Payload> sourcemapper, Func<Payload, T> resultmapper) :
 				base(stream => Subscribe(stream, subscriber(stream), source, sourcemapper), resultmapper)
 			{
 			}
 
-			static async Task Subscribe(IRSocketStream stream, Task<IRSocketChannel> original, IAsyncEnumerable<TSource> source, Func<TSource, PayloadContent> sourcemapper)
+			static async Task Subscribe(IRSocketStream stream, Task<IRSocketChannel> original, IAsyncEnumerable<TSource> source, Func<TSource, Payload> sourcemapper)
 			{
 				var channel = await original;     //Let the receiver hook up first before we start generating values.
 				var enumerator = source.GetAsyncEnumerator();

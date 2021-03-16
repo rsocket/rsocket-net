@@ -136,7 +136,7 @@ namespace RSocketDemo
 			Console.ReadKey();
 		}
 
-		static IPublisher<PayloadContent> RequestChannel(int outputs, int initialRequest)
+		static IPublisher<Payload> RequestChannel(int outputs, int initialRequest)
 		{
 			IObserver<int> ob = null;
 			var source = Observable.Create<int>(o =>
@@ -160,7 +160,7 @@ namespace RSocketDemo
 			}).Select(a =>
 			{
 				Console.WriteLine($"generate requester message: {a}");
-				return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
+				return new Payload($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
 			}
 			);
 

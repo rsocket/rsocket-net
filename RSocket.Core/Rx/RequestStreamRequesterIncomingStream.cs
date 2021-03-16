@@ -14,9 +14,9 @@ namespace RSocket
 
 		}
 
-		static IObservable<PayloadContent> GetOutputs()
+		static IObservable<Payload> GetOutputs()
 		{
-			var outputs = Observable.Create<PayloadContent>(observer =>
+			var outputs = Observable.Create<Payload>(observer =>
 			  {
 				  return Disposable.Empty;
 			  });

@@ -5,7 +5,7 @@ using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RSocket.Transports;
 
-using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
+using IRSocketStream = System.IObserver<RSocket.Payload>;
 
 namespace RSocket.Tests
 {

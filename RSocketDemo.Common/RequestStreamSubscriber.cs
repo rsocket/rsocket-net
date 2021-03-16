@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace RSocketDemo
 {
-	public class RequestStreamSubscriber : SubscriberBase<PayloadContent>
+	public class RequestStreamSubscriber : SubscriberBase<Payload>
 	{
 		TaskCompletionSource<bool> _incomingTaskSignal = new TaskCompletionSource<bool>();
 		public List<string> MsgList { get; set; } = new List<string>();
@@ -19,7 +19,7 @@ namespace RSocketDemo
 		{
 		}
 
-		public override void DoOnNext(PayloadContent value)
+		public override void DoOnNext(Payload value)
 		{
 			string data = Encoding.UTF8.GetString(value.Data.ToArray());
 			Console.WriteLine($"received message: {data}");

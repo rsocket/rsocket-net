@@ -9,7 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Concurrent;
 using RSocket.Transports;
 
-using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
+using IRSocketStream = System.IObserver<RSocket.Payload>;
 
 namespace RSocket.Tests
 {
@@ -66,9 +66,9 @@ namespace RSocket.Tests
 
 		public class StreamReceiver : List<(byte[] Metadata, byte[] Data)>, IRSocketStream
 		{
-			void IObserver<PayloadContent>.OnCompleted() => this.Add((null, null));
-			void IObserver<PayloadContent>.OnError(Exception error) => throw new NotImplementedException(); //Next(metadata, data);
-			void IObserver<PayloadContent>.OnNext(PayloadContent value) => this.Add((value.Metadata.ToArray(), value.Data.ToArray()));
+			void IObserver<Payload>.OnCompleted() => this.Add((null, null));
+			void IObserver<Payload>.OnError(Exception error) => throw new NotImplementedException(); //Next(metadata, data);
+			void IObserver<Payload>.OnNext(Payload value) => this.Add((value.Metadata.ToArray(), value.Data.ToArray()));
 		}
 	}
 }

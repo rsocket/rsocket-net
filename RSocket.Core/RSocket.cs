@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using IRSocketStream = System.IObserver<RSocket.PayloadContent>;
+using IRSocketStream = System.IObserver<RSocket.Payload>;
 using System.Reactive.Disposables;
 using System.Reactive.Threading.Tasks;
 
@@ -15,7 +15,7 @@ namespace RSocket
 {
 	public interface IRSocketChannel
 	{
-		Task Send(PayloadContent value);
+		Task Send(Payload value);
 		Task Complete();
 	}
 
@@ -67,9 +67,9 @@ namespace RSocket
 		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 		[Obsolete("This method has obsoleted.")]
 		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
-			Func<PayloadContent, T> resultmapper,
+			Func<Payload, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => new PayloadContent(default, sourcemapper(_)), value => resultmapper(value));
+			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => new Payload(default, sourcemapper(_)), value => resultmapper(value));
 
 		[Obsolete("This method has obsoleted.")]
 		public async Task<IRSocketChannel> RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
@@ -80,7 +80,7 @@ namespace RSocket
 			return channel;
 		}
 
-		public IPublisher<PayloadContent> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IObservable<PayloadContent> source, int initial = RSocketOptions.INITIALDEFAULT)
+		public IPublisher<Payload> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IObservable<Payload> source, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			/*
 			 * A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
@@ -103,7 +103,7 @@ namespace RSocket
 
 			public ChannelHandler(RSocket socket, int stream) { Socket = socket; Stream = stream; }
 
-			public Task Send(PayloadContent value)
+			public Task Send(Payload value)
 			{
 				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
 				return new RSocketProtocol.Payload(Stream, value.Data, value.Metadata, next: true).WriteFlush(Socket.Transport.Output, value.Data, value.Metadata);
@@ -121,7 +121,7 @@ namespace RSocket
 		}
 
 		[Obsolete("This method has obsoleted.")]
-		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<PayloadContent, T> resultmapper,
+		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<Payload, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<T>(stream => RequestStream(stream, data, metadata), value => resultmapper(value));
 
@@ -132,7 +132,7 @@ namespace RSocket
 			return new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
 		}
 
-		public IPublisher<PayloadContent> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
+		public IPublisher<Payload> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
@@ -144,7 +144,7 @@ namespace RSocket
 		}
 
 		[Obsolete("This method has obsoleted.")]
-		public virtual Task<T> RequestResponse<T>(Func<PayloadContent, T> resultmapper,
+		public virtual Task<T> RequestResponse<T>(Func<Payload, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
 
@@ -155,7 +155,7 @@ namespace RSocket
 			return new RSocketProtocol.RequestResponse(id, data, metadata).WriteFlush(Transport.Output, data, metadata);
 		}
 
-		public virtual async Task<PayloadContent> RequestResponse(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		public virtual async Task<Payload> RequestResponse(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
@@ -166,7 +166,7 @@ namespace RSocket
 
 			var incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
 			//var ret = await incoming.ToAsyncEnumerable().FirstAsync(); //Cannot use linq operation to get the payload, because of it will produces redundant cancel command. ps: 'ISubscription.Dispose()' will be executed before 'IObserver<T>.OnComplete()' when using 'IObservable<T>.ToAsyncEnumerable().FirstAsync()' method.
-			PayloadContent ret = default(PayloadContent);
+			Payload ret = default(Payload);
 			ISubscription sub = incoming.Subscribe(a =>
 			  {
 				  ret = a;
@@ -214,10 +214,10 @@ namespace RSocket
 		public void Respond<TRequest, TResult>(
 			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
 			Func<TRequest, IAsyncEnumerable<TResult>> producer,
-			Func<TResult, PayloadContent> resultTransform) =>
+			Func<TResult, Payload> resultTransform) =>
 			Responder = (request) => (from result in producer(requestTransform(request)) select resultTransform(result)).FirstAsync();
 
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<PayloadContent>> Responder { get; set; } = request => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<Payload>> Responder { get; set; } = request => throw new NotImplementedException();
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
@@ -237,13 +237,13 @@ namespace RSocket
 		//	Func<TResult, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> resultTransform) =>
 		//	Streamer = (request) => from result in producer(requestTransform(request)) select resultTransform(result);
 
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<PayloadContent>> Streamer { get; set; } = request => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>> Streamer { get; set; } = request => throw new NotImplementedException();
 
 		void IRSocketProtocol.RequestStream(RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
-				Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<PayloadContent>, IObservable<PayloadContent>> channeler = (request, incoming) =>
+				Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>, IObservable<Payload>> channeler = (request, incoming) =>
 				{
 					var outgoing = this.Streamer((data, metadata));
 					incoming.Subscribe(a => { });
@@ -265,7 +265,7 @@ namespace RSocket
 		//	Func<TOutgoing, PayloadContent> outgoingTransform) =>
 		//	Channeler1 = (request, incoming) => from result in pipeline(requestTransform(request), from item in incoming select incomingTransform(item)) select outgoingTransform(result);
 
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<PayloadContent>, IObservable<PayloadContent>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<Payload>, IObservable<Payload>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
 
 		void IRSocketProtocol.RequestChannel(RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
