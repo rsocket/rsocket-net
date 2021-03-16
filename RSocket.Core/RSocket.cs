@@ -162,19 +162,19 @@ namespace RSocket
 				await new RSocketProtocol.RequestResponse(streamId, data, metadata).WriteFlush(Transport.Output, data, metadata);
 			};
 
-			TaskCompletionSource<bool> taskSignal = new TaskCompletionSource<bool>();
-
 			var incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
-			//var ret = await incoming.ToAsyncEnumerable().FirstAsync(); //Cannot use linq operation to get the payload, because of it will produces redundant cancel command. ps: 'ISubscription.Dispose()' will be executed before 'IObserver<T>.OnComplete()' when using 'IObservable<T>.ToAsyncEnumerable().FirstAsync()' method.
+			//var ret = await incoming.ToAsyncEnumerable().FirstAsync(); //Cannot use linq operation to get the payload, because of it will produces redundant cancel frame. ps: 'ISubscription.Dispose()' will be executed before 'IObserver<T>.OnComplete()' when using 'IObservable<T>.ToAsyncEnumerable().FirstAsync()' method.
+
+			TaskCompletionSource<bool> taskSignal = new TaskCompletionSource<bool>();
 			Payload ret = default(Payload);
 			ISubscription sub = incoming.Subscribe(a =>
 			  {
 				  ret = a;
+				  //taskSignal.TrySetResult(true); //Cannot set result at here in case sending redundant cancel frame.
 			  }, error =>
 			  {
 				  taskSignal.TrySetException(error);
-			  },
-				() =>
+			  }, () =>
 			  {
 				  taskSignal.TrySetResult(true);
 			  });
@@ -182,13 +182,12 @@ namespace RSocket
 			try
 			{
 				await taskSignal.Task;
+				return ret;
 			}
 			finally
 			{
 				sub.Dispose();
 			}
-
-			return ret;
 		}
 
 		public virtual async Task RequestFireAndForget(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)

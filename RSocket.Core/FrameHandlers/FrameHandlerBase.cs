@@ -88,14 +88,15 @@ namespace RSocket
 
 		public virtual void HandleCancel(RSocketProtocol.Cancel message)
 		{
+#if DEBUG
+			Console.WriteLine($"this.OutputCts.Cancel() {this.OutputCts.Token.IsCancellationRequested}");
+#endif
+
 			if (this._disposed)
 				return;
 
 			if (!this.OutputCts.IsCancellationRequested)
 				this.OutputCts.Cancel(false);
-#if DEBUG
-			Console.WriteLine($"this.OutputCts.Cancel() {this.OutputCts.Token.IsCancellationRequested}");
-#endif
 		}
 
 		public virtual Task ToTask()

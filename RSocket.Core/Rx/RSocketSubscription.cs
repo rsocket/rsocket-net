@@ -49,6 +49,10 @@ namespace RSocket
 
 			if (!this.Observer.IsCompleted)
 			{
+#if DEBUG
+				Console.WriteLine("sending cancel frame");
+#endif
+
 				var cancel = new Cancel(this._streamId);
 				cancel.WriteFlush(this._pipe).GetAwaiter().GetResult(); //TODO handle errors.
 			}

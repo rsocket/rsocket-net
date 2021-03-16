@@ -70,8 +70,7 @@ namespace RSocketDemo
 		static async Task RequestStreamTest()
 		{
 			int initialRequest = int.MaxValue;
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), subscriber.RequestSize);
+			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
 
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
