@@ -46,7 +46,6 @@ namespace RSocketDemo
 					//requestN = 1;
 					this._requests = this._requests + requestN;
 					this.Subscription?.Request(requestN);
-					//Console.WriteLine($"this.Subscription.Request {Thread.CurrentThread.ManagedThreadId}");
 				}
 			}
 			finally

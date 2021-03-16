@@ -63,7 +63,7 @@ namespace RSocket
 			this.OutputSubscriberSubscription?.Dispose();
 		}
 
-		public override async Task AsTask()
+		public override async Task ToTask()
 		{
 			var outgoing = this._outgoing;
 

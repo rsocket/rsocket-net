@@ -21,6 +21,14 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="BaseConnectionContext.cs" />
+	  <Compile Remove="ConnectionContext.cs" />
+	  <Compile Remove="SocketConnection.cs" />
+	  <Compile Remove="SocketSenderReceiverBase.cs" />
+	  <Compile Remove="TransportConnection.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!--<PackageReference Include="Microsoft.AspNetCore.App.Ref" Version="3.1.10" />-->
 		<!--<PackageReference Include="Microsoft.Extensions.Hosting" Version="3.0.0" />-->
 		<!--<PackageReference Include="Microsoft.AspNetCore.Connections.Abstractions" Version="5.0.3" />-->

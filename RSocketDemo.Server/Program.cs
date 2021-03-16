@@ -24,24 +24,29 @@ namespace RSocketDemo
 		static RSocketClient _client;
 		static async Task Main(string[] args)
 		{
-			//await Test();
-
 			IPAddress iP = IPAddress.Parse("127.0.0.1");
 			IPEndPoint iPEndPoint = new IPEndPoint(iP, 8888);
-			//Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
 			SocketTransportFactory socketTransportFactory = new SocketTransportFactory();
 			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint);
-			await host.ExecuteAsync(CancellationToken.None);
-			Console.WriteLine("server");
-			Console.ReadKey();
-		}
+			var task = host.ExecuteAsync(CancellationToken.None);
+			Console.WriteLine("server started...");
 
+			while (true)
+			{
+				string cmd = Console.ReadLine();
+				if (cmd == "clear")
+				{
+					Console.Clear();
+					continue;
+				}
 
-		static async Task Test()
-		{
-
-			Console.ReadKey();
+				if (cmd == "exit")
+				{
+					Console.Clear();
+					break;
+				}
+			}
 		}
 	}
 }

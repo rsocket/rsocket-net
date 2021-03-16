@@ -70,7 +70,7 @@ namespace RSocket
 			this.OutputSubscriberSubscription?.Dispose();
 		}
 
-		public override async Task AsTask()
+		public override async Task ToTask()
 		{
 			var outgoing = this._channeler((this._data, this._metadata), this._incoming);     //TODO Handle Errors.
 

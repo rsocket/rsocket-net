@@ -25,7 +25,8 @@ namespace RSocketDemo
 		static RSocketClient _client;
 		static async Task Main(string[] args)
 		{
-			Console.WriteLine("client");
+			//should run RSocketDemo.Server first.
+			Console.WriteLine("client started...");
 			Console.ReadKey();
 
 			while (true)
@@ -52,7 +53,7 @@ namespace RSocketDemo
 		{
 			await _client.RequestFireAndForget("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
 
-			Console.WriteLine($"RequestFireAndForget 结束");
+			Console.WriteLine($"RequestFireAndForget over");
 			Console.ReadKey();
 		}
 
@@ -60,9 +61,9 @@ namespace RSocketDemo
 		{
 			var result = await _client.RequestResponse("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
 
-			Console.WriteLine($"收到服务端消息-{result.Data.ConvertToString()}");
+			Console.WriteLine($"server message: {result.Data.ConvertToString()}");
 
-			Console.WriteLine($"RequestResponse 结束");
+			Console.WriteLine($"RequestResponse over");
 			Console.ReadKey();
 		}
 
@@ -74,10 +75,10 @@ namespace RSocketDemo
 
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
-				Console.WriteLine($"收到服务端消息-{item.Data.ConvertToString()}");
+				Console.WriteLine($"server message: {item.Data.ConvertToString()}");
 			}
 
-			Console.WriteLine($"RequestStream 结束");
+			Console.WriteLine($"RequestStream over");
 			Console.ReadKey();
 		}
 		static async Task RequestStreamTest1()
@@ -94,9 +95,9 @@ namespace RSocketDemo
 
 			await subscriber.Block();
 
-			Console.WriteLine($"收到服务端消息条数-{subscriber.MsgList.Count}");
+			Console.WriteLine($"server message total: {subscriber.MsgList.Count}");
 
-			Console.WriteLine($"RequestStream 结束");
+			Console.WriteLine($"RequestStream over");
 			Console.ReadKey();
 		}
 
@@ -105,16 +106,14 @@ namespace RSocketDemo
 		{
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
 
 			var result = RequestChannel(2, initialRequest);
-
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
-				Console.WriteLine($"收到服务端消息-{item.Data.ConvertToString()}");
+				Console.WriteLine($"server message: {item.Data.ConvertToString()}");
 			}
 
-			Console.WriteLine($"RequestChannel 结束");
+			Console.WriteLine($"RequestChannel over");
 			Console.ReadKey();
 		}
 		static async Task RequestChannelTest1()
@@ -131,9 +130,9 @@ namespace RSocketDemo
 
 			await subscriber.Block();
 
-			Console.WriteLine($"收到服务端消息条数-{subscriber.MsgList.Count}");
+			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
-			Console.WriteLine($"RequestChannel 结束");
+			Console.WriteLine($"RequestChannel over");
 			Console.ReadKey();
 		}
 
@@ -147,7 +146,7 @@ namespace RSocketDemo
 				{
 					for (int i = 0; i < outputs; i++)
 					{
-						Thread.Sleep(1000);
+						//Thread.Sleep(1000);
 						o.OnNext(i);
 					}
 
@@ -156,11 +155,11 @@ namespace RSocketDemo
 
 				return () =>
 				{
-					Console.WriteLine("客户端stream dispose");
+					Console.WriteLine("requester resources disposed");
 				};
 			}).Select(a =>
 			{
-				Console.WriteLine($"生成客户端消息-{a}");
+				Console.WriteLine($"generate requester message: {a}");
 				return new PayloadContent($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
 			}
 			);

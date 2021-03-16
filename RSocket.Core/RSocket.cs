@@ -65,12 +65,13 @@ namespace RSocket
 
 
 		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
-
+		[Obsolete("This method has obsoleted.")]
 		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
 			Func<PayloadContent, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => new PayloadContent(default, sourcemapper(_)), value => resultmapper(value));
 
+		[Obsolete("This method has obsoleted.")]
 		public async Task<IRSocketChannel> RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			var id = StreamDispatch(stream);
@@ -87,7 +88,8 @@ namespace RSocket
 
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				await new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial)).WriteFlush(this.Transport.Output, data, metadata);
+				var channel = new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
+				await channel.WriteFlush(this.Transport.Output, data, metadata);
 			};
 
 			var incoming = new RequesterIncomingStream(this, source, channelEstablisher);
@@ -118,11 +120,12 @@ namespace RSocket
 			}
 		}
 
-
+		[Obsolete("This method has obsoleted.")]
 		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<PayloadContent, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<T>(stream => RequestStream(stream, data, metadata), value => resultmapper(value));
 
+		[Obsolete("This method has obsoleted.")]
 		public Task RequestStream(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			var id = StreamDispatch(stream);
@@ -140,10 +143,12 @@ namespace RSocket
 			return incoming;
 		}
 
+		[Obsolete("This method has obsoleted.")]
 		public virtual Task<T> RequestResponse<T>(Func<PayloadContent, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
 
+		[Obsolete("This method has obsoleted.")]
 		public Task RequestResponse(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 		{
 			var id = StreamDispatch(stream);
@@ -157,8 +162,32 @@ namespace RSocket
 				await new RSocketProtocol.RequestResponse(streamId, data, metadata).WriteFlush(Transport.Output, data, metadata);
 			};
 
+			TaskCompletionSource<bool> taskSignal = new TaskCompletionSource<bool>();
+
 			var incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
-			var ret = await incoming.ToAsyncEnumerable().FirstAsync();
+			//var ret = await incoming.ToAsyncEnumerable().FirstAsync(); //Cannot use linq operation to get the payload, because of it will produces redundant cancel command. ps: 'ISubscription.Dispose()' will be executed before 'IObserver<T>.OnComplete()' when using 'IObservable<T>.ToAsyncEnumerable().FirstAsync()' method.
+			PayloadContent ret = default(PayloadContent);
+			ISubscription sub = incoming.Subscribe(a =>
+			  {
+				  ret = a;
+			  }, error =>
+			  {
+				  taskSignal.TrySetException(error);
+			  },
+				() =>
+			  {
+				  taskSignal.TrySetResult(true);
+			  });
+
+			try
+			{
+				await taskSignal.Task;
+			}
+			finally
+			{
+				sub.Dispose();
+			}
+
 			return ret;
 		}
 
@@ -170,7 +199,7 @@ namespace RSocket
 
 		public virtual void Setup(RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
 		void IRSocketProtocol.Error(RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
-																											 //void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
+
 		void IRSocketProtocol.RequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			this.HandleRequestFireAndForget(message, metadata, data);
@@ -181,6 +210,7 @@ namespace RSocket
 			throw new NotImplementedException();
 		}
 
+		[Obsolete("This method has obsoleted.")]
 		public void Respond<TRequest, TResult>(
 			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
 			Func<TRequest, IAsyncEnumerable<TResult>> producer,
@@ -191,6 +221,7 @@ namespace RSocket
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			Console.WriteLine($"receives RequestResponse: {message.Stream}");
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
 				var value = await Responder((data, metadata));     //TODO Handle Errors.
@@ -199,6 +230,7 @@ namespace RSocket
 		}
 
 
+		//[Obsolete("This method has obsoleted.")]
 		//public void Stream<TRequest, TResult>(
 		//	Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
 		//	Func<TRequest, IAsyncEnumerable<TResult>> producer,
@@ -226,6 +258,7 @@ namespace RSocket
 
 		//TODO, probably need to have an IAE<T> pipeline overload too.
 
+		//[Obsolete("This method has obsoleted.")]
 		//public void Channel<TRequest, TIncoming, TOutgoing>(Func<TRequest, IObservable<TIncoming>, IAsyncEnumerable<TOutgoing>> pipeline,
 		//	Func<PayloadContent, TRequest> requestTransform,
 		//	Func<PayloadContent, TIncoming> incomingTransform,
@@ -270,7 +303,16 @@ namespace RSocket
 		{
 			if (this.FrameHandlerDispatcher.TryGetValue(streamId, out var frameHandler))
 			{
-				act(frameHandler);
+				try
+				{
+					act(frameHandler);
+				}
+				catch (Exception ex)
+				{
+#if DEBUG
+					Console.WriteLine($"error: stream[{streamId}], {ex.Message}");
+#endif
+				}
 			}
 			else
 			{
@@ -285,14 +327,14 @@ namespace RSocket
 			this.FrameHandlerDispatch(streamId, frameHandler);
 			try
 			{
-				await frameHandler.AsTask();
+				await frameHandler.ToTask();
 			}
 			finally
 			{
 				this.FrameHandlerRemove(streamId);
 				frameHandler.Dispose();
 #if DEBUG
-				Console.WriteLine("Responder.frameHandler.Dispose()");
+				Console.WriteLine($"Responder.frameHandler.Dispose(): stream[{streamId}]");
 #endif
 			}
 		}

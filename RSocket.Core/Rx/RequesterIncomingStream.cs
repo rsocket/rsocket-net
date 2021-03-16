@@ -46,7 +46,7 @@ namespace RSocket
 					try
 					{
 						incomingTask = incomingTaskSignal.Task;
-						frameHandlerTask = frameHandler.AsTask();
+						frameHandlerTask = frameHandler.ToTask();
 
 						this.OnSubscribe(streamId, frameHandler); //TODO handle error
 
@@ -63,7 +63,7 @@ namespace RSocket
 						frameHandler.Dispose();
 
 #if DEBUG
-						Console.WriteLine("Requester.frameHandler.Dispose()");
+						Console.WriteLine($"Requester.frameHandler.Dispose(): stream[{streamId}]");
 #endif
 					}
 				});
@@ -73,10 +73,7 @@ namespace RSocket
 					var setResult = incomingTaskSignal.TrySetResult(true);
 
 #if DEBUG
-					Task.Run(() =>
-					{
-						Console.WriteLine($"Requester task status: incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
-					});
+					Console.WriteLine($"Requester task status: incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
 #endif
 				};
 			});

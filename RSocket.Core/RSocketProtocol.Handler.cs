@@ -36,12 +36,17 @@ namespace RSocket
 
 				//Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a standard message frame whether or not the underlying transport signals length, EoM, etc.
 				var (Length, IsEndOfMessage) = MessageFramePeek(buffer);
-				if (buffer.Length < Length + MESSAGEFRAMESIZE) { pipereader.AdvanceTo(buffer.Start, buffer.End); continue; }  //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
+				if (buffer.Length < Length + MESSAGEFRAMESIZE)
+				{
+					pipereader.AdvanceTo(buffer.Start, buffer.End);
+					continue; //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
+				}
 
 				await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
 				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
 				//TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
 			}
+
 			pipereader.Complete();
 
 
@@ -50,7 +55,6 @@ namespace RSocket
 			{
 				var reader = new SequenceReader<byte>(sequence);
 				var header = new Header(ref reader, framelength);
-
 				switch (header.Type)
 				{
 					case Types.Reserved: throw new InvalidOperationException($"Protocol Reserved! [{header.Type}]");
@@ -86,7 +90,6 @@ namespace RSocket
 						break;
 					case Types.Cancel:
 						var cancel = new Cancel(header, ref reader);
-						Console.WriteLine("case Types.Cancel");
 						if (cancel.Validate()) { OnCancel(sink, cancel); }
 						break;
 					case Types.Payload:

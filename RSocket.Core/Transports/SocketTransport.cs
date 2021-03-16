@@ -143,6 +143,7 @@ namespace RSocket.Transports
 #else
 					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
 					var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment); Debug.Assert(isArray);
+
 					var received = await socket.ReceiveAsync(arraySegment, SocketFlags.None);   //TODO Cancellation?
 #endif
 					//Log.MessageReceived(_logger, receive.MessageType, receive.Count, receive.EndOfMessage);
@@ -182,7 +183,11 @@ namespace RSocket.Transports
 
 					try
 					{
-						if (result.IsCanceled) { break; }
+						if (result.IsCanceled)
+						{
+							break;
+						}
+
 						if (!buffer.IsEmpty)
 						{
 							try
@@ -190,8 +195,9 @@ namespace RSocket.Transports
 								//Log.SendPayload(_logger, buffer.Length);
 								consumed = await socket.SendAsync(buffer, buffer.Start, SocketFlags.None);     //RSOCKET Framing
 							}
-							catch (Exception)
+							catch (Exception ex)
 							{
+								Console.WriteLine($"socket.SendAsync: {ex.Message}");
 								if (!Aborted) { /*Log.ErrorWritingFrame(_logger, ex);*/ }
 								break;
 							}
@@ -206,6 +212,7 @@ namespace RSocket.Transports
 			}
 			catch (Exception ex)
 			{
+				Console.WriteLine($"socket.SendAsync: {ex.Message}");
 				error = ex;
 			}
 			finally

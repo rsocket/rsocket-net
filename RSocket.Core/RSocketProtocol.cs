@@ -40,7 +40,8 @@ namespace RSocket
 		static Task Flush(PipeWriter pipe, CancellationToken cancel)
 		{
 			var result = pipe.FlushAsync(cancel);
-			return result.IsCompleted ? Task.CompletedTask : result.AsTask();
+			Task task = result.IsCompleted ? Task.CompletedTask : result.AsTask();
+			return task;
 		}
 
 		static bool TryReadRemaining(in Header header, int innerlength, ref SequenceReader<byte> reader, out int metadatalength)
@@ -171,8 +172,18 @@ namespace RSocket
 				else return true;
 			}
 
-			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default) { var writer = BufferWriter.Get(pipe); this.Write(writer, data: data, metadata: metadata); writer.Flush(); BufferWriter.Return(writer); }
-			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default) { Write(pipe, data: data, metadata: metadata); return Flush(pipe, cancel); }
+			public void Write(PipeWriter pipe, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
+			{
+				var writer = BufferWriter.Get(pipe);
+				this.Write(writer, data: data, metadata: metadata);
+				writer.Flush();
+				BufferWriter.Return(writer);
+			}
+			public Task WriteFlush(PipeWriter pipe, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, CancellationToken cancel = default)
+			{
+				Write(pipe, data: data, metadata: metadata);
+				return Flush(pipe, cancel);
+			}
 
 			int Write(BufferWriter writer, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 			{

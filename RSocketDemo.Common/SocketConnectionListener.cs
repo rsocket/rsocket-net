@@ -50,7 +50,6 @@ namespace RSocketDemo
 			EndPoint = listenSocket.LocalEndPoint;
 
 			listenSocket.Listen(100);
-			Console.WriteLine("服务器开始监听...");
 			_listenSocket = listenSocket;
 		}
 
