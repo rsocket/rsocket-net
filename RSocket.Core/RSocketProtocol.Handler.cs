@@ -42,9 +42,11 @@ namespace RSocket
 					continue; //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
 				}
 
+				var sequence = buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length);
+
 				try
 				{
-					await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
+					await Process(Length, sequence);
 				}
 				catch (Exception ex)
 				{
