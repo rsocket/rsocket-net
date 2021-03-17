@@ -54,7 +54,7 @@ namespace RSocket
 						await Task.WhenAll(frameHandlerTask, incomingTask);
 
 #if DEBUG
-						Console.WriteLine($"Requester task status: incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
+						Console.WriteLine($"Requester task status: incomingTask.Status [{streamId}]:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
 #endif
 					}
 					finally
@@ -73,7 +73,7 @@ namespace RSocket
 					var setResult = incomingTaskSignal.TrySetResult(true);
 
 #if DEBUG
-					Console.WriteLine($"Requester task status: incomingTask.Status:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
+					Console.WriteLine($"Requester task status: incomingTask.Status [{streamId}]:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
 #endif
 				};
 			});

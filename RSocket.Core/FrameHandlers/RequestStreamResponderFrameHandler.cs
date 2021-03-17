@@ -18,7 +18,7 @@ namespace RSocket
 
 		}
 
-		protected override void OnPrepare()
+		protected override void OnTaskCreated()
 		{
 			var payloadHandler = this.GetPayloadHandler();
 			payloadHandler?.OnCompleted();

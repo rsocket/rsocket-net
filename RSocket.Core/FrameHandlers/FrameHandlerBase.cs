@@ -13,6 +13,7 @@ namespace RSocket
 	public class FrameHandlerBase : IFrameHandler
 	{
 		bool _disposed = false;
+		int _initialOutputRequest = -1;
 
 		public FrameHandlerBase(RSocket socket)
 		{
@@ -21,6 +22,8 @@ namespace RSocket
 		public FrameHandlerBase(RSocket socket, int streamId) : this(socket)
 		{
 			this.StreamId = streamId;
+
+			this.OutputCts.Token.Register(this.StopOutging);
 		}
 
 		public RSocket Socket { get; set; }
@@ -30,7 +33,30 @@ namespace RSocket
 		public IObserver<Payload> IncomingReceiver { get; set; }
 		public IObserver<int> RequestNReceiver { get; set; }
 		public IObserver<Payload> OutputSubscriber { get; set; }
-		public IDisposable OutputSubscriberSubscription { get; set; }
+		public IDisposable OutputSubscription { get; set; }
+
+		protected virtual void StopIncoming()
+		{
+			this.IncomingReceiver?.OnCompleted();
+		}
+		protected virtual void StopOutging()
+		{
+			//cancel sending payload.
+			this.OutputSubscriber?.OnCompleted();
+			this.RequestNReceiver?.OnCompleted();
+			this.OutputSubscription?.Dispose();
+		}
+
+		void Request(IDisposable subscription, int requestNumber)
+		{
+			ISubscription sub = subscription as ISubscription;
+			sub?.Request(requestNumber);
+		}
+		protected virtual void OnSubscribeOutputStream(IDisposable subscription)
+		{
+			//trigger generate output data.
+			this.Request(subscription, this._initialOutputRequest);
+		}
 
 		public virtual void HandlePayload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
@@ -61,24 +87,26 @@ namespace RSocket
 
 		public virtual void HandleRequestN(RSocketProtocol.RequestN message)
 		{
+			bool isFirstRequestN = Interlocked.CompareExchange(ref this._initialOutputRequest, message.RequestNumber, -1) == -1;
+
 			var handler = this.GetRequestNHandler();
 
 #if DEBUG
 			if (handler == null)
-				Console.WriteLine("missing reuqestn handler");
+				Console.WriteLine("missing reuqest(n) handler");
 #endif
 
 			if (handler != null)
 			{
 				handler.OnNext(message.RequestNumber);
-				this.NotifyOutputPublisher(message.RequestNumber);
+				if (!isFirstRequestN)
+					this.NotifyOutputPublisher(message.RequestNumber);
 			}
 		}
 
 		protected virtual void NotifyOutputPublisher(int requestNumber)
 		{
-			ISubscription sub = this.OutputSubscriberSubscription as ISubscription;
-			sub?.Request(requestNumber);
+			this.Request(this.OutputSubscription, requestNumber);
 		}
 
 		protected virtual IObserver<int> GetRequestNHandler()
@@ -99,9 +127,55 @@ namespace RSocket
 				this.OutputCts.Cancel(false);
 		}
 
-		public virtual Task ToTask()
+		protected virtual IObservable<Payload> GetOutgoing()
 		{
-			return Task.CompletedTask;
+			throw new NotImplementedException();
+		}
+		protected virtual IObservable<int> GetRequestNObservable()
+		{
+			throw new NotImplementedException();
+		}
+
+		protected virtual async Task CreateTask()
+		{
+			var outgoing = this.GetOutgoing();
+
+			var outputStream = Observable.Create<Payload>(observer =>
+			{
+				this.OutputSubscriber = observer;
+				this.OutputSubscription = outgoing.Subscribe(observer);
+				this.OnSubscribeOutputStream(this.OutputSubscription);
+
+				return Disposable.Empty;
+			});
+
+			var requestNObservable = this.GetRequestNObservable();
+
+			var outputPayloads = Helpers.MakeControllableStream(outputStream, requestNObservable);
+
+			var outputTask = Helpers.ForEach(outputPayloads,
+				action: async value =>
+				{
+					await new RSocketProtocol.Payload(this.StreamId, value.Data, value.Metadata, next: true).WriteFlush(this.Socket.Transport.Output, value.Data, value.Metadata);
+				},
+				final: async () =>
+				{
+					await new RSocketProtocol.Payload(this.StreamId, complete: true).WriteFlush(this.Socket.Transport.Output);
+					this.RequestNReceiver.OnCompleted();
+				}, cancel: this.OutputCts.Token);
+
+			await outputTask;
+		}
+		protected virtual void OnTaskCreated()
+		{
+
+		}
+
+		public virtual async Task ToTask()
+		{
+			var outputTask = this.CreateTask();
+			this.OnTaskCreated();
+			await outputTask;
 		}
 
 		public void Dispose()

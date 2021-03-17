@@ -18,7 +18,6 @@ using System.Reactive.Subjects;
 
 namespace RSocketDemo
 {
-
 	class Program
 	{
 		static RSocketServer _server;
@@ -26,7 +25,7 @@ namespace RSocketDemo
 		static async Task Main(string[] args)
 		{
 			//should run RSocketDemo.Server first.
-			Console.WriteLine("client started...");
+			Console.WriteLine($"client started...{Thread.CurrentThread.ManagedThreadId}");
 			Console.ReadKey();
 
 			while (true)
@@ -47,6 +46,8 @@ namespace RSocketDemo
 
 				Console.ReadKey();
 			}
+
+			Console.ReadKey();
 		}
 
 		static async Task RequestFireAndForgetTest()

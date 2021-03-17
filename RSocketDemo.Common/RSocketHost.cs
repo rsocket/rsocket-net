@@ -11,20 +11,23 @@ using System.Threading.Tasks;
 
 namespace RSocketDemo
 {
-	internal class RSocketHost
+	public class RSocketHost
 	{
 		private readonly IConnectionListenerFactory _connectionListenerFactory;
-		public readonly ConcurrentDictionary<string, (EchoServer Server, Task ExecutionTask)> _connections = new ConcurrentDictionary<string, (EchoServer, Task)>();
+		public readonly ConcurrentDictionary<string, (RSocketServer Server, Task ExecutionTask)> _connections = new ConcurrentDictionary<string, (RSocketServer, Task)>();
 		private readonly ILogger<RSocketHost> _logger;
 
 		private IConnectionListener _connectionListener;
 
 		IPEndPoint _ip;
 
-		public RSocketHost(IConnectionListenerFactory connectionListenerFactory, IPEndPoint ip)
+		Func<IRSocketTransport, RSocketServer> _serverBuilder;
+
+		public RSocketHost(IConnectionListenerFactory connectionListenerFactory, IPEndPoint ip, Func<IRSocketTransport, RSocketServer> serverBuilder)
 		{
 			_connectionListenerFactory = connectionListenerFactory;
 			_ip = ip;
+			this._serverBuilder = serverBuilder;
 		}
 
 		public async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,10 +45,9 @@ namespace RSocketDemo
 				}
 
 				IRSocketTransport rsocketTransport = new ConnectionListenerTransport(connectionContext);
-				EchoServer rchoServer = new EchoServer(rsocketTransport);
-				rchoServer.ConnectionId = connectionContext.ConnectionId;
+				RSocketServer server = this._serverBuilder(rsocketTransport);
 
-				_connections[connectionContext.ConnectionId] = (rchoServer, Accept(rchoServer));
+				_connections[connectionContext.ConnectionId] = (server, Accept(server, connectionContext.ConnectionId));
 			}
 
 			List<Task> connectionsExecutionTasks = new List<Task>(_connections.Count);
@@ -64,7 +66,7 @@ namespace RSocketDemo
 		//	await _connectionListener.DisposeAsync();
 		//}
 
-		private async Task Accept(EchoServer server)
+		private async Task Accept(RSocketServer server, string connectionId)
 		{
 			try
 			{
@@ -88,7 +90,7 @@ namespace RSocketDemo
 			{
 				//await connectionContext.DisposeAsync();
 
-				_connections.TryRemove(server.ConnectionId, out _);
+				_connections.TryRemove(connectionId, out _);
 
 				//_logger.LogInformation("Connection {ConnectionId} disconnected", connectionContext.ConnectionId);
 			}

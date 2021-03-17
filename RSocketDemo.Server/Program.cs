@@ -28,7 +28,10 @@ namespace RSocketDemo
 			IPEndPoint iPEndPoint = new IPEndPoint(iP, 8888);
 
 			SocketTransportFactory socketTransportFactory = new SocketTransportFactory();
-			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint);
+			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint, a =>
+			{
+				return new EchoServer(a);
+			});
 			var task = host.ExecuteAsync(CancellationToken.None);
 			Console.WriteLine("server started...");
 

@@ -42,7 +42,17 @@ namespace RSocket
 					continue; //Don't have a complete message yet. Tell the pipe that we've evaluated up to the current buffer end, but cannot yet consume it.
 				}
 
-				await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
+				try
+				{
+					await Process(Length, buffer.Slice(position = buffer.GetPosition(MESSAGEFRAMESIZE, position), Length));
+				}
+				catch (Exception ex)
+				{
+#if DEBUG
+					Console.WriteLine($"An exception occurred when processing message: {ex.Message}");
+#endif
+					//throw;
+				}
 				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
 				//TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
 			}
@@ -97,7 +107,10 @@ namespace RSocket
 #if DEBUG
 						Decoded(payload.ToString());
 #endif
-						if (payload.Validate()) { OnPayload(sink, payload, payload.ReadMetadata(reader), payload.ReadData(reader)); }
+						if (payload.Validate())
+						{
+							OnPayload(sink, payload, payload.ReadMetadata(reader), payload.ReadData(reader));
+						}
 						break;
 					case Types.Error:
 						var error = new Error(header, ref reader);

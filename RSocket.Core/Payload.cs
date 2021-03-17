@@ -13,7 +13,7 @@ namespace RSocket
 		public ReadOnlySequence<byte> Data { get { return this._data; } }
 		public ReadOnlySequence<byte> Metadata { get { return this._metadata; } }
 
-		public Payload(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)
+		public Payload(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 		{
 			this._data = data;
 			this._metadata = metadata;

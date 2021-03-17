@@ -14,8 +14,8 @@ namespace RSocketDemo
 {
 	internal class EchoServer : RSocketServer
 	{
-		public string ConnectionId { get; set; }
-		public EchoServer(IRSocketTransport transport, RSocketOptions options = default, int echoes = 2)
+		//public string ConnectionId { get; set; }
+		public EchoServer(IRSocketTransport transport, RSocketOptions options = default)
 			: base(transport, options)
 		{
 			this.Responder = this.ForRequestResponse;

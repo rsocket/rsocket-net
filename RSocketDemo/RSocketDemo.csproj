@@ -21,11 +21,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Compile Remove="BaseConnectionContext.cs" />
-	  <Compile Remove="ConnectionContext.cs" />
-	  <Compile Remove="SocketConnection.cs" />
-	  <Compile Remove="SocketSenderReceiverBase.cs" />
-	  <Compile Remove="TransportConnection.cs" />
+ 
 	</ItemGroup>
 
 	<ItemGroup>

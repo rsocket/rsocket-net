@@ -220,7 +220,6 @@ namespace RSocket
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			Console.WriteLine($"receives RequestResponse: {message.Stream}");
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
 				var value = await Responder((data, metadata));     //TODO Handle Errors.
@@ -271,7 +270,6 @@ namespace RSocket
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
 				ResponderFrameHandler frameHandler = new ResponderFrameHandler(this, stream, metadata, data, message.InitialRequest, this.Channeler);
-
 				await this.ExecuteFrameHandler(message.Stream, frameHandler);
 			});
 		}
@@ -302,21 +300,12 @@ namespace RSocket
 		{
 			if (this.FrameHandlerDispatcher.TryGetValue(streamId, out var frameHandler))
 			{
-				try
-				{
-					act(frameHandler);
-				}
-				catch (Exception ex)
-				{
-#if DEBUG
-					Console.WriteLine($"error: stream[{streamId}], {ex.Message}");
-#endif
-				}
+				act(frameHandler);
 			}
 			else
 			{
 #if DEBUG
-				Console.WriteLine("missing handler");
+				Console.WriteLine($"missing handler: {streamId}");
 #endif
 				//TODO Log missing handler here.
 			}
@@ -341,7 +330,6 @@ namespace RSocket
 		internal void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
 		{
 			var task = operation(stream, cancel);
-
 			if (!task.IsCompleted)
 			{
 				task.ConfigureAwait(false); //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
