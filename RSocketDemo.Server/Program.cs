@@ -30,7 +30,7 @@ namespace RSocketDemo
 			SocketTransportFactory socketTransportFactory = new SocketTransportFactory();
 			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint, a =>
 			{
-				return new EchoServer(a);
+				return new RSocketDemoServer(a);
 			});
 			var task = host.ExecuteAsync(CancellationToken.None);
 			Console.WriteLine("server started...");

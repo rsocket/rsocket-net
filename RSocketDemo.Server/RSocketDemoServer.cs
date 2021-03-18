@@ -12,10 +12,10 @@ using System.Threading.Tasks;
 
 namespace RSocketDemo
 {
-	internal class EchoServer : RSocketServer
+	internal class RSocketDemoServer : RSocketServer
 	{
 		//public string ConnectionId { get; set; }
-		public EchoServer(IRSocketTransport transport, RSocketOptions options = default)
+		public RSocketDemoServer(IRSocketTransport transport, RSocketOptions options = default)
 			: base(transport, options)
 		{
 			this.Responder = this.ForRequestResponse;
@@ -39,6 +39,9 @@ namespace RSocketDemo
 		public IObservable<Payload> ForRequestStream((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
 			Console.WriteLine($"client.RequestStream: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
+
+			//Returns an object that supports back pressure.
+			return new OutputPublisher(this, 10);
 			return this.ToRequesterStream();
 		}
 
@@ -58,7 +61,8 @@ namespace RSocketDemo
 			Console.WriteLine($"sending request(n) to client: {int.MaxValue}");
 			subscription.Request(int.MaxValue);
 
-			return this.ToRequesterStream();
+			//Returns an object that supports back pressure.
+			return new OutputPublisher(this, 10);
 
 			return Observable.Range(1, 10).Select(a =>
 		   {

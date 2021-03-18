@@ -7,9 +7,9 @@ using System.Text;
 
 namespace RSocketDemo
 {
-	public class EchoRSocketClient : RSocketClient
+	public class RSocketDemoClient : RSocketClient
 	{
-		public EchoRSocketClient(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options)
+		public RSocketDemoClient(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options)
 		{
 
 
