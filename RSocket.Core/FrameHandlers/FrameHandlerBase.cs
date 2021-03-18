@@ -13,7 +13,9 @@ namespace RSocket
 	public class FrameHandlerBase : IFrameHandler
 	{
 		bool _disposed = false;
-		int _initialOutputRequest = -1;
+		int _initialOutputRequest = 0;
+
+		Task _outputTask;
 
 		public FrameHandlerBase(RSocket socket)
 		{
@@ -26,12 +28,19 @@ namespace RSocket
 			this.OutputCts.Token.Register(this.StopOutging);
 		}
 
+		public FrameHandlerBase(RSocket socket, int streamId, int initialOutputRequest) : this(socket)
+		{
+			this.StreamId = streamId;
+			this._initialOutputRequest = initialOutputRequest;
+
+			this.OutputCts.Token.Register(this.StopOutging);
+		}
+
 		public RSocket Socket { get; set; }
 		public int StreamId { get; set; }
 		public CancellationTokenSource OutputCts { get; set; } = new CancellationTokenSource();
 
 		public IObserver<Payload> IncomingReceiver { get; set; }
-		public IObserver<int> RequestNReceiver { get; set; }
 		public IObserver<Payload> OutputSubscriber { get; set; }
 		public IDisposable OutputSubscription { get; set; }
 
@@ -43,11 +52,9 @@ namespace RSocket
 		{
 			//cancel sending payload.
 			this.OutputSubscriber?.OnCompleted();
-			this.RequestNReceiver?.OnCompleted();
-			this.OutputSubscription?.Dispose();
 		}
 
-		void Request(IDisposable subscription, int requestNumber)
+		void ExecuteRequest(IDisposable subscription, int requestNumber)
 		{
 			ISubscription sub = subscription as ISubscription;
 			sub?.Request(requestNumber);
@@ -55,7 +62,8 @@ namespace RSocket
 		protected virtual void OnSubscribeOutputStream(IDisposable subscription)
 		{
 			//trigger generate output data.
-			this.Request(subscription, this._initialOutputRequest);
+			if (this._initialOutputRequest > 0)
+				this.ExecuteRequest(subscription, this._initialOutputRequest);
 		}
 
 		public virtual void HandlePayload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
@@ -87,37 +95,18 @@ namespace RSocket
 
 		public virtual void HandleRequestN(RSocketProtocol.RequestN message)
 		{
-			bool isFirstRequestN = Interlocked.CompareExchange(ref this._initialOutputRequest, message.RequestNumber, -1) == -1;
-
-			var handler = this.GetRequestNHandler();
-
-#if DEBUG
-			if (handler == null)
-				Console.WriteLine("missing reuqest(n) handler");
-#endif
-
-			if (handler != null)
-			{
-				handler.OnNext(message.RequestNumber);
-				if (!isFirstRequestN)
-					this.NotifyOutputPublisher(message.RequestNumber);
-			}
+			this.NotifyOutputPublisher(message.RequestNumber);
 		}
 
-		protected virtual void NotifyOutputPublisher(int requestNumber)
+		void NotifyOutputPublisher(int requestNumber)
 		{
-			this.Request(this.OutputSubscription, requestNumber);
-		}
-
-		protected virtual IObserver<int> GetRequestNHandler()
-		{
-			return this.RequestNReceiver;
+			this.ExecuteRequest(this.OutputSubscription, requestNumber);
 		}
 
 		public virtual void HandleCancel(RSocketProtocol.Cancel message)
 		{
 #if DEBUG
-			Console.WriteLine($"this.OutputCts.Cancel() {this.OutputCts.Token.IsCancellationRequested}");
+			Console.WriteLine($"frameHandler.HandleCancel() {this.OutputCts.Token.IsCancellationRequested}");
 #endif
 
 			if (this._disposed)
@@ -131,12 +120,24 @@ namespace RSocket
 		{
 			throw new NotImplementedException();
 		}
-		protected virtual IObservable<int> GetRequestNObservable()
+
+		protected virtual Task GetInputTask()
 		{
-			throw new NotImplementedException();
+			return Task.CompletedTask;
+		}
+		protected virtual Task GetOutputTask()
+		{
+			return this._outputTask;
 		}
 
 		protected virtual async Task CreateTask()
+		{
+			var outputTask = this.GetOutputTask();
+			var inputTask = this.GetInputTask();
+			await Task.WhenAll(outputTask, inputTask);
+		}
+
+		protected virtual void OnTaskCreating()
 		{
 			var outgoing = this.GetOutgoing();
 
@@ -146,14 +147,13 @@ namespace RSocket
 				this.OutputSubscription = outgoing.Subscribe(observer);
 				this.OnSubscribeOutputStream(this.OutputSubscription);
 
-				return Disposable.Empty;
+				return () =>
+				{
+					this.OutputSubscription.Dispose();
+				};
 			});
 
-			var requestNObservable = this.GetRequestNObservable();
-
-			var outputPayloads = Helpers.MakeControllableStream(outputStream, requestNObservable);
-
-			var outputTask = Helpers.ForEach(outputPayloads,
+			var outputTask = Helpers.ForEach(outputStream.ToAsyncEnumerable(),
 				action: async value =>
 				{
 					await new RSocketProtocol.Payload(this.StreamId, value.Data, value.Metadata, next: true).WriteFlush(this.Socket.Transport.Output, value.Data, value.Metadata);
@@ -161,10 +161,9 @@ namespace RSocket
 				final: async () =>
 				{
 					await new RSocketProtocol.Payload(this.StreamId, complete: true).WriteFlush(this.Socket.Transport.Output);
-					this.RequestNReceiver.OnCompleted();
 				}, cancel: this.OutputCts.Token);
 
-			await outputTask;
+			this._outputTask = outputTask;
 		}
 		protected virtual void OnTaskCreated()
 		{
@@ -173,9 +172,10 @@ namespace RSocket
 
 		public virtual async Task ToTask()
 		{
-			var outputTask = this.CreateTask();
+			this.OnTaskCreating();
+			var task = this.CreateTask();
 			this.OnTaskCreated();
-			await outputTask;
+			await task;
 		}
 
 		public void Dispose()

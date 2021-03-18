@@ -51,6 +51,7 @@ namespace RSocket
 						this.OnSubscribe(streamId, frameHandler); //TODO handle error
 
 						await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
+
 						await Task.WhenAll(frameHandlerTask, incomingTask);
 
 #if DEBUG

@@ -136,7 +136,8 @@ namespace RSocket
 		{
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				await new RSocketProtocol.RequestStream(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial)).WriteFlush(this.Transport.Output, data, metadata);
+				var channel = new RSocketProtocol.RequestStream(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
+				await channel.WriteFlush(this.Transport.Output, data, metadata);
 			};
 
 			var incoming = new RequestStreamRequesterIncomingStream(this, channelEstablisher);
@@ -145,8 +146,8 @@ namespace RSocket
 
 		[Obsolete("This method has obsoleted.")]
 		public virtual Task<T> RequestResponse<T>(Func<Payload, T> resultmapper,
-			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
+		ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
 
 		[Obsolete("This method has obsoleted.")]
 		public Task RequestResponse(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)

@@ -22,7 +22,7 @@ namespace RSocketDemo
 		public override void DoOnNext(Payload value)
 		{
 			string data = Encoding.UTF8.GetString(value.Data.ToArray());
-			Console.WriteLine($"received message: {data}");
+			//Console.WriteLine($"received message: {data}");
 			this.MsgList.Add(data);
 
 			if (this.MsgList.Count >= MaxReceives)

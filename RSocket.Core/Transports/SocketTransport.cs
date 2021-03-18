@@ -197,7 +197,7 @@ namespace RSocket.Transports
 							}
 							catch (Exception ex)
 							{
-								Console.WriteLine($"socket.SendAsync: {ex.Message}");
+								Console.WriteLine($"error socket.SendAsync: {ex.Message}");
 								if (!Aborted) { /*Log.ErrorWritingFrame(_logger, ex);*/ }
 								break;
 							}
@@ -212,7 +212,7 @@ namespace RSocket.Transports
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"socket.SendAsync: {ex.Message}");
+				Console.WriteLine($"error socket.SendAsync: {ex.Message}");
 				error = ex;
 			}
 			finally

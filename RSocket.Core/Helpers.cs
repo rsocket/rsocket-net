@@ -11,16 +11,28 @@ namespace RSocket
 	{
 		public static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, CancellationToken cancel = default, Func<Task> final = default)
 		{
-			await foreach (var item in source)
+			try
 			{
-				if (cancel.IsCancellationRequested)
-					break;
+				await foreach (var item in source)
+				{
+					if (cancel.IsCancellationRequested)
+						break;
 
-				await action(item);
+					await action(item);
+				}
+
+				if (!cancel.IsCancellationRequested)
+					await final?.Invoke();
 			}
+			catch (Exception ex)
+			{
+#if DEBUG
+				Console.WriteLine($"Error: {ex.Message} , {ex.StackTrace}");
+#endif
 
-			if (!cancel.IsCancellationRequested)
-				await final?.Invoke();
+				//TODO: handle error
+				throw;
+			}
 		}
 
 		public static async IAsyncEnumerable<T> MakeControllableStream<T>(IObservable<T> stream, IObservable<int> requestNObservable)

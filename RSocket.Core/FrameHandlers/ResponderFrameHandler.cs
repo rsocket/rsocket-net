@@ -20,14 +20,26 @@ namespace RSocket
 
 		IncomingPublisher<Payload> _incoming;
 		Task _incomingTask;
-		IObservable<int> _requestNObservable;
 
-		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId)
+		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId, initialRequest)
 		{
 			this._metadata = metadata;
 			this._data = data;
 			this._channeler = channeler;
+		}
 
+		protected override IObservable<Payload> GetOutgoing()
+		{
+			var outgoing = this._channeler((this._data, this._metadata), this._incoming);     //TODO Handle Errors.
+			return outgoing;
+		}
+		protected override Task GetInputTask()
+		{
+			return this._incomingTask;
+		}
+
+		protected override void OnTaskCreating()
+		{
 			TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
 
 			var inc = Observable.Create<Payload>(observer =>
@@ -43,35 +55,10 @@ namespace RSocket
 				};
 			});
 
-			this._incoming = new IncomingPublisher<Payload>(inc, socket, streamId);
+			this._incoming = new IncomingPublisher<Payload>(inc, this.Socket, this.StreamId);
 
-			var requestNObservable = Observable.Create<int>(observer =>
-			{
-				this.RequestNReceiver = observer;
-				this.HandleRequestN(new RequestN(this.StreamId, this._data, this._metadata, initialRequest: initialRequest));
-
-				return Disposable.Empty;
-			});
-
-			this._requestNObservable = requestNObservable;
+			base.OnTaskCreating();
 		}
-
-		protected override IObservable<Payload> GetOutgoing()
-		{
-			var outgoing = this._channeler((this._data, this._metadata), this._incoming);     //TODO Handle Errors.
-			return outgoing;
-		}
-		protected override IObservable<int> GetRequestNObservable()
-		{
-			return this._requestNObservable;
-		}
-
-		protected override async Task CreateTask()
-		{
-			var task = base.CreateTask();
-			await Task.WhenAll(task, this._incomingTask);
-		}
-
 
 		protected override void Dispose(bool disposing)
 		{
