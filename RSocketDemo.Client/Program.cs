@@ -90,7 +90,7 @@ namespace RSocketDemo
 
 			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
 
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
+			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 5;
 			var subscription = result.Subscribe(subscriber);
 			subscriber.OnSubscribe(subscription);
@@ -125,7 +125,7 @@ namespace RSocketDemo
 
 			var result = RequestChannel(10, initialRequest);
 
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
+			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 5;
 			var subscription = result.Subscribe(subscriber);
 			subscriber.OnSubscribe(subscription);
@@ -149,8 +149,8 @@ namespace RSocketDemo
 			var source = new OutputPublisher(_client, 10); //Create an object that supports backpressure.
 			var result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
 
-			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
-			subscriber.MaxReceives = 5;
+			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
+			subscriber.MaxReceives = 8;
 			var subscription = result.Subscribe(subscriber);
 			subscriber.OnSubscribe(subscription);
 

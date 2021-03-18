@@ -8,14 +8,14 @@ using System.Threading.Tasks;
 
 namespace RSocketDemo
 {
-	public class RequestStreamSubscriber : SubscriberBase<Payload>
+	public class StreamSubscriber : SubscriberBase<Payload>
 	{
 		TaskCompletionSource<bool> _incomingTaskSignal = new TaskCompletionSource<bool>();
 		public List<string> MsgList { get; set; } = new List<string>();
 
 		public int MaxReceives { get; set; } = int.MaxValue;
 
-		public RequestStreamSubscriber(int requestSize) : base(requestSize)
+		public StreamSubscriber(int requestSize) : base(requestSize)
 		{
 		}
 
