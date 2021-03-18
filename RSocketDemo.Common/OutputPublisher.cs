@@ -6,9 +6,9 @@ using System.Text;
 namespace RSocketDemo
 {
 	/// <summary>
-	/// Implement the IPublisher` interface to support back pressure.
+	/// Implement the IPublisher` interface to support backpressure.
 	/// </summary>
-	class OutputPublisher : Publisher<Payload>, IPublisher<Payload>, IObservable<Payload>
+	public class OutputPublisher : Publisher<Payload>, IPublisher<Payload>, IObservable<Payload>
 	{
 		int _maxOutputs = int.MaxValue;
 

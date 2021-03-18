@@ -43,7 +43,9 @@ namespace RSocketDemo
 
 				await RequestChannelTest();
 				await RequestChannelTest1();
+				await RequestChannelTest2(); //backpressure
 
+				Console.WriteLine("-----------------------------------over-----------------------------------");
 				Console.ReadKey();
 			}
 
@@ -135,6 +137,30 @@ namespace RSocketDemo
 			Console.WriteLine($"RequestChannel over");
 			Console.ReadKey();
 		}
+		/// <summary>
+		/// Backpressure.
+		/// </summary>
+		/// <returns></returns>
+		static async Task RequestChannelTest2()
+		{
+			int initialRequest = 2;
+			//int initialRequest = int.MaxValue;
+
+			var source = new OutputPublisher(_client, 10); //Create an object that supports backpressure.
+			var result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
+
+			RequestStreamSubscriber subscriber = new RequestStreamSubscriber(initialRequest);
+			subscriber.MaxReceives = 5;
+			var subscription = result.Subscribe(subscriber);
+			subscriber.OnSubscribe(subscription);
+
+			await subscriber.Block();
+
+			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
+
+			Console.WriteLine($"RequestChannel over");
+			Console.ReadKey();
+		}
 
 		static IPublisher<Payload> RequestChannel(int outputs, int initialRequest)
 		{
@@ -146,7 +172,7 @@ namespace RSocketDemo
 				{
 					for (int i = 0; i < outputs; i++)
 					{
-						//Thread.Sleep(1000);
+						Thread.Sleep(500);
 						o.OnNext(i);
 					}
 

@@ -6,7 +6,7 @@ using System.Text;
 namespace RSocketDemo
 {
 	/// <summary>
-	/// Implement the IPublisher` interface to support back pressure.
+	/// Implement the IPublisher` interface to support backpressure.
 	/// </summary>
 	/// <typeparam name="T"></typeparam>
 	public class Publisher<T> : IPublisher<T>, IObservable<T>

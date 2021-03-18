@@ -40,7 +40,7 @@ namespace RSocketDemo
 		{
 			Console.WriteLine($"client.RequestStream: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
 
-			//Returns an object that supports back pressure.
+			//Returns an object that supports backpressure.
 			return new OutputPublisher(this, 10);
 			return this.ToRequesterStream();
 		}
@@ -49,7 +49,7 @@ namespace RSocketDemo
 		{
 			ISubscription subscription = incoming.Subscribe(a =>
 		   {
-			   Console.WriteLine($"client message: {a.Data.ConvertToString()}-{Thread.CurrentThread.ManagedThreadId}");
+			   Console.WriteLine($"client message: {a.Data.ConvertToString()}");
 		   }, error =>
 		   {
 			   Console.WriteLine($"onError: {error.Message}");
@@ -61,7 +61,7 @@ namespace RSocketDemo
 			Console.WriteLine($"sending request(n) to client: {int.MaxValue}");
 			subscription.Request(int.MaxValue);
 
-			//Returns an object that supports back pressure.
+			//Returns an object that supports backpressure.
 			return new OutputPublisher(this, 10);
 
 			return Observable.Range(1, 10).Select(a =>
