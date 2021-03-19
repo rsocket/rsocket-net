@@ -20,6 +20,7 @@ namespace RSocket
 
 		IncomingPublisher<Payload> _incoming;
 		Task _incomingTask;
+		TaskCompletionSource<bool> _incomingTaskSignal;
 
 		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId, initialRequest)
 		{
@@ -40,13 +41,12 @@ namespace RSocket
 
 		protected override void OnTaskCreating()
 		{
-			TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
-
 			var inc = Observable.Create<Payload>(observer =>
 			{
-				this.IncomingReceiver = observer;
+				this.InboundSubscriber = observer;
 
 				TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
+				this._incomingTaskSignal = incomingTaskSignal;
 				this._incomingTask = incomingTaskSignal.Task;
 
 				return () =>
@@ -55,9 +55,14 @@ namespace RSocket
 				};
 			});
 
-			this._incoming = new IncomingPublisher<Payload>(inc, this.Socket, this.StreamId);
+			this._incoming = new IncomingPublisher<Payload>(inc, this);
 
 			base.OnTaskCreating();
+		}
+
+		protected override void StopIncoming()
+		{
+			this._incomingTaskSignal?.TrySetResult(true);
 		}
 
 		protected override void Dispose(bool disposing)

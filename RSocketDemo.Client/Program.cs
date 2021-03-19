@@ -45,6 +45,8 @@ namespace RSocketDemo
 				await RequestChannelTest1();
 				await RequestChannelTest2(); //backpressure
 
+				await ErrorTest();
+
 				Console.WriteLine("-----------------------------------over-----------------------------------");
 				Console.ReadKey();
 			}
@@ -162,7 +164,29 @@ namespace RSocketDemo
 			Console.ReadKey();
 		}
 
-		static IPublisher<Payload> RequestChannel(int outputs, int initialRequest)
+		static async Task ErrorTest()
+		{
+			//int initialRequest = 2;
+			int initialRequest = int.MaxValue;
+
+			var result = RequestChannel(20, initialRequest, metadata: 4.ToString());
+			try
+			{
+				await foreach (var item in result.ToAsyncEnumerable())
+				{
+					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An error has occurred: {ex.Message}");
+			}
+
+			Console.WriteLine($"ErrorTest over");
+			Console.ReadKey();
+		}
+
+		static IPublisher<Payload> RequestChannel(int outputs, int initialRequest, string data = "data", string metadata = "metadata")
 		{
 			IObserver<int> ob = null;
 			var source = Observable.Create<int>(o =>
@@ -190,7 +214,7 @@ namespace RSocketDemo
 			}
 			);
 
-			var result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
+			var result = _client.RequestChannel(data.ToReadOnlySequence(), metadata.ToReadOnlySequence(), source, initialRequest);
 
 			return result;
 		}

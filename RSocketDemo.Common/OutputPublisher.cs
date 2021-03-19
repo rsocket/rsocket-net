@@ -11,19 +11,21 @@ namespace RSocketDemo
 	public class OutputPublisher : Publisher<Payload>, IPublisher<Payload>, IObservable<Payload>
 	{
 		int _maxOutputs = int.MaxValue;
+		int _errorTrigger = int.MaxValue;
 
 		public OutputPublisher(RSocket.RSocket socket) : base(socket)
 		{
 
 		}
-		public OutputPublisher(RSocket.RSocket socket, int maxOutputs) : base(socket)
+		public OutputPublisher(RSocket.RSocket socket, int maxOutputs, int errorTrigger = int.MaxValue) : base(socket)
 		{
 			this._maxOutputs = maxOutputs;
+			this._errorTrigger = errorTrigger;
 		}
 
 		protected override ISubscription DoSubscribe(IObserver<Payload> observer)
 		{
-			OutputSubscription subscription = new OutputSubscription(this.Socket, observer, this._maxOutputs);
+			OutputSubscription subscription = new OutputSubscription(this.Socket, observer, this._maxOutputs, this._errorTrigger);
 			subscription.Start();
 			return subscription;
 		}

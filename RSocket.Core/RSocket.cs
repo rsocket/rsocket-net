@@ -198,7 +198,20 @@ namespace RSocket
 		}
 
 		public virtual void Setup(RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
-		void IRSocketProtocol.Error(RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
+		void IRSocketProtocol.Error(RSocketProtocol.Error message)
+		{
+			if (message.Stream > 0)
+			{
+				this.MessageDispatch(message.Stream, handler =>
+				{
+					handler.HandleError(message);
+				});
+
+				return;
+			}
+
+			throw new NotImplementedException();
+		}  //TODO Handle Errors!
 
 		void IRSocketProtocol.RequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{

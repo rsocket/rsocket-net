@@ -61,8 +61,14 @@ namespace RSocketDemo
 			Console.WriteLine($"sending request(n) to client: {int.MaxValue}");
 			subscription.Request(int.MaxValue);
 
+			int errorTrigger = 0;
+			if (!int.TryParse(request.Metadata.ConvertToString(), out errorTrigger))
+			{
+				errorTrigger = int.MaxValue;
+			}
+
 			//Returns an object that supports backpressure.
-			return new OutputPublisher(this, 10);
+			return new OutputPublisher(this, 10, errorTrigger);
 
 			return Observable.Range(1, 10).Select(a =>
 		   {

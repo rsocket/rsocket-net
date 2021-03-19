@@ -13,14 +13,27 @@ namespace RSocket
 	public class RequesterFrameHandler : FrameHandlerBase
 	{
 		IObservable<Payload> _outgoing;
+		TaskCompletionSource<bool> _inboundTaskSignal = new TaskCompletionSource<bool>();
 
 		public RequesterFrameHandler(RSocket socket
 			, int streamId
-			, IObserver<Payload> incomingReceiver
+			, IObserver<Payload> inboundSubscriber
 			, IObservable<Payload> outgoing) : base(socket, streamId)
 		{
 			this._outgoing = outgoing;
-			this.IncomingReceiver = incomingReceiver;
+			this.InboundSubscriber = inboundSubscriber;
+		}
+
+		public TaskCompletionSource<bool> InboundTaskSignal { get { return this._inboundTaskSignal; } }
+
+		protected override void StopIncoming()
+		{
+			this._inboundTaskSignal.TrySetResult(true);
+		}
+
+		protected override Task GetInputTask()
+		{
+			return this._inboundTaskSignal.Task;
 		}
 
 		protected override IObservable<Payload> GetOutgoing()

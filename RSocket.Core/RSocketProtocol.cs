@@ -724,6 +724,7 @@ namespace RSocket
 			public string ErrorText;
 			private const int InnerLength = sizeof(Int32);
 			public int Length => Header.Length + InnerLength + DataLength;
+			public Int32 Stream => Header.Stream;
 
 			public Error(ErrorCodes code, Int32 stream = Header.DEFAULT_STREAM, ReadOnlySequence<byte> data = default)
 			{

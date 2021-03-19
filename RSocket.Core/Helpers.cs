@@ -1,38 +1,72 @@
+using RSocket.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static RSocket.RSocketProtocol;
 
 namespace RSocket
 {
 	internal static class Helpers
 	{
-		public static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, CancellationToken cancel = default, Func<Task> final = default)
+		public static Exception MakeException(this Error error)
 		{
-			try
+			int streamId = error.Stream;
+			ErrorCodes errorCode = error.ErrorCode;
+			string errorText = error.ErrorText;
+
+			if (streamId == 0)
 			{
-				await foreach (var item in source)
+				switch (errorCode)
 				{
-					if (cancel.IsCancellationRequested)
-						break;
-
-					await action(item);
+					case ErrorCodes.Invalid_Setup:
+						return new InvalidSetupException(errorText);
+					case ErrorCodes.Unsupported_Setup:
+						return new UnsupportedSetupException(errorText);
+					case ErrorCodes.Rejected_Setup:
+						return new RejectedSetupException(errorText);
+					case ErrorCodes.Rejected_Resume:
+						return new RejectedResumeException(errorText);
+					case ErrorCodes.Connection_Error:
+						return new ConnectionErrorException(errorText);
+					case ErrorCodes.Connection_Close:
+						return new ConnectionCloseException(errorText);
+					default:
+						return new InvalidOperationException($"Invalid Error frame in Stream ID 0: {errorCode} '{errorText}'");
 				}
-
-				if (!cancel.IsCancellationRequested)
-					await final?.Invoke();
 			}
-			catch (Exception ex)
+			else
 			{
-#if DEBUG
-				Console.WriteLine($"Error: {ex.Message} , {ex.StackTrace}");
-#endif
-
-				//TODO: handle error
-				throw;
+				switch (errorCode)
+				{
+					case ErrorCodes.Application_Error:
+						return new ApplicationErrorException(errorText);
+					case ErrorCodes.Rejected:
+						return new RejectedException(errorText);
+					case ErrorCodes.Canceled:
+						return new CanceledException(errorText);
+					case ErrorCodes.Invalid:
+						return new InvalidException(errorText);
+					default:
+						return new InvalidOperationException($"Invalid Error frame in Stream ID {streamId}: {errorCode} '{errorText}'");
+				}
 			}
+		}
+
+		public static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, Func<Task> final = default, CancellationToken cancel = default)
+		{
+			await foreach (var item in source)
+			{
+				if (cancel.IsCancellationRequested)
+					break;
+
+				await action(item);
+			}
+
+			if (!cancel.IsCancellationRequested)
+				await final?.Invoke();
 		}
 
 		public static async IAsyncEnumerable<T> MakeControllableStream<T>(IObservable<T> stream, IObservable<int> requestNObservable)

@@ -68,7 +68,17 @@ namespace RSocketDemo
 						if (this._disposed)
 							return;
 
-						this._observer.OnNext(this.GenPayload(this._resposes + 1));
+						try
+						{
+							var payload = this.GenPayload(this._resposes + 1);
+							this._observer.OnNext(payload);
+						}
+						catch (Exception ex)
+						{
+							this._observer.OnError(ex);
+							return;
+						}
+
 
 						this._resposes++;
 

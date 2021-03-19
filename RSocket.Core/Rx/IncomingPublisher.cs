@@ -11,14 +11,13 @@ namespace RSocket
 {
 	class IncomingPublisher<T> : IPublisher<T>, IObservable<T>
 	{
+		FrameHandlerBase _frameHandler;
 		IObservable<T> _stream;
-		RSocket Socket;
-		int StreamId;
-		public IncomingPublisher(IObservable<T> stream, RSocket socket, int streamId)
+
+		public IncomingPublisher(IObservable<T> stream, FrameHandlerBase frameHandler)
 		{
 			this._stream = stream;
-			this.Socket = socket;
-			this.StreamId = streamId;
+			this._frameHandler = frameHandler;
 		}
 
 		IDisposable IObservable<T>.Subscribe(IObserver<T> observer)
@@ -28,11 +27,10 @@ namespace RSocket
 
 		ISubscription IPublisher<T>.Subscribe(IObserver<T> observer)
 		{
-			RSocketObserver<T> observerWrapper = new RSocketObserver<T>(observer);
-			var sub = this._stream.Subscribe(observerWrapper);
-			RSocketSubscription<T> subscription = new RSocketSubscription<T>(sub, observerWrapper, this.StreamId, this.Socket.Transport.Output);
-			observerWrapper.Subscription = subscription;
-			return subscription;
+			InboundSubscriber<T> inboundSubscriber = new InboundSubscriber<T>(observer, this._frameHandler);
+			var sub = this._stream.Subscribe(inboundSubscriber);
+			inboundSubscriber.Subscription = sub;
+			return inboundSubscriber;
 		}
 	}
 }

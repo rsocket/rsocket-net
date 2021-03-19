@@ -32,31 +32,23 @@ namespace RSocket
 		{
 			var streamId = this.Socket.NewStreamId();
 
+			RequesterFrameHandler frameHandler = new RequesterFrameHandler(this.Socket, streamId, null, this._outputs);
 			var inc = Observable.Create<Payload>(observer =>
 			{
-				RequesterFrameHandler frameHandler = new RequesterFrameHandler(this.Socket, streamId, observer, this._outputs);
+				frameHandler.InboundSubscriber = observer;
 				this.Socket.FrameHandlerDispatch(streamId, frameHandler);
-
-				TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
-				Task incomingTask = null;
-				Task frameHandlerTask = null;
 
 				this.Socket.Schedule(streamId, async (stream, cancel) =>
 				{
 					try
 					{
-						incomingTask = incomingTaskSignal.Task;
-						frameHandlerTask = frameHandler.ToTask();
+						Task frameHandlerTask = frameHandler.ToTask();
 
 						this.OnSubscribe(streamId, frameHandler); //TODO handle error
 
 						await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
 
-						await Task.WhenAll(frameHandlerTask, incomingTask);
-
-#if DEBUG
-						Console.WriteLine($"Requester task status: incomingTask.Status [{streamId}]:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
-#endif
+						await frameHandlerTask;
 					}
 					finally
 					{
@@ -71,15 +63,11 @@ namespace RSocket
 
 				return () =>
 				{
-					var setResult = incomingTaskSignal.TrySetResult(true);
-
-#if DEBUG
-					Console.WriteLine($"Requester task status: incomingTask.Status [{streamId}]:{incomingTask.Status},frameHandlerTask.Status:{frameHandlerTask.Status}");
-#endif
+					var setResult = frameHandler.InboundTaskSignal.TrySetResult(true);
 				};
 			});
 
-			var subscription = (new IncomingPublisher<Payload>(inc, this.Socket, streamId) as IPublisher<Payload>).Subscribe(observer);
+			var subscription = (new IncomingPublisher<Payload>(inc, frameHandler) as IPublisher<Payload>).Subscribe(observer);
 			return subscription;
 		}
 
