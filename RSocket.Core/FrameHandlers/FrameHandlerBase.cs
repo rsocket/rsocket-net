@@ -129,9 +129,9 @@ namespace RSocket
 		}
 		public virtual void HandleError(RSocketProtocol.Error message)
 		{
-			this.CancelInput();
 			this.CancelOutput();
-			this.InboundSubscriber.OnError(message.MakeException());
+			this.InboundSubscriber?.OnError(message.MakeException());
+			this.CancelInput();
 		}
 
 		//called by InboundSubscription.
@@ -167,10 +167,35 @@ namespace RSocket
 			return this._outputTask;
 		}
 
+		async Task GetAwaitInputTask()
+		{
+			try
+			{
+				await this.GetInputTask();
+			}
+			catch (Exception ex)
+			{
+				throw; //how to do？
+			}
+		}
+		async Task GetAwaitOutputTask()
+		{
+			try
+			{
+				await this.GetOutputTask();
+			}
+			catch (Exception ex)
+			{
+				this.InboundSubscriber?.OnError(ex);
+				this.CancelInput();
+				var errorData = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes($"{ex.Message}\n{ex.StackTrace}"));
+				await new RSocketProtocol.Error(ErrorCodes.Application_Error, this.StreamId, errorData).WriteFlush(this.Socket.Transport.Output, errorData);
+			}
+		}
 		protected virtual async Task GetCreatedTask()
 		{
-			var outputTask = this.GetOutputTask();
-			var inputTask = this.GetInputTask();
+			var outputTask = this.GetAwaitOutputTask();
+			var inputTask = this.GetAwaitInputTask();
 			await Task.WhenAll(outputTask, inputTask);
 		}
 
@@ -190,7 +215,7 @@ namespace RSocket
 				};
 			});
 
-			var outputTask = this.ForEach(outputStream.ToAsyncEnumerable(),
+			var outputTask = Helpers.ForEach(outputStream.ToAsyncEnumerable(),
 				action: async value =>
 				{
 					await new RSocketProtocol.Payload(this.StreamId, value.Data, value.Metadata, next: true).WriteFlush(this.Socket.Transport.Output, value.Data, value.Metadata);
@@ -212,7 +237,7 @@ namespace RSocket
 			this.OnTaskCreating();
 			var task = this.GetCreatedTask();
 			this.OnTaskCreated();
-			await task;
+			await task.ConfigureAwait(false);
 		}
 
 		public void Dispose()
@@ -235,23 +260,5 @@ namespace RSocket
 		{
 
 		}
-
-		async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, Func<Task> final = default, CancellationToken cancel = default)
-		{
-			try
-			{
-				await Helpers.ForEach(source, action, final, cancel);
-			}
-			catch (Exception ex)
-			{
-				this.InboundSubscriber.OnError(ex);
-				this.CancelInput();
-				var errorData = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes($"{ex.Message}\n{ex.StackTrace}"));
-				await new RSocketProtocol.Error(ErrorCodes.Application_Error, this.StreamId, errorData).WriteFlush(this.Socket.Transport.Output, errorData);
-			}
-		}
-
-
-
 	}
 }

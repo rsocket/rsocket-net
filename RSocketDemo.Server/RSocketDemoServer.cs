@@ -33,6 +33,12 @@ namespace RSocketDemo
 		public async ValueTask<Payload> ForRequestResponse((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
 			Console.WriteLine($"client.RequestResponse: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
+
+			if (request.Data.ConvertToString() == "error")
+			{
+				throw new Exception("This is a test error when executing RequestResponse.");
+			}
+
 			return new Payload(request.Data, request.Metadata);
 		}
 

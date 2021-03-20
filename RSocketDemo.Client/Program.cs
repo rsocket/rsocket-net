@@ -166,10 +166,19 @@ namespace RSocketDemo
 
 		static async Task ErrorTest()
 		{
+			try
+			{
+				var error = await _client.RequestResponse("error".ToReadOnlySequence());
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An error has occurred while executing RequestResponse: {ex.Message}");
+			}
+
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
 
-			var result = RequestChannel(20, initialRequest, metadata: 4.ToString());
+			var result = RequestChannel(10, initialRequest, metadata: 4.ToString());
 			try
 			{
 				await foreach (var item in result.ToAsyncEnumerable())
@@ -179,7 +188,7 @@ namespace RSocketDemo
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"An error has occurred: {ex.Message}");
+				Console.WriteLine($"An error has occurred while executing RequestChannel: {ex.Message}");
 			}
 
 			Console.WriteLine($"ErrorTest over");

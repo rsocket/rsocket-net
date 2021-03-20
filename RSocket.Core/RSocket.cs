@@ -236,8 +236,8 @@ namespace RSocket
 		{
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
-				var value = await Responder((data, metadata));     //TODO Handle Errors.
-				await new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true, complete: true).WriteFlush(Transport.Output, value.Data, value.Metadata);
+				RequestResponseResponderFrameHandler frameHandler = new RequestResponseResponderFrameHandler(this, stream, metadata, data);
+				await this.ExecuteFrameHandler(message.Stream, frameHandler);
 			});
 		}
 

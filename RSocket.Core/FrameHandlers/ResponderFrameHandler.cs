@@ -14,8 +14,8 @@ namespace RSocket
 {
 	public class ResponderFrameHandler : FrameHandlerBase
 	{
-		ReadOnlySequence<byte> _metadata;
-		ReadOnlySequence<byte> _data;
+		protected ReadOnlySequence<byte> _metadata;
+		protected ReadOnlySequence<byte> _data;
 		Channeler _channeler;
 
 		IncomingPublisher<Payload> _incoming;
