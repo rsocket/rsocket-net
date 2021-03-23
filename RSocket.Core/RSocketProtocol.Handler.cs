@@ -14,6 +14,7 @@ namespace RSocket
 		//TODO Consider if this is really needed. Could always wrap a logging protocol handler.
 		static void Decoded(string message) => Console.WriteLine(message);
 		static void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message) => sink.Setup(message);
+		static void OnKeepAlive(IRSocketProtocol sink, in RSocketProtocol.KeepAlive message) => sink.KeepAlive(message);
 		static void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message) => sink.Error(message);
 		static void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Payload(message, metadata, data);
 		static void OnRequestStream(IRSocketProtocol sink, in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.RequestStream(message, metadata, data);
@@ -23,6 +24,7 @@ namespace RSocket
 		static void OnRequestN(IRSocketProtocol sink, in RSocketProtocol.RequestN message) => sink.RequestN(message);
 		static void OnCancel(IRSocketProtocol sink, in RSocketProtocol.Cancel message) => sink.Cancel(message);
 
+		[Obsolete("This method has obsoleted.")]
 		static public async Task Handler(IRSocketProtocol sink, PipeReader pipereader, CancellationToken cancellation)
 		{
 			//The original implementation was a state-machine parser with resumability. It doesn't seem like the other implementations follow this pattern and the .NET folks are still figuring this out too - see the internal JSON parser discussion for how they're handling state machine persistence across async boundaries when servicing a Pipeline. So, this version of the handler only processes complete messages at some cost to memory buffer scalability.
@@ -79,6 +81,7 @@ namespace RSocket
 						break;
 					case Types.KeepAlive:
 						var keepalive = new KeepAlive(header, ref reader);
+						OnKeepAlive(sink, keepalive);
 						break;
 					case Types.Request_Response:
 						var requestresponse = new RequestResponse(header, ref reader);

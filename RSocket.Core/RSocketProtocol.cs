@@ -553,6 +553,8 @@ namespace RSocket
 				written += writer.WriteInt64BigEndian(LastReceivedPosition);
 				written += writer.Write(data);
 			}
+
+			public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(sizeof(long), reader.Position), DataLength);
 		}
 
 
@@ -726,7 +728,7 @@ namespace RSocket
 			public int Length => Header.Length + InnerLength + DataLength;
 			public Int32 Stream => Header.Stream;
 
-			public Error(ErrorCodes code, Int32 stream = Header.DEFAULT_STREAM, ReadOnlySequence<byte> data = default)
+			public Error(ErrorCodes code, Int32 stream = Header.DEFAULT_STREAM, ReadOnlySequence<byte> data = default, string errorText = null)
 			{
 				Header = new Header(Types.Error, stream: stream);
 				ErrorCode = code;

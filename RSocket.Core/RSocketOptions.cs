@@ -19,8 +19,8 @@ namespace RSocket
 
 		public TimeSpan KeepAlive { get; set; }
 		public TimeSpan Lifetime { get; set; }
-		public string DataMimeType { get; set; }
-		public string MetadataMimeType { get; set; }
+		public string DataMimeType { get; set; } = BINARYMIMETYPE;
+		public string MetadataMimeType { get; set; } = BINARYMIMETYPE;
 
 		public static readonly RSocketOptions Default = new RSocketOptions()
 		{

@@ -9,30 +9,23 @@ namespace RSocket
 {
 	public static class RSocketExtension
 	{
-		public static async Task<string> RequestResponse(this RSocket rsocket, string data, string metadata = default)
+		public static async Task<string> RequestResponse(this RSocket socket, string data, string metadata = default)
 		{
-			data = data ?? string.Empty;
-			metadata = metadata ?? string.Empty;
-			var payload = await rsocket.RequestResponse(new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+			var payload = await socket.RequestResponse(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata));
 			string str = Encoding.UTF8.GetString(payload.Data.ToArray());
 			return str;
 		}
-		public static IAsyncEnumerable<string> RequestStream(this RSocket rsocket, string data, string metadata = default)
+
+		public static IAsyncEnumerable<string> RequestStream(this RSocket socket, string data, string metadata = default)
 		{
-			data = data ?? string.Empty;
-			metadata = metadata ?? string.Empty;
-			var payloads = rsocket.RequestStream(new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)), int.MaxValue);
+			var payloads = socket.RequestStream(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata), int.MaxValue);
 			return payloads.ToAsyncEnumerable().Select(a => Encoding.UTF8.GetString(a.Data.ToArray()));
 		}
 
-		public static IAsyncEnumerable<string> RequestChannel(this RSocket rsocket, IObservable<string> inputs, string data = default, string metadata = default)
+		public static IAsyncEnumerable<string> RequestChannel(this RSocket socket, IAsyncEnumerable<string> inputs, string data = default, string metadata = default)
 		{
-			throw new NotImplementedException();
-			//data = data ?? string.Empty;
-			//metadata = metadata ?? string.Empty;
-			//var payloads = rsocket.RequestChannel(new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)), );
-			//return payloads.ToAsyncEnumerable().Select(a => Encoding.UTF8.GetString(a.Data.ToArray()));
-
+			IObservable<Payload> source = inputs.Select(a => new Payload(Helpers.StringToByteSequence(a))).ToObservable();
+			return socket.RequestChannel(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata), source, int.MaxValue).ToAsyncEnumerable().Select(a => Encoding.UTF8.GetString(a.Data.ToArray()));
 		}
 	}
 }
