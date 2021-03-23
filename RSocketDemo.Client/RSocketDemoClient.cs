@@ -15,7 +15,7 @@ namespace RSocketDemo
 
 		}
 
-		public override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		protected override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			Console.WriteLine($"Received RequestFireAndForget msg: {data.ConvertToString()}");
 		}

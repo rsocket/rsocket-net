@@ -29,7 +29,7 @@ namespace RSocket
 				if (header.Type == Types.Setup)
 				{
 					var setup = new Setup(header, ref reader);
-					this.Setup(setup);   //TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
+					this.HandleSetup(setup);   //TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
 
 					return Task.CompletedTask;
 				}
@@ -46,7 +46,7 @@ namespace RSocket
 			Handler = Connect(CancellationToken.None);
 		}
 
-		public override void Setup(RSocketProtocol.Setup value)
+		protected override void HandleSetup(RSocketProtocol.Setup value)
 		{
 			this._setup = value;
 			if (value.KeepAlive > 0 && value.Lifetime > 0)

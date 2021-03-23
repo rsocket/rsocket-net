@@ -50,7 +50,11 @@ namespace RSocket
 			}
 		}
 
-		public virtual void Setup(RSocketProtocol.Setup value)
+		void IRSocketProtocol.Setup(RSocketProtocol.Setup value)
+		{
+			this.HandleSetup(value);
+		}
+		protected virtual void HandleSetup(RSocketProtocol.Setup value)
 		{
 			//TODO This exception just stalls processing. Need to make sure it's handled.
 			throw new InvalidOperationException($"Client cannot process Setup frames");
@@ -134,7 +138,7 @@ namespace RSocket
 		{
 			this.HandleRequestFireAndForget(message, metadata, data);
 		}
-		public virtual void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		protected virtual void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			throw new NotImplementedException();
 		}
