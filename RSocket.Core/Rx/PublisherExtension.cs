@@ -115,6 +115,7 @@ namespace RSocket
 
 				public void Dispose()
 				{
+					this._subscription.Dispose();
 					this._rxSubscription.Dispose();
 				}
 
