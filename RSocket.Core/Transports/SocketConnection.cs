@@ -18,7 +18,7 @@ namespace RSocket.Transports
 
 		public string ConnectionId { get; } = Guid.NewGuid().ToString();
 
-		internal Task Running { get; private set; } = Task.CompletedTask;
+		public Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
 		private volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
 
@@ -57,7 +57,7 @@ namespace RSocket.Transports
 			var receiving = StartReceiving(socket);
 			var sending = StartSending(socket);
 
-			var trigger = await Task.WhenAny(receiving, sending);
+			await Task.WhenAll(receiving, sending);
 		}
 
 

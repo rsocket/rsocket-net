@@ -45,7 +45,7 @@ namespace RSocketDemo
 				}
 
 				RSocketServer server = this._serverBuilder(connection);
-				_connections[connection.ConnectionId] = (server, Accept(server, connection.ConnectionId));
+				_connections[connection.ConnectionId] = (server, Accept(server, connection));
 			}
 
 			List<Task> connectionsExecutionTasks = new List<Task>(_connections.Count);
@@ -64,7 +64,7 @@ namespace RSocketDemo
 		//	await _connectionListener.DisposeAsync();
 		//}
 
-		private async Task Accept(RSocketServer server, string connectionId)
+		private async Task Accept(RSocketServer server, SocketConnection connection)
 		{
 			try
 			{
@@ -74,12 +74,14 @@ namespace RSocketDemo
 
 				//_logger.LogInformation("Connection {ConnectionId} connected", connectionContext.ConnectionId);
 
+				await connection.Running;
 				//await connectionContext.ConnectionClosed.WaitAsync();
 			}
 			//catch (ConnectionResetException)
 			//{ }
 			catch (ConnectionAbortedException)
-			{ }
+			{
+			}
 			catch (Exception e)
 			{
 				//_logger.LogError(e, "Connection {ConnectionId} threw an exception", connectionContext.ConnectionId);
@@ -87,9 +89,8 @@ namespace RSocketDemo
 			finally
 			{
 				//await connectionContext.DisposeAsync();
-
-				_connections.TryRemove(connectionId, out _);
-
+				server.Dispose();
+				_connections.TryRemove(connection.ConnectionId, out _);
 				//_logger.LogInformation("Connection {ConnectionId} disconnected", connectionContext.ConnectionId);
 			}
 		}
