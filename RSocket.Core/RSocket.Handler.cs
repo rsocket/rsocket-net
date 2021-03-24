@@ -21,7 +21,9 @@ namespace RSocket
 			//Note that this means that the Pipeline must be configured to have enough buffering for a complete message before source-quenching. This also means that the downstream consumers don't really have to support resumption, so the interface no longer has the partial buffer methods in it.
 			while (!cancellation.IsCancellationRequested)
 			{
+				//Console.WriteLine($"await pipereader.ReadAsync start {Thread.CurrentThread.ManagedThreadId}");
 				var read = await pipereader.ReadAsync(cancellation);
+				//Console.WriteLine($"await pipereader.ReadAsync over {Thread.CurrentThread.ManagedThreadId}");
 				var buffer = read.Buffer;
 				if (buffer.IsEmpty && read.IsCompleted) { break; }
 				var position = buffer.Start;
@@ -42,9 +44,11 @@ namespace RSocket
 				}
 				catch (RSocketErrorException ex)
 				{
-					var errorData = Helpers.StringToByteSequence(ex.Message);
-					Error error = new Error(ex.ErrorCode, 0, errorData, ex.Message);
-					await error.WriteFlush(this.Transport.Output, errorData);
+					try
+					{
+						await this.SendError(ex.ErrorCode, 0, ex.Message);
+					}
+					catch { }
 					await this.CloseConnection();
 					break;
 				}

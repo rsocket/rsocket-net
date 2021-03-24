@@ -32,7 +32,10 @@ namespace RSocketDemo
 			IPEndPoint iPEndPoint = new IPEndPoint(iP, 8888);
 
 			SocketTransportFactory socketTransportFactory = new SocketTransportFactory();
-			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint);
+			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint, a =>
+			{
+				return new EchoServer(a);
+			});
 			var hostTask = host.ExecuteAsync(CancellationToken.None);
 
 			SocketTransport socketTransport = new SocketTransport("tcp://127.0.0.1:8888/");
@@ -44,7 +47,8 @@ namespace RSocketDemo
 
 		static async Task Test()
 		{
-
+			Console.WriteLine("---------------------");
+			Console.ReadKey();
 		}
 	}
 }

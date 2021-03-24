@@ -139,8 +139,7 @@ namespace RSocket
 		{
 			if (!this._inputCts.IsCancellationRequested)
 			{
-				var cancel = new Cancel(this.StreamId);
-				cancel.WriteFlush(this.Socket.Transport.Output).GetAwaiter().GetResult(); //TODO handle errors.
+				this.Socket.SendCancel(this.StreamId).Wait();
 			}
 		}
 		//called by InboundSubscription.
@@ -148,8 +147,7 @@ namespace RSocket
 		{
 			if (!this._inputCts.IsCancellationRequested)
 			{
-				var requestne = new RequestN(this.StreamId, default(ReadOnlySequence<byte>), initialRequest: n);
-				requestne.WriteFlush(this.Socket.Transport.Output);
+				this.Socket.SendRequestN(this.StreamId, n).Wait();
 			}
 		}
 
@@ -188,8 +186,7 @@ namespace RSocket
 			{
 				this.InboundSubscriber?.OnError(ex);
 				this.CancelInput();
-				var errorData = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes($"{ex.Message}\n{ex.StackTrace}"));
-				await new RSocketProtocol.Error(ErrorCodes.Application_Error, this.StreamId, errorData).WriteFlush(this.Socket.Transport.Output, errorData);
+				await this.Socket.SendError(ErrorCodes.Application_Error, this.StreamId, $"{ex.Message}\n{ex.StackTrace}");
 			}
 		}
 		protected virtual async Task GetCreatedTask()
@@ -218,11 +215,11 @@ namespace RSocket
 			var outputTask = Helpers.ForEach(outputStream.ToAsyncEnumerable(),
 				action: async value =>
 				{
-					await new RSocketProtocol.Payload(this.StreamId, value.Data, value.Metadata, next: true).WriteFlush(this.Socket.Transport.Output, value.Data, value.Metadata);
+					await this.Socket.SendPayload(value, this.StreamId, false, true);
 				},
 				final: async () =>
 				{
-					await new RSocketProtocol.Payload(this.StreamId, complete: true).WriteFlush(this.Socket.Transport.Output);
+					await this.Socket.SendPayload(default(Payload), this.StreamId, true, false);
 				}, cancel: this._outputCts.Token);
 
 			this._outputTask = outputTask;

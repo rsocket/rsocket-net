@@ -16,8 +16,8 @@ namespace RSocket
 	public partial class RSocket : IRSocketProtocol
 	{
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<Payload>> Responder { get; set; } = request => throw new NotImplementedException();
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>> Streamer { get; set; } = request => throw new NotImplementedException();
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<Payload>, IObservable<Payload>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Streamer { get; set; } = request => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<Payload>, IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
 
 		void MessageDispatch(int streamId, Action<IFrameHandler> act)
 		{
@@ -63,11 +63,9 @@ namespace RSocket
 		void IRSocketProtocol.KeepAlive(RSocketProtocol.KeepAlive value)
 		{
 			this._lastKeepAliveReceived = DateTime.Now;
-
 			if (value.Respond)
 			{
-				RSocketProtocol.KeepAlive keepAlive = new RSocketProtocol.KeepAlive(0, false);
-				keepAlive.WriteFlush(this.Transport.Output);
+				this.SendKeepAlive(0, false);
 			}
 		}
 

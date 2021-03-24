@@ -35,8 +35,8 @@ namespace RSocket
 		}
 		async Task CreateTask()
 		{
-			var value = await this.Socket.Responder((this._data, this._metadata));     //TODO Handle Errors.
-			await new RSocketProtocol.Payload(this.StreamId, value.Data, value.Metadata, next: true, complete: true).WriteFlush(this.Socket.Transport.Output, value.Data, value.Metadata);
+			var payload = await this.Socket.Responder((this._data, this._metadata));
+			await this.Socket.SendPayload(payload, this.StreamId, next: true, complete: true);
 		}
 	}
 }

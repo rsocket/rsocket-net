@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static RSocket.RSocketProtocol;
 
 namespace RSocket
 {
@@ -26,6 +27,40 @@ namespace RSocket
 		{
 			IObservable<Payload> source = inputs.Select(a => new Payload(Helpers.StringToByteSequence(a))).ToObservable();
 			return socket.RequestChannel(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata), source, int.MaxValue).ToAsyncEnumerable().Select(a => Encoding.UTF8.GetString(a.Data.ToArray()));
+		}
+
+		internal static Task SendPayload(this RSocket socket, Payload payload, int streamId, bool complete = false, bool next = false)
+		{
+			return new RSocketProtocol.Payload(streamId, payload.Data, payload.Metadata, complete: complete, next: next).WriteFlush(socket.Transport.Output, payload.Data, payload.Metadata);
+		}
+		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, string errorText)
+		{
+			var errorData = default(ReadOnlySequence<byte>);
+
+			if (errorText != null)
+			{
+				errorData = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(errorText));
+			}
+			return SendError(socket, errorCode, streamId, errorData);
+		}
+		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, ReadOnlySequence<byte> errorData)
+		{
+			return new RSocketProtocol.Error(errorCode, streamId, errorData).WriteFlush(socket.Transport.Output, errorData);
+		}
+		internal static Task SendCancel(this RSocket socket, int streamId = 0)
+		{
+			var cancel = new Cancel(streamId);
+			return cancel.WriteFlush(socket.Transport.Output);
+		}
+		internal static Task SendRequestN(this RSocket socket, int streamId, int n)
+		{
+			var requestne = new RequestN(streamId, default(ReadOnlySequence<byte>), initialRequest: n);
+			return requestne.WriteFlush(socket.Transport.Output);
+		}
+		internal static Task SendKeepAlive(this RSocket socket, int lastReceivedPosition, bool respond)
+		{
+			RSocketProtocol.KeepAlive keepAlive = new RSocketProtocol.KeepAlive(lastReceivedPosition, respond);
+			return keepAlive.WriteFlush(socket.Transport.Output);
 		}
 	}
 }

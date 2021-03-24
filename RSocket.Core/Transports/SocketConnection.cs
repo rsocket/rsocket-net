@@ -12,26 +12,23 @@ using System.Threading.Tasks;
 
 namespace RSocket.Transports
 {
-	public class RSocketConnection : IRSocketTransport
+	public class SocketConnection : IRSocketTransport
 	{
-		private Socket Socket;
+		Socket Socket;
 
 		public string ConnectionId { get; } = Guid.NewGuid().ToString();
 
 		internal Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
-#pragma warning disable CS0649
 		private volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
-#pragma warning restore CS0649
 
-		public Uri Url { get; private set; }
 		private LoggerFactory Logger;
 
 		IDuplexPipe Front, Back;
 		public PipeReader Input => Front.Input;
 		public PipeWriter Output => Front.Output;
 
-		public RSocketConnection(Socket socket, PipeOptions outputoptions = default, PipeOptions inputoptions = default)
+		public SocketConnection(Socket socket, PipeOptions outputoptions = default, PipeOptions inputoptions = default)
 		{
 			this.Socket = socket;
 
@@ -59,12 +56,6 @@ namespace RSocket.Transports
 			// Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
 			var receiving = StartReceiving(socket);
 			var sending = StartSending(socket);
-
-			//var writer = BufferWriter.Get(this.Output);
-			//writer.Write(1);
-			//writer.Flush();
-			//BufferWriter.Return(writer);
-			//var result = this.Output.FlushAsync().GetAwaiter().GetResult();
 
 			var trigger = await Task.WhenAny(receiving, sending);
 		}
@@ -107,9 +98,15 @@ namespace RSocket.Transports
 			}
 			catch (Exception ex)
 			{
-				if (!Aborted && !token.IsCancellationRequested) { Back.Output.Complete(ex); throw; }
+				if (!Aborted && !token.IsCancellationRequested)
+				{
+					Back.Output.Complete(ex); throw;
+				}
 			}
-			finally { Back.Output.Complete(); }
+			finally
+			{
+				Back.Output.Complete();
+			}
 		}
 
 

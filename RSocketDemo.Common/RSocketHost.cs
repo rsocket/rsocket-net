@@ -36,18 +36,16 @@ namespace RSocketDemo
 
 			while (true)
 			{
-				RSocketConnection connectionContext = await _connectionListener.AcceptAsync(stoppingToken);
-				Console.WriteLine($"client[{connectionContext.ConnectionId}] established...");
+				SocketConnection connection = await _connectionListener.AcceptAsync(stoppingToken);
+				Console.WriteLine($"client[{connection.ConnectionId}] established...");
 				// AcceptAsync will return null upon disposing the listener
-				if (connectionContext == null)
+				if (connection == null)
 				{
 					break;
 				}
 
-				IRSocketTransport rsocketTransport = new ConnectionListenerTransport(connectionContext);
-				RSocketServer server = this._serverBuilder(rsocketTransport);
-
-				_connections[connectionContext.ConnectionId] = (server, Accept(server, connectionContext.ConnectionId));
+				RSocketServer server = this._serverBuilder(connection);
+				_connections[connection.ConnectionId] = (server, Accept(server, connection.ConnectionId));
 			}
 
 			List<Task> connectionsExecutionTasks = new List<Task>(_connections.Count);

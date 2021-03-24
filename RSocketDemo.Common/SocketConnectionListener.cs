@@ -53,7 +53,7 @@ namespace RSocketDemo
 			_listenSocket = listenSocket;
 		}
 
-		public async ValueTask<RSocketConnection> AcceptAsync(CancellationToken cancellationToken = default)
+		public async ValueTask<SocketConnection> AcceptAsync(CancellationToken cancellationToken = default)
 		{
 			while (true)
 			{
@@ -68,8 +68,7 @@ namespace RSocketDemo
 					//{
 					//	acceptSocket.NoDelay = _options.NoDelay;
 					//}
-					var connection = new RSocketConnection(acceptSocket);
-					var task = connection.StartAsync();
+					var connection = new SocketConnection(acceptSocket);
 					return connection;
 				}
 				catch (ObjectDisposedException)

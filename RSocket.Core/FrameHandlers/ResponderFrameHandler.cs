@@ -7,7 +7,6 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static RSocket.RSocketProtocol;
 using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), RSocket.IPublisher<RSocket.Payload>, System.IObservable<RSocket.Payload>>;
 
 namespace RSocket
@@ -44,7 +43,6 @@ namespace RSocket
 			var inc = Observable.Create<Payload>(observer =>
 			{
 				this.InboundSubscriber = observer;
-
 				TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
 				this._incomingTaskSignal = incomingTaskSignal;
 				this._incomingTask = incomingTaskSignal.Task;

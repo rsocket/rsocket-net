@@ -52,8 +52,7 @@ namespace RSocket
 			if (value.KeepAlive > 0 && value.Lifetime > 0)
 			{
 				this.StartKeepAlive(TimeSpan.FromMilliseconds(value.KeepAlive), TimeSpan.FromMilliseconds(value.Lifetime));
-				RSocketProtocol.KeepAlive keepAlive = new RSocketProtocol.KeepAlive(0, false);
-				keepAlive.WriteFlush(this.Transport.Output);
+				this.SendKeepAlive(0, false);
 			}
 		}
 	}

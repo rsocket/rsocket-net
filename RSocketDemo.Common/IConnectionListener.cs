@@ -20,7 +20,7 @@ namespace RSocketDemo
 		/// </summary>
 		/// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
 		/// <returns>A <see cref="ValueTask{ConnectionContext}"/> that completes when a connection is accepted, yielding the <see cref="ConnectionContext" /> representing the connection.</returns>
-		ValueTask<RSocketConnection> AcceptAsync(CancellationToken cancellationToken = default);
+		ValueTask<SocketConnection> AcceptAsync(CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Stops listening for incoming connections.

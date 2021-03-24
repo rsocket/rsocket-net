@@ -15,6 +15,7 @@ using System.Reactive.Disposables;
 using System.Reactive;
 using System.Reactive.Threading.Tasks;
 using System.Reactive.Subjects;
+using System.Reactive.Concurrency;
 
 namespace RSocketDemo
 {
@@ -66,7 +67,7 @@ namespace RSocketDemo
 		{
 			var result = await _client.RequestResponse("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
 
-			Console.WriteLine($"server message: {result.Data.ConvertToString()}");
+			Console.WriteLine($"server message: {result.Data.ConvertToString()}  {Thread.CurrentThread.ManagedThreadId}");
 
 			Console.WriteLine($"RequestResponse over");
 			Console.ReadKey();
@@ -75,8 +76,8 @@ namespace RSocketDemo
 		static async Task RequestStreamTest()
 		{
 			int initialRequest = int.MaxValue;
-			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
-
+			IPublisher<Payload> result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
+			result = result.ObserveOn(TaskPoolScheduler.Default);
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
 				Console.WriteLine($"server message: {item.Data.ConvertToString()}");
@@ -90,8 +91,8 @@ namespace RSocketDemo
 			int initialRequest = 2;
 			//int initialRequest = int.MaxValue;
 
-			var result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
-
+			IPublisher<Payload> result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
+			result = result.ObserveOn(TaskPoolScheduler.Default);
 			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 5;
 			var subscription = result.Subscribe(subscriber);
@@ -111,10 +112,11 @@ namespace RSocketDemo
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
 
-			var result = RequestChannel(2, initialRequest);
+			IPublisher<Payload> result = RequestChannel(2, initialRequest);
+			result = result.ObserveOn(TaskPoolScheduler.Default);
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
-				Console.WriteLine($"server message: {item.Data.ConvertToString()}");
+				Console.WriteLine($"server message: {item.Data.ConvertToString()} {Thread.CurrentThread.ManagedThreadId}");
 			}
 
 			Console.WriteLine($"RequestChannel over");
@@ -125,8 +127,8 @@ namespace RSocketDemo
 			int initialRequest = 2;
 			//int initialRequest = int.MaxValue;
 
-			var result = RequestChannel(10, initialRequest);
-
+			IPublisher<Payload> result = RequestChannel(10, initialRequest);
+			result = result.ObserveOn(TaskPoolScheduler.Default);
 			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 5;
 			var subscription = result.Subscribe(subscriber);
@@ -149,8 +151,8 @@ namespace RSocketDemo
 			//int initialRequest = int.MaxValue;
 
 			var source = new OutputPublisher(_client, 10); //Create an object that supports backpressure.
-			var result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
-
+			IPublisher<Payload> result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
+			result = result.ObserveOn(TaskPoolScheduler.Default);
 			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
 			subscriber.MaxReceives = 8;
 			var subscription = result.Subscribe(subscriber);
@@ -178,7 +180,8 @@ namespace RSocketDemo
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
 
-			var result = RequestChannel(10, initialRequest, metadata: 4.ToString());
+			IPublisher<Payload> result = RequestChannel(10, initialRequest, metadata: 4.ToString());
+			result = result.ObserveOn(TaskPoolScheduler.Default);
 			try
 			{
 				await foreach (var item in result.ToAsyncEnumerable())
@@ -223,7 +226,7 @@ namespace RSocketDemo
 			}
 			);
 
-			var result = _client.RequestChannel(data.ToReadOnlySequence(), metadata.ToReadOnlySequence(), source, initialRequest);
+			IPublisher<Payload> result = _client.RequestChannel(data.ToReadOnlySequence(), metadata.ToReadOnlySequence(), source, initialRequest);
 
 			return result;
 		}

@@ -44,7 +44,7 @@ namespace RSocket
 
 		protected override void Dispose(bool disposing)
 		{
-			//this.StopIncoming();
+
 		}
 	}
 }
