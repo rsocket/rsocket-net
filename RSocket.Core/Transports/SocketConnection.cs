@@ -48,7 +48,7 @@ namespace RSocket.Transports
 			this.Front.Input.Complete();
 			this.Front.Output.Complete();
 			this.Back.Input.Complete();
-			this.Back.Input.Complete();
+			this.Back.Output.Complete();
 		}
 
 		private async Task ProcessSocketAsync(Socket socket)
