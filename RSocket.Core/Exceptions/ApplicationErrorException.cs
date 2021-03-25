@@ -6,9 +6,8 @@ namespace RSocket.Exceptions
 {
 	public class ApplicationErrorException : RSocketErrorException
 	{
-		public ApplicationErrorException(string message) : base(message)
+		public ApplicationErrorException(string message, int streamId) : base(message, streamId)
 		{
-
 		}
 
 		public override RSocketProtocol.ErrorCodes ErrorCode => RSocketProtocol.ErrorCodes.Application_Error;

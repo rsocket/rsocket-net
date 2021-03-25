@@ -7,7 +7,6 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), System.IObservable<RSocket.Payload>, System.IObservable<RSocket.Payload>>;
 
 namespace RSocket
 {
@@ -17,12 +16,6 @@ namespace RSocket
 		public RequestResponseResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) : base(socket, streamId, metadata, data, 0, null)
 		{
 
-		}
-
-		protected override void OnTaskCreated()
-		{
-			var payloadHandler = this.GetPayloadHandler();
-			payloadHandler?.OnCompleted();
 		}
 
 		protected override void OnTaskCreating()

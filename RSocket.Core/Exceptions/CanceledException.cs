@@ -6,7 +6,7 @@ namespace RSocket.Exceptions
 {
 	public class CanceledException : RSocketErrorException
 	{
-		public CanceledException(string message) : base(message)
+		public CanceledException(string message, int streamId) : base(message, streamId)
 		{
 
 		}

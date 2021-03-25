@@ -15,13 +15,12 @@ namespace RSocket
 	{
 		public RequestStreamResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId, metadata, data, initialRequest, channeler)
 		{
-
+			this.Incoming.Subscribe(a => { }, error => { }, () => { });
 		}
 
 		protected override void OnTaskCreated()
 		{
-			var payloadHandler = this.GetPayloadHandler();
-			payloadHandler?.OnCompleted();
+			this.StopIncoming();
 		}
 	}
 }

@@ -33,8 +33,8 @@ namespace RSocketDemo
 			{
 				SocketTransport socketTransport = new SocketTransport("tcp://127.0.0.1:8888/");
 				_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(5), Lifetime = TimeSpan.FromSeconds(10) });
-				await _client.ConnectAsync();
-				
+				await _client.ConnectAsync(data: Encoding.UTF8.GetBytes("setup.data"), metadata: Encoding.UTF8.GetBytes("setup.metadata"));
+
 				await RequestFireAndForgetTest();
 
 				await RequestResponseTest();

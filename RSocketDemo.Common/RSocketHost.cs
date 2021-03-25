@@ -91,6 +91,11 @@ namespace RSocketDemo
 				//await connectionContext.DisposeAsync();
 				server.Dispose();
 				_connections.TryRemove(connection.ConnectionId, out _);
+
+#if DEBUG
+				Console.WriteLine($"Connection {connection.ConnectionId} disconnected");
+#endif
+
 				//_logger.LogInformation("Connection {ConnectionId} disconnected", connectionContext.ConnectionId);
 			}
 		}

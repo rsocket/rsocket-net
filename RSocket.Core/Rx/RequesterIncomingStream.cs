@@ -32,43 +32,35 @@ namespace RSocket
 		{
 			var streamId = this.Socket.NewStreamId();
 
-			RequesterFrameHandler frameHandler = new RequesterFrameHandler(this.Socket, streamId, null, this._outputs);
-			var inc = Observable.Create<Payload>(observer =>
+			RequesterFrameHandler frameHandler = new RequesterFrameHandler(this.Socket, streamId, this._outputs);
+
+			this.Socket.FrameHandlerDispatch(streamId, frameHandler);
+			var sub = frameHandler.Incoming.Subscribe(observer);
+
+			this.Socket.Schedule(streamId, async (stream, cancel) =>
 			{
-				frameHandler.InboundSubscriber = observer;
-				this.Socket.FrameHandlerDispatch(streamId, frameHandler);
-
-				this.Socket.Schedule(streamId, async (stream, cancel) =>
+				try
 				{
-					try
-					{
-						Task frameHandlerTask = frameHandler.ToTask();
+					Task frameHandlerTask = frameHandler.ToTask();
 
-						this.OnSubscribe(streamId, frameHandler); //TODO handle error
+					this.OnSubscribe(streamId, frameHandler); //TODO handle error
 
-						await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
+					await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
 
-						await frameHandlerTask;
-					}
-					finally
-					{
-						this.Socket.FrameHandlerRemove(streamId);
-						frameHandler.Dispose();
+					await frameHandlerTask;
+				}
+				finally
+				{
+					this.Socket.FrameHandlerRemove(streamId);
+					frameHandler.Dispose();
 
 #if DEBUG
-						Console.WriteLine($"Requester.frameHandler.Dispose(): stream[{streamId}]");
+					Console.WriteLine($"Requester.frameHandler.Dispose(): stream[{streamId}]");
 #endif
-					}
-				});
-
-				return () =>
-				{
-					var setResult = frameHandler.InboundTaskSignal.TrySetResult(true);
-				};
+				}
 			});
 
-			var subscription = (new IncomingPublisher<Payload>(inc, frameHandler) as IPublisher<Payload>).Subscribe(observer);
-			return subscription;
+			return sub;
 		}
 
 		protected virtual void OnSubscribe(int streamId, IFrameHandler frameHandler)
@@ -76,4 +68,5 @@ namespace RSocket
 
 		}
 	}
+
 }

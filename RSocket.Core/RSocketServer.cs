@@ -11,8 +11,9 @@ namespace RSocket
 	{
 		Task Handler;
 
-		RSocketProtocol.Setup _setup;
 		int _hasSetup = 0;
+
+		protected RSocketProtocol.Setup Setup { get; set; }
 
 		public RSocketServer(IRSocketTransport transport, PrefetchOptions options = default) : base(transport, options) { }
 
@@ -22,14 +23,29 @@ namespace RSocket
 			return Interlocked.Add(ref StreamId, 2);
 		}
 
-		protected override Task Process(Header header, SequenceReader<byte> reader)
+		protected sealed override Task Process(Header header, SequenceReader<byte> reader)
 		{
 			if (Interlocked.CompareExchange(ref this._hasSetup, 1, 0) == 0)
 			{
 				if (header.Type == Types.Setup)
 				{
-					var setup = new Setup(header, ref reader);
-					this.HandleSetup(setup);   //TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
+					try
+					{
+						var setup = new Setup(header, ref reader);
+						this.Setup = setup;
+						this.HandleSetup(setup, setup.ReadMetadata(reader), setup.ReadData(reader));
+					}
+					catch (RSocketErrorException)
+					{
+						throw;
+					}
+					catch (Exception ex)
+					{
+#if DEBUG
+						Console.WriteLine($"{ex.Message} {ex.StackTrace}");
+#endif
+						throw new RejectedSetupException($"An exception occurred while handling setup: {ex.Message}");
+					}
 
 					return Task.CompletedTask;
 				}
@@ -46,12 +62,11 @@ namespace RSocket
 			Handler = Connect(CancellationToken.None);
 		}
 
-		protected override void HandleSetup(RSocketProtocol.Setup value)
+		protected override void HandleSetup(RSocketProtocol.Setup message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			this._setup = value;
-			if (value.KeepAlive > 0 && value.Lifetime > 0)
+			if (message.KeepAlive > 0 && message.Lifetime > 0)
 			{
-				this.StartKeepAlive(TimeSpan.FromMilliseconds(value.KeepAlive), TimeSpan.FromMilliseconds(value.Lifetime));
+				this.StartKeepAlive(TimeSpan.FromMilliseconds(message.KeepAlive), TimeSpan.FromMilliseconds(message.Lifetime));
 				this.SendKeepAlive(0, false);
 			}
 		}

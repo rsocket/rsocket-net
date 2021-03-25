@@ -6,7 +6,7 @@ namespace RSocket.Exceptions
 {
 	public class RejectedException : RSocketErrorException
 	{
-		public RejectedException(string message) : base(message)
+		public RejectedException(string message, int streamId) : base(message, streamId)
 		{
 
 		}

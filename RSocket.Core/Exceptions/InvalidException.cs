@@ -6,7 +6,7 @@ namespace RSocket.Exceptions
 {
 	public class InvalidException : RSocketErrorException
 	{
-		public InvalidException(string message) : base(message)
+		public InvalidException(string message, int streamId) : base(message, streamId)
 		{
 
 		}

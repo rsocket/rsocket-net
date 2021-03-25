@@ -11,7 +11,13 @@ namespace RSocket.Exceptions
 		{
 
 		}
+		protected RSocketErrorException(string message, int streamId) : this(message)
+		{
+			this.StreamId = streamId;
+		}
 
 		public abstract ErrorCodes ErrorCode { get; }
+
+		public int StreamId { get; private set; }
 	}
 }

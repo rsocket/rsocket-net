@@ -52,19 +52,18 @@ namespace RSocket
 				switch (errorCode)
 				{
 					case ErrorCodes.Application_Error:
-						return new ApplicationErrorException(errorText);
+						return new ApplicationErrorException(errorText, streamId);
 					case ErrorCodes.Rejected:
-						return new RejectedException(errorText);
+						return new RejectedException(errorText, streamId);
 					case ErrorCodes.Canceled:
-						return new CanceledException(errorText);
+						return new CanceledException(errorText, streamId);
 					case ErrorCodes.Invalid:
-						return new InvalidException(errorText);
+						return new InvalidException(errorText, streamId);
 					default:
 						return new InvalidOperationException($"Invalid Error frame in Stream ID {streamId}: {errorCode} '{errorText}'");
 				}
 			}
 		}
-
 		public static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, Func<Task> final = default, CancellationToken cancel = default)
 		{
 			await foreach (var item in source)
@@ -79,90 +78,90 @@ namespace RSocket
 				await final?.Invoke();
 		}
 
-//		public static async IAsyncEnumerable<T> MakeControllableStream<T>(IObservable<T> stream, IObservable<int> requestNObservable)
-//		{
-//			int requests = 0;
-//			int responsed = 0;
-//			object lockObject = new object();
-//			int lockNumber = 0;
+		//		public static async IAsyncEnumerable<T> MakeControllableStream<T>(IObservable<T> stream, IObservable<int> requestNObservable)
+		//		{
+		//			int requests = 0;
+		//			int responsed = 0;
+		//			object lockObject = new object();
+		//			int lockNumber = 0;
 
-//			IAsyncEnumerator<T> streamEnumerator = null;
-//			IAsyncEnumerator<int> requestNEnumerator = null;
-//			try
-//			{
-//				requestNEnumerator = requestNObservable.ToAsyncEnumerable().GetAsyncEnumerator();
+		//			IAsyncEnumerator<T> streamEnumerator = null;
+		//			IAsyncEnumerator<int> requestNEnumerator = null;
+		//			try
+		//			{
+		//				requestNEnumerator = requestNObservable.ToAsyncEnumerable().GetAsyncEnumerator();
 
-//				while (await requestNEnumerator.MoveNextAsync())
-//				{
-//					int requestN = requestNEnumerator.Current;
-//					lock (lockObject)
-//					{
-//						Interlocked.Add(ref requests, requestN);
+		//				while (await requestNEnumerator.MoveNextAsync())
+		//				{
+		//					int requestN = requestNEnumerator.Current;
+		//					lock (lockObject)
+		//					{
+		//						Interlocked.Add(ref requests, requestN);
 
-//#if DEBUG
-//						Console.WriteLine($"requests: {requests}");
-//#endif
+		//#if DEBUG
+		//						Console.WriteLine($"requests: {requests}");
+		//#endif
 
-//						if (requests < 0)
-//						{
-//							requests = int.MaxValue;
-//						}
-//					}
+		//						if (requests < 0)
+		//						{
+		//							requests = int.MaxValue;
+		//						}
+		//					}
 
-//					while (GetLock(ref lockNumber, ref requests, ref responsed, lockObject))
-//					{
-//						try
-//						{
-//#if DEBUG
-//							Console.WriteLine($"requests: {requests}, responsed {responsed},");
-//#endif
-//							if (streamEnumerator == null)
-//								streamEnumerator = stream.ToAsyncEnumerable().GetAsyncEnumerator();
+		//					while (GetLock(ref lockNumber, ref requests, ref responsed, lockObject))
+		//					{
+		//						try
+		//						{
+		//#if DEBUG
+		//							Console.WriteLine($"requests: {requests}, responsed {responsed},");
+		//#endif
+		//							if (streamEnumerator == null)
+		//								streamEnumerator = stream.ToAsyncEnumerable().GetAsyncEnumerator();
 
-//							var next = await streamEnumerator.MoveNextAsync();
+		//							var next = await streamEnumerator.MoveNextAsync();
 
-//							if (next)
-//							{
-//								var nextValue = streamEnumerator.Current;
-//								yield return nextValue;
-//								Interlocked.Increment(ref responsed);
-//							}
-//							else
-//							{
-//								goto BreakRequestNLoop;
-//							}
-//						}
-//						finally
-//						{
-//							Interlocked.Exchange(ref lockNumber, 0);
-//						}
-//					}
+		//							if (next)
+		//							{
+		//								var nextValue = streamEnumerator.Current;
+		//								yield return nextValue;
+		//								Interlocked.Increment(ref responsed);
+		//							}
+		//							else
+		//							{
+		//								goto BreakRequestNLoop;
+		//							}
+		//						}
+		//						finally
+		//						{
+		//							Interlocked.Exchange(ref lockNumber, 0);
+		//						}
+		//					}
 
-//					continue;
+		//					continue;
 
-//				BreakRequestNLoop:
-//					break;
-//				}
-//			}
-//			finally
-//			{
-//				if (streamEnumerator != null)
-//				{
-//					await streamEnumerator.DisposeAsync();
-//#if DEBUG
-//					Console.WriteLine("await streamEnumerator.DisposeAsync()");
-//#endif
-//				}
+		//				BreakRequestNLoop:
+		//					break;
+		//				}
+		//			}
+		//			finally
+		//			{
+		//				if (streamEnumerator != null)
+		//				{
+		//					await streamEnumerator.DisposeAsync();
+		//#if DEBUG
+		//					Console.WriteLine("await streamEnumerator.DisposeAsync()");
+		//#endif
+		//				}
 
-//				if (requestNEnumerator != null)
-//				{
-//					await requestNEnumerator.DisposeAsync();
-//#if DEBUG
-//					Console.WriteLine("await requestNEnumerator.DisposeAsync()");
-//#endif
-//				}
-//			}
-//		}
+		//				if (requestNEnumerator != null)
+		//				{
+		//					await requestNEnumerator.DisposeAsync();
+		//#if DEBUG
+		//					Console.WriteLine("await requestNEnumerator.DisposeAsync()");
+		//#endif
+		//				}
+		//			}
+		//		}
 
 		static bool GetLock(ref int lockNumber, ref int requests, ref int responsed, object lockObject)
 		{

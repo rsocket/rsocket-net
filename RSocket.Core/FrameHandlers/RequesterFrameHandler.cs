@@ -10,37 +10,18 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
-	public class RequesterFrameHandler : FrameHandlerBase
+	public class RequesterFrameHandler : FrameHandler
 	{
 		IObservable<Payload> _outgoing;
-		TaskCompletionSource<bool> _inboundTaskSignal = new TaskCompletionSource<bool>();
 
 		public RequesterFrameHandler(RSocket socket
 			, int streamId
-			, IObserver<Payload> inboundSubscriber
 			, IObservable<Payload> outgoing) : base(socket, streamId)
 		{
 			this._outgoing = outgoing;
-			this.InboundSubscriber = inboundSubscriber;
 		}
 
-		public TaskCompletionSource<bool> InboundTaskSignal { get { return this._inboundTaskSignal; } }
-
-		protected override void StopIncoming()
-		{
-			this._inboundTaskSignal.TrySetResult(true);
-		}
-
-		protected override Task GetInputTask()
-		{
-			return this._inboundTaskSignal.Task;
-		}
-
-		protected override IObservable<Payload> GetOutgoing()
-		{
-			var outgoing = _outgoing;
-			return outgoing;
-		}
+		public override IObservable<Payload> Outgoing { get { return this._outgoing; } }
 
 		protected override void Dispose(bool disposing)
 		{

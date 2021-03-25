@@ -13,7 +13,7 @@ namespace RSocket
 	{
 		//TODO Consider if this is really needed. Could always wrap a logging protocol handler.
 		static void Decoded(string message) => Console.WriteLine(message);
-		static void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message) => sink.Setup(message);
+		static void OnSetup(IRSocketProtocol sink, in RSocketProtocol.Setup message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Setup(message, metadata, data);
 		static void OnKeepAlive(IRSocketProtocol sink, in RSocketProtocol.KeepAlive message) => sink.KeepAlive(message);
 		static void OnError(IRSocketProtocol sink, in RSocketProtocol.Error message) => sink.Error(message);
 		static void OnPayload(IRSocketProtocol sink, in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => sink.Payload(message, metadata, data);
@@ -74,7 +74,7 @@ namespace RSocket
 					case Types.Reserved: throw new InvalidOperationException($"Protocol Reserved! [{header.Type}]");
 					case Types.Setup:
 						var setup = new Setup(header, ref reader);
-						OnSetup(sink, setup);   //TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
+						OnSetup(sink, setup, setup.ReadMetadata(reader), setup.ReadData(reader));   //TODO These can have metadata! , setup.ReadMetadata(ref reader), setup.ReadData(ref reader)););
 						break;
 					case Types.Lease:
 						var lease = new Lease(header, ref reader);

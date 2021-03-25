@@ -733,7 +733,7 @@ namespace RSocket
 				Header = new Header(Types.Error, stream: stream);
 				ErrorCode = code;
 				DataLength = (int)data.Length;
-				ErrorText = null;
+				ErrorText = errorText;
 			}
 
 			public Error(in Header header, ref SequenceReader<byte> reader)
@@ -780,6 +780,7 @@ namespace RSocket
 			public bool CanLease { get => (Header.Flags & FLAG_LEASE) != 0; set => Header.Flags = value ? (ushort)(Header.Flags | FLAG_LEASE) : (ushort)(Header.Flags & ~FLAG_LEASE); }
 
 			private Header Header;
+			public Int32 Flags => Header.Flags;
 			public Int32 Stream => Header.Stream;
 			public UInt16 MajorVersion;
 			public UInt16 MinorVersion;

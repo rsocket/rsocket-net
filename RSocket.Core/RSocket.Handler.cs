@@ -46,9 +46,11 @@ namespace RSocket
 				{
 					try
 					{
-						await this.SendError(ex.ErrorCode, 0, ex.Message);
+						await this.SendError(ex.ErrorCode, ex.StreamId, ex.Message);
 					}
-					catch { }
+					catch
+					{
+					}
 					await this.CloseConnection();
 					break;
 				}

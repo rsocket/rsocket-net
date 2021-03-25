@@ -11,15 +11,11 @@ using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, Syste
 
 namespace RSocket
 {
-	public class ResponderFrameHandler : FrameHandlerBase
+	public class ResponderFrameHandler : FrameHandler
 	{
 		protected ReadOnlySequence<byte> _metadata;
 		protected ReadOnlySequence<byte> _data;
 		Channeler _channeler;
-
-		IncomingPublisher<Payload> _incoming;
-		Task _incomingTask;
-		TaskCompletionSource<bool> _incomingTaskSignal;
 
 		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId, initialRequest)
 		{
@@ -28,39 +24,17 @@ namespace RSocket
 			this._channeler = channeler;
 		}
 
-		protected override IObservable<Payload> GetOutgoing()
+		public override IObservable<Payload> Outgoing
 		{
-			var outgoing = this._channeler((this._data, this._metadata), this._incoming);     //TODO Handle Errors.
-			return outgoing;
-		}
-		protected override Task GetInputTask()
-		{
-			return this._incomingTask;
-		}
-
-		protected override void OnTaskCreating()
-		{
-			var inc = Observable.Create<Payload>(observer =>
+			get
 			{
-				this.InboundSubscriber = observer;
-				TaskCompletionSource<bool> incomingTaskSignal = new TaskCompletionSource<bool>();
-				this._incomingTaskSignal = incomingTaskSignal;
-				this._incomingTask = incomingTaskSignal.Task;
-
-				return () =>
-				{
-					incomingTaskSignal.TrySetResult(true);
-				};
-			});
-
-			this._incoming = new IncomingPublisher<Payload>(inc, this);
-
-			base.OnTaskCreating();
+				return this.GetOutgoing();
+			}
 		}
-
-		protected override void StopIncoming()
+		IObservable<Payload> GetOutgoing()
 		{
-			this._incomingTaskSignal?.TrySetResult(true);
+			var outgoing = this._channeler((this._data, this._metadata), this.Incoming);
+			return outgoing;
 		}
 
 		protected override void Dispose(bool disposing)

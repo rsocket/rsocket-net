@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,38 +13,50 @@ using static RSocket.RSocketProtocol;
 
 namespace RSocket
 {
-	public class FrameHandlerBase : IFrameHandler
+	public abstract class FrameHandler : IFrameHandler
 	{
 		bool _disposed = false;
 		int _initialOutputRequest = 0;
+
+		TaskCompletionSource<bool> _waitIncomingCompleteHandler = new TaskCompletionSource<bool>();
 
 		Task _outputTask;
 		CancellationTokenSource _inputCts = new CancellationTokenSource();
 		CancellationTokenSource _outputCts = new CancellationTokenSource();
 
-		public FrameHandlerBase(RSocket socket)
+		Subject<Payload> _remotePayloads = new Subject<Payload>();
+
+		public FrameHandler(RSocket socket)
 		{
 			this.Socket = socket;
 			this._inputCts.Token.Register(this.StopIncoming);
 			this._outputCts.Token.Register(this.StopOutging);
+
+			this.Incoming = new IncomingStream(this._remotePayloads, this, this._waitIncomingCompleteHandler);
 		}
-		public FrameHandlerBase(RSocket socket, int streamId) : this(socket)
+		public FrameHandler(RSocket socket, int streamId) : this(socket)
 		{
 			this.StreamId = streamId;
 		}
 
-		public FrameHandlerBase(RSocket socket, int streamId, int initialOutputRequest) : this(socket, streamId)
+		public FrameHandler(RSocket socket, int streamId, int initialOutputRequest) : this(socket, streamId)
 		{
 			this._initialOutputRequest = initialOutputRequest;
 		}
 
 		public RSocket Socket { get; set; }
 		public int StreamId { get; set; }
+
+
+		public IPublisher<Payload> Incoming { get; private set; }
+		public abstract IObservable<Payload> Outgoing { get; }
+
+
 		public CancellationTokenSource OutputCts { get { return this._outputCts; } }
 
-		public IObserver<Payload> InboundSubscriber { get; set; }
-		public IObserver<Payload> OutboundSubscriber { get; set; }
-		public ISubscription OutboundSubscription { get; set; }
+		IObserver<Payload> InboundSubscriber { get { return this._remotePayloads; } }
+		IObserver<Payload> OutboundSubscriber { get; set; }
+		ISubscription OutboundSubscription { get; set; }
 
 		void CancelInput()
 		{
@@ -61,11 +74,11 @@ namespace RSocket
 			if (!this._outputCts.IsCancellationRequested)
 				this._outputCts.Cancel();
 		}
-		protected virtual void StopIncoming()
+		protected void StopIncoming()
 		{
-
+			this.InboundSubscriber?.OnCompleted();
 		}
-		protected virtual void StopOutging()
+		protected void StopOutging()
 		{
 			//cancel sending payload.
 
@@ -89,29 +102,17 @@ namespace RSocket
 
 		public virtual void HandlePayload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			var handler = this.GetPayloadHandler();
+			var handler = this._remotePayloads;
 
-#if DEBUG
-			if (handler == null)
-				Console.WriteLine("missing payload handler");
-#endif
-
-			if (handler != null)
+			if (message.IsNext)
 			{
-				if (message.IsNext)
-				{
-					handler.OnNext(new Payload(data, metadata));
-				}
-
-				if (message.IsComplete)
-				{
-					handler.OnCompleted();
-				}
+				handler.OnNext(new Payload(data, metadata));
 			}
-		}
-		protected virtual IObserver<Payload> GetPayloadHandler()
-		{
-			return this.InboundSubscriber;
+
+			if (message.IsComplete)
+			{
+				handler.OnCompleted();
+			}
 		}
 
 		public virtual void HandleRequestN(RSocketProtocol.RequestN message)
@@ -151,14 +152,9 @@ namespace RSocket
 			}
 		}
 
-		protected virtual IObservable<Payload> GetOutgoing()
-		{
-			throw new NotImplementedException();
-		}
-
 		protected virtual Task GetInputTask()
 		{
-			return Task.CompletedTask;
+			return this._waitIncomingCompleteHandler.Task;
 		}
 		protected virtual Task GetOutputTask()
 		{
@@ -173,7 +169,7 @@ namespace RSocket
 			}
 			catch (Exception ex)
 			{
-				throw; //how to do？
+				//how to do？
 			}
 		}
 		async Task GetAwaitOutputTask()
@@ -198,12 +194,16 @@ namespace RSocket
 
 		protected virtual void OnTaskCreating()
 		{
-			var outgoing = this.GetOutgoing();
+			var sourcePayloads = this.Outgoing;
+
+			var outgoing = sourcePayloads as IPublisher<Payload>;
+			if (outgoing == null)
+				outgoing = new OutgoingStream(sourcePayloads);
 
 			var outputStream = Observable.Create<Payload>(observer =>
 			{
 				this.OutboundSubscriber = observer;
-				this.OutboundSubscription = new OutboundSubscription(outgoing.Subscribe(observer));
+				this.OutboundSubscription = outgoing.Subscribe(observer);
 				this.OnSubscribeOutputStream(this.OutboundSubscription);
 
 				return () =>

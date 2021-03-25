@@ -8,7 +8,7 @@ namespace RSocket
 	/// </summary>
 	public interface IRSocketProtocol
 	{
-		void Setup(RSocketProtocol.Setup message);
+		void Setup(RSocketProtocol.Setup message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
 		void KeepAlive(RSocketProtocol.KeepAlive message);
 		void Error(RSocketProtocol.Error message);
 		void Payload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data);
