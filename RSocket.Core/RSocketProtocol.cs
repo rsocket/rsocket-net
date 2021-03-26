@@ -792,13 +792,13 @@ namespace RSocket
 			public int MetadataLength;
 			public int DataLength;
 			private int InnerLength => sizeof(UInt16) + sizeof(UInt16) + sizeof(Int32) + sizeof(Int32)
-				+ (HasResume ? ResumeToken.Length : 0)
+				+ (HasResume ? (ResumeToken.Length + sizeof(UInt16)) : 0)
 				+ sizeof(byte) + Encoding.ASCII.GetByteCount(MetadataMimeType)
 				+ sizeof(byte) + Encoding.ASCII.GetByteCount(DataMimeType);
 			public int Length => Header.Length + InnerLength + Header.MetadataHeaderLength + MetadataLength + DataLength;
 
 
-			public Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) : this((int)keepalive.TotalMilliseconds, (int)lifetime.TotalMilliseconds, string.IsNullOrEmpty(metadataMimeType) ? string.Empty : metadataMimeType, string.IsNullOrEmpty(dataMimeType) ? string.Empty : dataMimeType, data: data, metadata: metadata) { }
+			public Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, byte[] resumeToken = default, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) : this((int)keepalive.TotalMilliseconds, (int)lifetime.TotalMilliseconds, string.IsNullOrEmpty(metadataMimeType) ? string.Empty : metadataMimeType, string.IsNullOrEmpty(dataMimeType) ? string.Empty : dataMimeType, resumeToken: resumeToken, data: data, metadata: metadata) { }
 
 			public Setup(Int32 keepalive, Int32 lifetime, string metadataMimeType, string dataMimeType, byte[] resumeToken = default, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 			{
@@ -866,7 +866,11 @@ namespace RSocket
 				written += writer.WriteUInt16BigEndian(MinorVersion);
 				written += writer.WriteInt32BigEndian(KeepAlive);
 				written += writer.WriteInt32BigEndian(Lifetime);
-				if (HasResume) { written += writer.WriteUInt16BigEndian(ResumeToken.Length) + writer.Write(ResumeToken); }
+				if (HasResume)
+				{
+					written += writer.WriteUInt16BigEndian(ResumeToken.Length);
+					written += writer.Write(ResumeToken);
+				}
 				written += writer.WritePrefixByte(MetadataMimeType);    //TODO THIS IS ASCII!!! See Spec!!
 				written += writer.WritePrefixByte(DataMimeType);       //TODO THIS IS ASCII!!! See Spec!!
 				if (HasMetadata) { written += writer.WriteInt24BigEndian(MetadataLength) + writer.Write(metadata); }      //TODO Should this be UInt24? Probably, but not sure if it can actually overflow...
