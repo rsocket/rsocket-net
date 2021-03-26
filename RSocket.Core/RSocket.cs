@@ -24,11 +24,14 @@ namespace RSocket
 	public partial class RSocket : IRSocketProtocol, IDisposable
 	{
 		bool _disposed;
-		bool _connectionClosed;
 		DateTime _lastKeepAliveReceived = DateTime.Now;
 		IDisposable _ticksDisposable = Disposable.Empty;
 
+		int _connectionClosedFlag = 0;
+
 		PrefetchOptions Options { get; set; }
+
+		public bool IsClosed { get { return this._connectionClosedFlag != 0; } }
 
 		//TODO Hide.
 		public IRSocketTransport Transport { get; set; }
@@ -68,6 +71,11 @@ namespace RSocket
 		/// <param name="cancel">Cancellation for the handler. Requesting cancellation will stop message handling.</param>
 		/// <returns>The handler task.</returns>
 		public Task Connect(CancellationToken cancel = default) => this.Handler(Transport.Input, cancel);
+
+		public virtual void OnClose()
+		{
+
+		}
 
 		public virtual async Task RequestFireAndForget(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
@@ -275,7 +283,7 @@ namespace RSocket
 
 		void CheckConnectionStatus()
 		{
-			if (this._connectionClosed)
+			if (this.IsClosed)
 				throw new ConnectionCloseException("The connection has been closed.");
 
 			if (this._disposed)
@@ -284,11 +292,11 @@ namespace RSocket
 
 		async Task CloseConnection()
 		{
-			if (this._connectionClosed)
+			if (Interlocked.Increment(ref this._connectionClosedFlag) != 0)
 				return;
 
 			await this.Transport.StopAsync();
-			this._connectionClosed = true;
+			this.OnClose();
 		}
 		public void Dispose()
 		{

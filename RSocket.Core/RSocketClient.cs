@@ -19,19 +19,19 @@ namespace RSocket
 			this.Options = options;
 		}
 
-		public Task ConnectAsync(RSocketOptions options = default, byte[] data = default, byte[] metadata = default) => ConnectAsync(options ?? this.Options, data: data == default ? default : new ReadOnlySequence<byte>(data), metadata: metadata == default ? default : new ReadOnlySequence<byte>(metadata));
+		public Task ConnectAsync(RSocketOptions options = default, byte[] data = default, byte[] metadata = default, byte[] resumeToken = default) => ConnectAsync(options ?? this.Options, data: data == default ? default : new ReadOnlySequence<byte>(data), metadata: metadata == default ? default : new ReadOnlySequence<byte>(metadata), resumeToken: resumeToken);
 
-		public async Task ConnectAsync(RSocketOptions options, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		public async Task ConnectAsync(RSocketOptions options, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, byte[] resumeToken = default)
 		{
 			await Transport.StartAsync();
 			Handler = Connect(CancellationToken.None);
-			await Setup(options.KeepAlive, options.Lifetime, options.MetadataMimeType, options.DataMimeType, data: data, metadata: metadata);
+			await Setup(options.KeepAlive, options.Lifetime, options.MetadataMimeType, options.DataMimeType, resumeToken: resumeToken, data: data, metadata: metadata);
 			this.StartKeepAlive(options.KeepAlive, options.Lifetime);
 		}
 
-		public Task Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		public Task Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, byte[] resumeToken = default, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
-			return new RSocketProtocol.Setup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, data: data, metadata: metadata).WriteFlush(Transport.Output, data: data, metadata: metadata);
+			return new RSocketProtocol.Setup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, resumeToken: resumeToken, data: data, metadata: metadata).WriteFlush(Transport.Output, data: data, metadata: metadata);
 		}
 
 		/// <summary>A simplfied RSocket Client that operates only on UTF-8 strings.</summary>
