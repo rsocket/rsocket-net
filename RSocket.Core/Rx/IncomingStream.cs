@@ -38,6 +38,7 @@ namespace RSocket
 			TaskCompletionSource<bool> _waitCompleteHandler;
 
 			bool _completed;
+			Exception _error;
 
 			public IncomingStreamSubscriber(IObserver<Payload> observer, TaskCompletionSource<bool> waitCompleteHandler)
 			{
@@ -64,11 +65,12 @@ namespace RSocket
 					return;
 
 				this._completed = true;
+				this._error = error;
 				this._observer.OnError(error);
 
 				try
 				{
-					this._waitCompleteHandler.TrySetException(error);
+					this._waitCompleteHandler.TrySetResult(true);
 				}
 				catch
 				{

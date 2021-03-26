@@ -80,19 +80,7 @@ namespace RSocket
 				Subject<T> subject = new Subject<T>();
 
 				var rxSub = this._adapter(subject).Subscribe(observer);
-
-				ISubscription sub = _source.Subscribe(a =>
-				{
-					subject.OnNext(a);
-				},
-				error =>
-				{
-					subject.OnError(error);
-				},
-				() =>
-				{
-					subject.OnCompleted();
-				});
+				ISubscription sub = this._source.Subscribe(subject);
 
 				return new Subscription(sub, rxSub);
 			}
