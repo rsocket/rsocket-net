@@ -12,20 +12,34 @@ namespace RSocket
 {
 	public class RequesterFrameHandler : FrameHandler
 	{
-		IObservable<Payload> _outgoing;
+		IPublisher<Payload> _outgoing;
 
 		public RequesterFrameHandler(RSocket socket
 			, int streamId
 			, IObservable<Payload> outgoing) : base(socket, streamId)
 		{
-			this._outgoing = outgoing;
+			this._outgoing = Helpers.AsPublisher(outgoing);
 		}
 
-		public override IObservable<Payload> Outgoing { get { return this._outgoing; } }
+		protected override IPublisher<Payload> CreateOutging()
+		{
+			return this._outgoing;
+		}
 
 		protected override void Dispose(bool disposing)
 		{
 
+		}
+
+		protected override void OnHandlePayloadError(Exception ex)
+		{
+			this.CancelOutput();
+			base.OnHandlePayloadError(ex);
+		}
+		internal override void OnIncomingCanceled()
+		{
+			this.CancelOutput();
+			base.OnIncomingCanceled();
 		}
 	}
 }

@@ -53,6 +53,19 @@ namespace RSocketDemo
 
 		IObservable<Payload> ForReuqestChannel((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IPublisher<Payload> incoming)
 		{
+			if (request.Metadata.ConvertToString() == "echo")
+			{
+				var echoData = Observable.Create<Payload>(observer =>
+				{
+					var sub = incoming.Subscribe(observer);
+					sub.Request(int.MaxValue);
+
+					return Disposable.Empty;
+				});
+
+				return echoData;
+			}
+
 			ISubscription subscription = incoming.Subscribe(a =>
 		   {
 			   Console.WriteLine($"client message: {a.Data.ConvertToString()}");

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,25 +22,30 @@ namespace RSocket
 		{
 			this._metadata = metadata;
 			this._data = data;
-			this._channeler = channeler;
+			this._channeler = channeler ?? GetOutgoing;
 		}
 
-		public override IObservable<Payload> Outgoing
+		static IObservable<Payload> GetOutgoing((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<Payload> incoming)
 		{
-			get
-			{
-				return this.GetOutgoing();
-			}
+			return new Subject<Payload>();
 		}
-		IObservable<Payload> GetOutgoing()
+
+		protected override IPublisher<Payload> CreateOutging()
 		{
-			var outgoing = this._channeler((this._data, this._metadata), this.Incoming);
-			return outgoing;
+			var outputPayloads = this._channeler((this._data, this._metadata), this.Incoming);
+			return Helpers.AsPublisher(outputPayloads);
 		}
 
 		protected override void Dispose(bool disposing)
 		{
 
+		}
+
+		public override void HandleCancel(RSocketProtocol.Cancel message)
+		{
+			base.HandleCancel(message);
+			this.IncomingSubscriber?.OnError(new OperationCanceledException("Inbound has been canceled."));
+			this.CancelInput();
 		}
 	}
 }

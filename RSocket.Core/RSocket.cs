@@ -56,6 +56,20 @@ namespace RSocket
 			this.FrameHandlerDispatcher.TryRemove(id, out var frameHandler);
 			return frameHandler;
 		}
+		internal void RemoveAndReleaseFrameHandler(int streamId)
+		{
+			IFrameHandler frameHandler = this.FrameHandlerRemove(streamId);
+			if (frameHandler != null)
+			{
+				try
+				{
+					frameHandler.Dispose();
+				}
+				catch
+				{
+				}
+			}
+		}
 
 		//TODO Stream Destruction - i.e. removal from the dispatcher.
 
@@ -292,7 +306,7 @@ namespace RSocket
 
 		async Task CloseConnection()
 		{
-			if (Interlocked.Increment(ref this._connectionClosedFlag) != 0)
+			if (Interlocked.CompareExchange(ref this._connectionClosedFlag, 1, 0) != 0)
 				return;
 
 			await this.Transport.StopAsync();

@@ -18,9 +18,10 @@ namespace RSocket
 			this.Incoming.Subscribe(a => { }, error => { }, () => { });
 		}
 
-		protected override void OnTaskCreated()
+		public override async Task ToTask()
 		{
-			this.StopIncoming();
+			this.CancelInput();
+			await base.ToTask();
 		}
 	}
 }
