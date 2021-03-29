@@ -1,4 +1,5 @@
 using RSocket;
+using RSocket.Exceptions;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -14,7 +15,9 @@ namespace RSocketDemo
 {
 	internal class RSocketDemoServer : RSocketServer
 	{
-		//public string ConnectionId { get; set; }
+		string _setupData;
+		string _setupMetadata;
+
 		public RSocketDemoServer(IRSocketTransport transport, RSocketOptions options = default)
 			: base(transport, options)
 		{
@@ -23,6 +26,24 @@ namespace RSocketDemo
 			this.Streamer = this.ForRequestStream;
 
 			this.Channeler = this.ForReuqestChannel;
+		}
+
+		protected override void HandleSetup(RSocketProtocol.Setup message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
+			this._setupData = data.ConvertToString();
+			this._setupMetadata = metadata.ConvertToString();
+
+			Console.WriteLine($"setupData: {this._setupData}, setupMetadata: {this._setupMetadata}");
+			
+			if (message.HasResume)
+			{
+				throw new UnsupportedSetupException("Resume operations are not supported.");
+			}
+
+			if (message.CanLease)
+			{
+				throw new UnsupportedSetupException("Lease operations are not supported.");
+			}
 		}
 
 		protected override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
