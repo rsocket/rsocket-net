@@ -9,19 +9,9 @@ namespace RSocket
 {
 	class RequestStreamRequesterIncomingStream : RequesterIncomingStream
 	{
-		public RequestStreamRequesterIncomingStream(RSocket socket, Func<int, Task> channelEstablisher) : base(socket, GetOutputs(), channelEstablisher)
+		public RequestStreamRequesterIncomingStream(RSocket socket, Func<int, Task> channelEstablisher) : base(socket, new SimplePublisher<Payload>(), channelEstablisher)
 		{
 
-		}
-
-		static IObservable<Payload> GetOutputs()
-		{
-			var outputs = Observable.Create<Payload>(observer =>
-			{
-				return Disposable.Empty;
-			});
-
-			return outputs;
 		}
 
 		protected override void OnSubscribe(int streamId, FrameHandler frameHandler)

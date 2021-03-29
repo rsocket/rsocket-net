@@ -52,7 +52,7 @@ namespace RSocket
 					frameHandler.Dispose();
 
 #if DEBUG
-					Console.WriteLine($"Requester.frameHandler.Dispose(): stream[{streamId}]");
+					Console.WriteLine($"----------------Requester.frameHandler.Dispose(): stream[{streamId}]----------------");
 #endif
 				}
 			});

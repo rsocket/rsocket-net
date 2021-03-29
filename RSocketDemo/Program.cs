@@ -38,7 +38,7 @@ namespace RSocketDemo
 			});
 			var hostTask = host.ExecuteAsync(CancellationToken.None);
 
-			SocketTransport socketTransport = new SocketTransport("tcp://127.0.0.1:8888/");
+			SocketTransport socketTransport = await SocketTransport.Create("tcp://127.0.0.1:8888/");
 			_client = new EchoRSocketClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue });
 			await _client.ConnectAsync();
 

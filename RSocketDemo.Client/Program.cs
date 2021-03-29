@@ -31,7 +31,7 @@ namespace RSocketDemo
 
 			while (true)
 			{
-				SocketTransport socketTransport = new SocketTransport("tcp://127.0.0.1:8888/");
+				SocketTransport socketTransport = new SocketTransport("127.0.0.1", 8888);
 				_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(60), Lifetime = TimeSpan.FromSeconds(120) });
 				await _client.ConnectAsync(data: Encoding.UTF8.GetBytes("setup.data"), metadata: Encoding.UTF8.GetBytes("setup.metadata"));
 
@@ -42,10 +42,11 @@ namespace RSocketDemo
 				await RequestStreamTest();
 				await RequestStreamTest1();
 
-				await RequestChannelEchoTest();
 				await RequestChannelTest();
+				await RequestChannelTest(metadata: "echo");
 				await RequestChannelTest1();
-				await RequestChannelTest2(); //backpressure
+
+				await RequestChannelTest_Backpressure(); //backpressure
 
 				await ErrorTest();
 
@@ -56,35 +57,41 @@ namespace RSocketDemo
 			Console.ReadKey();
 		}
 
-		static async Task RequestFireAndForgetTest()
+		static async Task RequestFireAndForgetTest(string data = "data", string metadata = "metadata")
 		{
-			await _client.RequestFireAndForget("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
+			string testName = $"RequestFireAndForgetTest[{data},{metadata}]";
+			Console.WriteLine($"{testName} start.............................................");
+			await _client.RequestFireAndForget(data.ToReadOnlySequence(), metadata.ToReadOnlySequence());
 
-			Console.WriteLine($"RequestFireAndForget over");
+			Console.WriteLine($"RequestFireAndForgetTest over....................................................");
 			Console.ReadKey();
 		}
 
-		static async Task RequestResponseTest()
+		static async Task RequestResponseTest(string data = "data", string metadata = "metadata")
 		{
-			var result = await _client.RequestResponse("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence());
+			string testName = $"RequestResponseTest[{data},{metadata}]";
+			Console.WriteLine($"{testName} start.............................................");
+			var result = await _client.RequestResponse(data.ToReadOnlySequence(), metadata.ToReadOnlySequence());
 
 			Console.WriteLine($"server message: {result.Data.ConvertToString()}  {Thread.CurrentThread.ManagedThreadId}");
 
-			Console.WriteLine($"RequestResponse over");
+			Console.WriteLine($"RequestResponseTest over");
 			Console.ReadKey();
 		}
 
-		static async Task RequestStreamTest()
+		static async Task RequestStreamTest(string data = "data", string metadata = "metadata")
 		{
+			string testName = $"RequestStreamTest[{data},{metadata}]";
+			Console.WriteLine($"{testName} start.............................................");
 			int initialRequest = int.MaxValue;
-			IPublisher<Payload> result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
+			IPublisher<Payload> result = _client.RequestStream(data.ToReadOnlySequence(), metadata.ToReadOnlySequence(), initialRequest);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
 				Console.WriteLine($"server message: {item.Data.ConvertToString()}");
 			}
 
-			Console.WriteLine($"RequestStream over");
+			Console.WriteLine($"{testName} over....................................................");
 			Console.ReadKey();
 		}
 		static async Task RequestStreamTest1()
@@ -95,7 +102,7 @@ namespace RSocketDemo
 			IPublisher<Payload> result = _client.RequestStream("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), initialRequest);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
-			subscriber.MaxReceives = 5;
+			subscriber.MaxReceives = 3;
 			var subscription = result.Subscribe(subscriber);
 			subscriber.OnSubscribe(subscription);
 
@@ -103,53 +110,39 @@ namespace RSocketDemo
 
 			Console.WriteLine($"server message total: {subscriber.MsgList.Count}");
 
-			Console.WriteLine($"RequestStream over");
+			Console.WriteLine($"RequestStreamTest1 over....................................................");
 			Console.ReadKey();
 		}
 
-		static async Task RequestChannelEchoTest()
+		static async Task RequestChannelTest(string data = "data", string metadata = "metadata")
 		{
+			string testName = $"RequestChannelTest[{data},{metadata}]";
+			Console.WriteLine($"{testName} start.............................................");
+
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
 
-			var source = Observable.Range(1, 5).Select(a =>
-			{
-				return new Payload(a.ToString().ToReadOnlySequence(), a.ToString().ToReadOnlySequence());
-			});
-			IPublisher<Payload> result = _client.RequestChannel("1".ToReadOnlySequence(), "echo".ToReadOnlySequence(), source, initialRequest);
+			IPublisher<Payload> result = RequestChannel(5, initialRequest, data: data, metadata: metadata);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			await foreach (var item in result.ToAsyncEnumerable())
 			{
 				Console.WriteLine($"server message: {item.Data.ConvertToString()} {Thread.CurrentThread.ManagedThreadId}");
 			}
 
-			Console.WriteLine($"RequestChannelEchoTest over");
-			Console.ReadKey();
-		}
-		static async Task RequestChannelTest()
-		{
-			//int initialRequest = 2;
-			int initialRequest = int.MaxValue;
-
-			IPublisher<Payload> result = RequestChannel(2, initialRequest);
-			result = result.ObserveOn(TaskPoolScheduler.Default);
-			await foreach (var item in result.ToAsyncEnumerable())
-			{
-				Console.WriteLine($"server message: {item.Data.ConvertToString()} {Thread.CurrentThread.ManagedThreadId}");
-			}
-
-			Console.WriteLine($"RequestChannel over");
+			Console.WriteLine($"{testName} over....................................................");
 			Console.ReadKey();
 		}
 		static async Task RequestChannelTest1()
 		{
+			string testName = "RequestChannelTest1";
+			Console.WriteLine($"{testName} start....................................................");
 			int initialRequest = 2;
 			//int initialRequest = int.MaxValue;
 
-			IPublisher<Payload> result = RequestChannel(10, initialRequest);
+			IPublisher<Payload> result = RequestChannel(5, initialRequest);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
-			subscriber.MaxReceives = 5;
+			subscriber.MaxReceives = 3;
 			var subscription = result.Subscribe(subscriber);
 			subscriber.OnSubscribe(subscription);
 
@@ -157,23 +150,26 @@ namespace RSocketDemo
 
 			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
-			Console.WriteLine($"RequestChannel over");
+			Console.WriteLine($"{testName} over....................................................");
 			Console.ReadKey();
 		}
 		/// <summary>
 		/// Backpressure.
 		/// </summary>
 		/// <returns></returns>
-		static async Task RequestChannelTest2()
+		static async Task RequestChannelTest_Backpressure()
 		{
+			string testName = "RequestChannelTest_Backpressure";
+			Console.WriteLine($"{testName} start....................................................");
+
 			int initialRequest = 2;
 			//int initialRequest = int.MaxValue;
 
-			var source = new OutputPublisher(_client, 10); //Create an object that supports backpressure.
+			var source = new OutputPublisher(_client, 5); //Create an object that supports backpressure.
 			IPublisher<Payload> result = _client.RequestChannel("data".ToReadOnlySequence(), "metadata".ToReadOnlySequence(), source, initialRequest);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			StreamSubscriber subscriber = new StreamSubscriber(initialRequest);
-			subscriber.MaxReceives = 8;
+			subscriber.MaxReceives = 3;
 			var subscription = result.Subscribe(subscriber);
 			subscriber.OnSubscribe(subscription);
 
@@ -181,25 +177,28 @@ namespace RSocketDemo
 
 			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
-			Console.WriteLine($"RequestChannel over");
+			Console.WriteLine($"{testName} over....................................................");
 			Console.ReadKey();
 		}
 
 		static async Task ErrorTest()
 		{
+			IPublisher<Payload> result;
+
+			await _client.RequestFireAndForget(metadata: "handle.request.error".ToReadOnlySequence());
+
 			try
 			{
-				var error = await _client.RequestResponse("error".ToReadOnlySequence());
+				var error = await _client.RequestResponse(metadata: "handle.request.error".ToReadOnlySequence());
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine($"An error has occurred while executing RequestResponse: {ex.Message}");
 			}
 
-			//int initialRequest = 2;
-			int initialRequest = int.MaxValue;
+			Console.ReadKey();
 
-			IPublisher<Payload> result = RequestChannel(10, initialRequest, metadata: 4.ToString());
+			result = _client.RequestStream(data: default, metadata: "handle.request.error".ToReadOnlySequence());
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			try
 			{
@@ -210,10 +209,59 @@ namespace RSocketDemo
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"An error has occurred while executing RequestChannel: {ex.Message}");
+				Console.WriteLine($"An error has occurred while executing RequestStream[handle.request.error]: {ex.Message}");
 			}
 
-			Console.WriteLine($"ErrorTest over");
+			Console.ReadKey();
+
+			result = _client.RequestStream(data: default, metadata: "gen.data.error".ToReadOnlySequence());
+			result = result.ObserveOn(TaskPoolScheduler.Default);
+			try
+			{
+				await foreach (var item in result.ToAsyncEnumerable())
+				{
+					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An error has occurred while executing RequestStream[gen.data.error]: {ex.Message}");
+			}
+
+			Console.ReadKey();
+
+			//int initialRequest = 2;
+			int initialRequest = int.MaxValue;
+
+			result = RequestChannel(10, initialRequest, metadata: "handle.request.error".ToString());
+			result = result.ObserveOn(TaskPoolScheduler.Default);
+			try
+			{
+				await foreach (var item in result.ToAsyncEnumerable())
+				{
+					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An error has occurred while executing RequestChannel[handle.request.error]: {ex.Message}");
+			}
+
+			result = RequestChannel(10, initialRequest, metadata: "gen.data.error".ToString());
+			result = result.ObserveOn(TaskPoolScheduler.Default);
+			try
+			{
+				await foreach (var item in result.ToAsyncEnumerable())
+				{
+					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"An error has occurred while executing RequestChannel[gen.data.error]: {ex.Message}");
+			}
+
+			Console.WriteLine($"ErrorTest over....................................................");
 			Console.ReadKey();
 		}
 
@@ -223,16 +271,14 @@ namespace RSocketDemo
 			var source = Observable.Create<int>(o =>
 			{
 				ob = o;
-				Task.Run(() =>
-				{
-					for (int i = 0; i < outputs; i++)
-					{
-						Thread.Sleep(500);
-						o.OnNext(i);
-					}
 
-					o.OnCompleted();
-				});
+				for (int i = 0; i < outputs; i++)
+				{
+					//Thread.Sleep(500);
+					o.OnNext(i);
+				}
+
+				o.OnCompleted();
 
 				return () =>
 				{
@@ -241,7 +287,7 @@ namespace RSocketDemo
 			}).Select(a =>
 			{
 				Console.WriteLine($"generate requester message: {a}");
-				return new Payload($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
+				return new Payload($"{data}-{a}".ToReadOnlySequence(), $"{metadata}-{a}".ToReadOnlySequence());
 			}
 			);
 

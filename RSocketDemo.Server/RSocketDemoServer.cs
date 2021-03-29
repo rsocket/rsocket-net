@@ -34,7 +34,7 @@ namespace RSocketDemo
 			this._setupMetadata = metadata.ConvertToString();
 
 			Console.WriteLine($"setupData: {this._setupData}, setupMetadata: {this._setupMetadata}");
-			
+
 			if (message.HasResume)
 			{
 				throw new UnsupportedSetupException("Resume operations are not supported.");
@@ -49,15 +49,20 @@ namespace RSocketDemo
 		protected override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			Console.WriteLine($"client.RequestFireAndForget: {data.ConvertToString()},{metadata.ConvertToString()}");
+
+			if (metadata.ConvertToString() == "handle.request.error")
+			{
+				throw new Exception("This is a test error while executing handling RequestFireAndForget.");
+			}
 		}
 
 		public async ValueTask<Payload> ForRequestResponse((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
 			Console.WriteLine($"client.RequestResponse: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
 
-			if (request.Data.ConvertToString() == "error")
+			if (request.Metadata.ConvertToString() == "handle.request.error")
 			{
-				throw new Exception("This is a test error when executing RequestResponse.");
+				throw new Exception("This is a test error while executing handling RequestResponse.");
 			}
 
 			return new Payload(request.Data, request.Metadata);
@@ -65,16 +70,53 @@ namespace RSocketDemo
 
 		public IObservable<Payload> ForRequestStream((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
-			Console.WriteLine($"client.RequestStream: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
+			string data = request.Data.ConvertToString();
+			string metadata = request.Metadata.ConvertToString();
+
+			Console.WriteLine($"client.RequestStream: {data},{metadata}");
+
+			if (metadata == "handle.request.error")
+			{
+				throw new Exception("This is a test error while executing handling RequestStream.");
+			}
+
+			if (metadata == "gen.data.error")
+			{
+				int errorTrigger = 0;
+				if (!int.TryParse(data, out errorTrigger))
+				{
+					errorTrigger = 5;
+				}
+
+				return new OutputPublisher(this, 10, errorTrigger);
+			}
 
 			//Returns an object that supports backpressure.
-			return new OutputPublisher(this, 10);
-			return this.ToRequesterStream();
+			return new OutputPublisher(this, 5);
 		}
 
 		IObservable<Payload> ForReuqestChannel((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IPublisher<Payload> incoming)
 		{
-			if (request.Metadata.ConvertToString() == "echo")
+			string data = request.Data.ConvertToString();
+			string metadata = request.Metadata.ConvertToString();
+
+			if (metadata == "handle.request.error")
+			{
+				throw new Exception("This is a test error while executing handling ReuqestChannel.");
+			}
+
+			if (metadata == "gen.data.error")
+			{
+				int errorTrigger = 0;
+				if (!int.TryParse(data, out errorTrigger))
+				{
+					errorTrigger = 5;
+				}
+
+				return new OutputPublisher(this, 10, errorTrigger);
+			}
+
+			if (metadata == "echo")
 			{
 				var echoData = Observable.Create<Payload>(observer =>
 				{
@@ -88,64 +130,21 @@ namespace RSocketDemo
 			}
 
 			ISubscription subscription = incoming.Subscribe(a =>
-		   {
-			   Console.WriteLine($"client message: {a.Data.ConvertToString()}");
-		   }, error =>
-		   {
-			   Console.WriteLine($"onError: {error.Message}");
-		   }, () =>
-		   {
-			   Console.WriteLine($"onCompleted");
-		   });
+			   {
+				   Console.WriteLine($"client message: {a.Data.ConvertToString()}");
+			   }, error =>
+			   {
+				   Console.WriteLine($"onError: {error.Message}");
+			   }, () =>
+			   {
+				   Console.WriteLine($"onCompleted");
+			   });
 
 			Console.WriteLine($"sending request(n) to client: {int.MaxValue}");
 			subscription.Request(int.MaxValue);
 
-			int errorTrigger = 0;
-			if (!int.TryParse(request.Metadata.ConvertToString(), out errorTrigger))
-			{
-				errorTrigger = int.MaxValue;
-			}
-
 			//Returns an object that supports backpressure.
-			return new OutputPublisher(this, 10, errorTrigger);
-
-			return Observable.Range(1, 10).Select(a =>
-		   {
-			   return new Payload($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
-		   }
-			);
-		}
-
-		IObservable<Payload> ToRequesterStream()
-		{
-			IObserver<int> ob = null;
-			var p = Observable.Create<int>(o =>
-			{
-				ob = o;
-				Task.Run(() =>
-				{
-					for (int i = 0; i < 5; i++)
-					{
-						//Thread.Sleep(1000);
-						Console.WriteLine($"generating server data: {i}");
-						o.OnNext(i);
-					}
-
-					o.OnCompleted();
-				});
-
-				return () =>
-				{
-					Console.WriteLine("server resources disposed");
-				};
-			});
-
-			return p.Select(a =>
-			{
-				return new Payload($"data-{a}".ToReadOnlySequence(), $"metadata-{a}".ToReadOnlySequence());
-			}
-			);
+			return new OutputPublisher(this, 5);
 		}
 	}
 }

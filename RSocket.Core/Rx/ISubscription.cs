@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace RSocket
 {
@@ -7,7 +8,7 @@ namespace RSocket
 		void Request(int n);
 	}
 
-	class Subscription : ISubscription
+	public class Subscription : ISubscription
 	{
 		IDisposable _rxSubscription;
 		bool _disposed;
@@ -17,26 +18,41 @@ namespace RSocket
 			this._rxSubscription = rxSubscription;
 		}
 
+		void DisposeSubscription()
+		{
+			Interlocked.Exchange(ref this._rxSubscription, null)?.Dispose();
+		}
+
 		public void Dispose()
 		{
 			if (this._disposed)
 				return;
 
-			this._rxSubscription.Dispose();
-			this.Dispose(true);
 			this._disposed = true;
+			this.DisposeSubscription();
+			try
+			{
+				this.Dispose(true);
+			}
+			catch
+			{
+			}
 		}
 
 		protected virtual void Dispose(bool disposing)
 		{
-
 		}
 
-		public virtual void Request(int n)
+		public void Request(int n)
 		{
 			if (this._disposed)
 				return;
 
+			this.DoRequest(n);
+		}
+
+		protected virtual void DoRequest(int n)
+		{
 			ISubscription sub = this._rxSubscription as ISubscription;
 			sub?.Request(n);
 		}

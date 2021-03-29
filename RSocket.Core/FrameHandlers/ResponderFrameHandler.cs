@@ -22,16 +22,16 @@ namespace RSocket
 		{
 			this._metadata = metadata;
 			this._data = data;
-			this._channeler = channeler ?? GetOutgoing;
-		}
-
-		static IObservable<Payload> GetOutgoing((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IObservable<Payload> incoming)
-		{
-			return new Subject<Payload>();
+			this._channeler = channeler;
 		}
 
 		protected override IPublisher<Payload> CreateOutging()
 		{
+			if (this._channeler == null)
+			{
+				return base.CreateOutging();
+			}
+
 			var outputPayloads = this._channeler((this._data, this._metadata), this.Incoming);
 			return Helpers.AsPublisher(outputPayloads);
 		}

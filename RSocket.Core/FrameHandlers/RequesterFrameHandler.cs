@@ -31,11 +31,6 @@ namespace RSocket
 
 		}
 
-		protected override void OnHandlePayloadError(Exception ex)
-		{
-			this.CancelOutput();
-			base.OnHandlePayloadError(ex);
-		}
 		internal override void OnIncomingCanceled()
 		{
 			this.CancelOutput();

@@ -21,11 +21,14 @@ namespace RSocket
 			return ret;
 		}
 
-		public static IPublisher<Payload> AsPublisher(IObservable<Payload> source)
+		public static IPublisher<T> AsPublisher<T>(IObservable<T> source)
 		{
-			var pub = source as IPublisher<Payload>;
+			if (source == null)
+				throw new ArgumentNullException(nameof(source));
+
+			var pub = source as IPublisher<T>;
 			if (pub == null)
-				pub = new OutgoingStream(source);
+				pub = new Publisher<T>(source);
 
 			return pub;
 		}

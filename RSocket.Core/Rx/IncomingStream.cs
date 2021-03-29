@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace RSocket
 {
+
 	class IncomingStream : IPublisher<Payload>
 	{
 		IObservable<Payload> _source;
@@ -32,7 +33,7 @@ namespace RSocket
 				throw new InvalidOperationException("Incoming stream allows only one Subscriber");
 
 			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(observer, this._frameHandler);
-			var sub = this._source.Subscribe(subscriber);
+			var sub = subscriber.Subscribe(this._source);
 
 			return new IncomingStreamSubscription(sub, this._frameHandler, subscriber);
 		}
@@ -42,13 +43,10 @@ namespace RSocket
 			return (this as IPublisher<Payload>).Subscribe(observer);
 		}
 
-		class IncomingStreamSubscriber : IObserver<Payload>
+		class IncomingStreamSubscriber : Subscriber<Payload>, IObserver<Payload>, ISubscription
 		{
 			IObserver<Payload> _observer;
 			FrameHandler _frameHandler;
-
-			bool _completed;
-			Exception _error;
 
 			public IncomingStreamSubscriber(IObserver<Payload> observer, FrameHandler frameHandler)
 			{
@@ -56,51 +54,58 @@ namespace RSocket
 				this._frameHandler = frameHandler;
 			}
 
-			public bool Completed { get { return this._completed; } }
-
-			public void OnCompleted()
+			protected override void DoOnCompleted()
 			{
-				if (this._completed)
-					return;
+				try
+				{
+					this._observer.OnCompleted();
+				}
+				catch
+				{
+				}
 
-				this._completed = true;
-				this._observer.OnCompleted();
 				this._frameHandler.OnIncomingCompleted();
 			}
 
-			public void OnError(Exception error)
+			protected override void DoOnError(Exception error)
 			{
-				if (this._completed)
-					return;
+				try
+				{
+					this._observer.OnError(error);
+				}
+				catch
+				{
+				}
 
-				this._completed = true;
-				this._error = error;
-				this._observer.OnError(error);
 				this._frameHandler.OnIncomingCompleted();
 			}
 
-			public void OnNext(Payload value)
+			protected override void DoOnNext(Payload value)
 			{
-				if (this._completed)
-					return;
-
-				this._observer.OnNext(value);
+				try
+				{
+					this._observer.OnNext(value);
+				}
+				catch
+				{
+					this._frameHandler.OnIncomingCanceled();
+				}
 			}
 		}
 
 		class IncomingStreamSubscription : ISubscription
 		{
-			IDisposable _subscription;
 			FrameHandler _frameHandler;
 			IncomingStreamSubscriber _subscriber;
 
-			bool _disposed = false;
+			IDisposable _subscription;
+			bool _disposed;
 
 			public IncomingStreamSubscription(IDisposable subscription, FrameHandler frameHandler, IncomingStreamSubscriber subscriber)
 			{
-				this._subscription = subscription;
 				this._frameHandler = frameHandler;
 				this._subscriber = subscriber;
+				this._subscription = subscription;
 			}
 
 			void DisposeSubscription()
@@ -113,18 +118,19 @@ namespace RSocket
 				if (this._disposed)
 					return;
 
-				this.DisposeSubscription();
-
-				this._frameHandler.OnIncomingCanceled();
 				this._disposed = true;
+
+				if (!this._subscriber.IsCompleted)
+					this._frameHandler.OnIncomingCanceled();
+
+				this.DisposeSubscription();
 			}
 
 			public void Request(int n)
 			{
-				if (!this._disposed && !this._subscriber.Completed)
+				if (!this._disposed && !this._subscriber.IsCompleted)
 					this._frameHandler.OnRequestN(n);
 			}
 		}
 	}
-
 }

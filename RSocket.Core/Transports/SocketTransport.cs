@@ -19,23 +19,48 @@ namespace RSocket.Transports
 
 		internal Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
-#pragma warning disable CS0649
 		private volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
-#pragma warning restore CS0649
 
-		public Uri Url { get; private set; }
+		IPAddress IP { get; set; }
+		int Port { get; set; }
+
 		private LoggerFactory Logger;
 
 		IDuplexPipe Front, Back;
 		public PipeReader Input => Front.Input;
 		public PipeWriter Output => Front.Output;
 
-		public SocketTransport(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default) : this(new Uri(url), outputoptions, inputoptions) { }
-		public SocketTransport(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
+
+		public static async Task<SocketTransport> Create(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default)
 		{
-			Url = url;
-			if (string.Compare(url.Scheme, "TCP", true) != 0) { throw new ArgumentException("Only TCP connections are supported.", nameof(Url)); }
-			if (url.Port == -1) { throw new ArgumentException("TCP Port must be specified.", nameof(Url)); }
+			return await Create(new Uri(url), outputoptions, inputoptions);
+		}
+		public static async Task<SocketTransport> Create(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default)
+		{
+			if (string.Compare(url.Scheme, "TCP", true) != 0)
+			{
+				throw new ArgumentException("Only TCP connections are supported.", nameof(url));
+			}
+			if (url.Port == -1)
+			{
+				throw new ArgumentException("TCP Port must be specified.", nameof(url));
+			}
+
+			var dns = await Dns.GetHostEntryAsync(url.Host);
+			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
+
+			IPAddress ip = dns.AddressList[0];
+
+			return new SocketTransport(ip, url.Port, outputoptions, inputoptions);
+		}
+
+		public SocketTransport(string ip, int port, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default) : this(IPAddress.Parse(ip), port, outputoptions, inputoptions, options)
+		{
+		}
+		public SocketTransport(IPAddress ip, int port, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
+		{
+			this.IP = ip;
+			this.Port = port;
 
 			//Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
 			Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
@@ -44,14 +69,15 @@ namespace RSocket.Transports
 
 		public async Task StartAsync(CancellationToken cancel = default)
 		{
-			var dns = await Dns.GetHostEntryAsync(Url.Host);
-			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
+			await this.StartAsync(this.IP, this.Port);
+		}
 
-			IPAddress ip = dns.AddressList[0];
-			Socket = new Socket(ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-			Socket.Connect(ip, Url.Port);  //TODO Would like this to be async... Why so serious???
+		async Task StartAsync(IPAddress ip, int port, CancellationToken cancel = default)
+		{
+			this.Socket = new Socket(ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+			this.Socket.Connect(ip, port);  //TODO Would like this to be async... Why so serious???
 
-			Running = ProcessSocketAsync(Socket);
+			this.Running = ProcessSocketAsync(Socket);
 		}
 
 		public Task StopAsync() => Task.CompletedTask;      //TODO More graceful shutdown
