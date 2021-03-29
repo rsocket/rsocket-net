@@ -37,28 +37,36 @@ namespace RSocket
 				}
 
 				var sequence = buffer.Slice(position = buffer.GetPosition(RSocketProtocol.MESSAGEFRAMESIZE, position), Length);
-
+				Header header = default;
 				try
 				{
-					await Process(Length, sequence);
-				}
-				catch (RSocketErrorException ex)
-				{
-					try
-					{
-						await this.SendError(ex.ErrorCode, ex.StreamId, ex.Message);
-					}
-					catch
-					{
-					}
-					await this.CloseConnection();
-					break;
+					await Process(Length, sequence, out header);
 				}
 				catch (Exception ex)
 				{
 #if DEBUG
-					Console.WriteLine($"An exception occurred when processing message: {ex.Message} {ex.StackTrace}");
+					Console.WriteLine($"An exception occurred while processing message: {ex.Message} {ex.StackTrace}");
 #endif
+
+					if (header.Stream > 0)
+					{
+						string errorText = $"{ex.Message}\n{ex.StackTrace}";
+						this.RemoveAndReleaseFrameHandler(header.Stream);
+						await this.SendError(ErrorCodes.Application_Error, header.Stream, errorText, false);
+					}
+					else
+					{
+						if (ex is RSocketErrorException)
+						{
+							await SendErrorAndCloseConnection((RSocketErrorException)ex);
+						}
+						else
+						{
+							string errorText = $"{ex.Message}\n{ex.StackTrace}";
+							await SendErrorAndCloseConnection(new ConnectionErrorException(errorText));
+						}
+						break;
+					}
 				}
 				pipereader.AdvanceTo(position = buffer.GetPosition(Length, position));
 				//TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
@@ -68,11 +76,17 @@ namespace RSocket
 
 
 			//This is the non-async portion of the handler. SequenceReader<T> and the other stack-allocated items cannot be used in an async context.
-			Task Process(int framelength, ReadOnlySequence<byte> sequence)
+			Task Process(int framelength, ReadOnlySequence<byte> sequence, out Header header)
 			{
 				var reader = new SequenceReader<byte>(sequence);
-				var header = new Header(ref reader, framelength);
+				header = new Header(ref reader, framelength);
 				return this.Process(header, reader);
+			}
+
+			async Task SendErrorAndCloseConnection(RSocketErrorException ex)
+			{
+				await this.SendError(ex.ErrorCode, ex.StreamId, ex.Message, false);
+				await this.CloseConnection();
 			}
 		}
 

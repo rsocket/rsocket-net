@@ -41,12 +41,9 @@ namespace RSocket
 			{
 				try
 				{
-					Task frameHandlerTask = frameHandler.ToTask();
-
-					this.OnSubscribe(streamId, frameHandler); //TODO handle error
-
 					await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
-
+					Task frameHandlerTask = frameHandler.ToTask();
+					this.OnSubscribe(streamId, frameHandler); //TODO handle error
 					await frameHandlerTask;
 				}
 				finally
@@ -63,7 +60,7 @@ namespace RSocket
 			return sub;
 		}
 
-		protected virtual void OnSubscribe(int streamId, IFrameHandler frameHandler)
+		protected virtual void OnSubscribe(int streamId, FrameHandler frameHandler)
 		{
 
 		}

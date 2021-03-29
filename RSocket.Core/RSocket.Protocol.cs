@@ -40,6 +40,12 @@ namespace RSocket
 			{
 				await frameHandler.ToTask();
 			}
+			catch (Exception ex)
+			{
+#if DEBUG
+				Console.WriteLine($"error: stream[{streamId}] {ex.Message} {ex.StackTrace}");
+#endif
+			}
 			finally
 			{
 				this.FrameHandlerRemove(streamId);
@@ -157,7 +163,6 @@ namespace RSocket
 				Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>, IObservable<Payload>> channeler = (request, incoming) =>
 				{
 					var outgoing = this.Streamer((data, metadata));
-					incoming.Subscribe(a => { });
 					return outgoing;
 				};
 

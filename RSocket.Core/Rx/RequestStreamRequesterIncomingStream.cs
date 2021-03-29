@@ -24,10 +24,10 @@ namespace RSocket
 			return outputs;
 		}
 
-		protected override void OnSubscribe(int streamId, IFrameHandler frameHandler)
+		protected override void OnSubscribe(int streamId, FrameHandler frameHandler)
 		{
 			base.OnSubscribe(streamId, frameHandler);
-			frameHandler.HandleCancel(new RSocketProtocol.Cancel(streamId));
+			frameHandler.CancelOutput();
 		}
 	}
 }

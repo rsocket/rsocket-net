@@ -32,7 +32,7 @@ namespace RSocketDemo
 			while (true)
 			{
 				SocketTransport socketTransport = new SocketTransport("tcp://127.0.0.1:8888/");
-				_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(5), Lifetime = TimeSpan.FromSeconds(10) });
+				_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(60), Lifetime = TimeSpan.FromSeconds(120) });
 				await _client.ConnectAsync(data: Encoding.UTF8.GetBytes("setup.data"), metadata: Encoding.UTF8.GetBytes("setup.metadata"));
 
 				await RequestFireAndForgetTest();
@@ -42,6 +42,7 @@ namespace RSocketDemo
 				await RequestStreamTest();
 				await RequestStreamTest1();
 
+				await RequestChannelEchoTest();
 				await RequestChannelTest();
 				await RequestChannelTest1();
 				await RequestChannelTest2(); //backpressure
@@ -106,7 +107,25 @@ namespace RSocketDemo
 			Console.ReadKey();
 		}
 
+		static async Task RequestChannelEchoTest()
+		{
+			//int initialRequest = 2;
+			int initialRequest = int.MaxValue;
 
+			var source = Observable.Range(1, 5).Select(a =>
+			{
+				return new Payload(a.ToString().ToReadOnlySequence(), a.ToString().ToReadOnlySequence());
+			});
+			IPublisher<Payload> result = _client.RequestChannel("1".ToReadOnlySequence(), "echo".ToReadOnlySequence(), source, initialRequest);
+			result = result.ObserveOn(TaskPoolScheduler.Default);
+			await foreach (var item in result.ToAsyncEnumerable())
+			{
+				Console.WriteLine($"server message: {item.Data.ConvertToString()} {Thread.CurrentThread.ManagedThreadId}");
+			}
+
+			Console.WriteLine($"RequestChannelEchoTest over");
+			Console.ReadKey();
+		}
 		static async Task RequestChannelTest()
 		{
 			//int initialRequest = 2;

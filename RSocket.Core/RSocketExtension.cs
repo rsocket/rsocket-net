@@ -33,7 +33,7 @@ namespace RSocket
 		{
 			return new RSocketProtocol.Payload(streamId, payload.Data, payload.Metadata, complete: complete, next: next).WriteFlush(socket.Transport.Output, payload.Data, payload.Metadata);
 		}
-		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, string errorText)
+		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, string errorText, bool throwIfExceptionOccurred = true)
 		{
 			var errorData = default(ReadOnlySequence<byte>);
 
@@ -41,11 +41,21 @@ namespace RSocket
 			{
 				errorData = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(errorText));
 			}
-			return SendError(socket, errorCode, streamId, errorData);
+			return SendError(socket, errorCode, streamId, errorData, throwIfExceptionOccurred);
 		}
-		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, ReadOnlySequence<byte> errorData)
+		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, ReadOnlySequence<byte> errorData, bool throwIfExceptionOccurred = true)
 		{
-			return new RSocketProtocol.Error(errorCode, streamId, errorData).WriteFlush(socket.Transport.Output, errorData);
+			try
+			{
+				return new RSocketProtocol.Error(errorCode, streamId, errorData).WriteFlush(socket.Transport.Output, errorData);
+			}
+			catch
+			{
+				if (throwIfExceptionOccurred)
+					throw;
+
+				return Task.CompletedTask;
+			}
 		}
 		internal static Task SendCancel(this RSocket socket, int streamId = 0)
 		{
