@@ -38,7 +38,13 @@ namespace RSocket
 			this.FrameHandlerDispatch(streamId, frameHandler);
 			try
 			{
-				await frameHandler.ToTask();
+				/*
+				 * Using a new task to run the handler in case blocking socket thread.
+				 */
+				await Task.Run(async () =>
+				{
+					await frameHandler.ToTask();
+				});
 			}
 			catch (Exception ex)
 			{

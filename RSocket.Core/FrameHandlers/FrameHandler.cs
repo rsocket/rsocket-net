@@ -238,6 +238,9 @@ namespace RSocket
 
 			protected override void DoOnCompleted()
 			{
+				if (this._frameHandler.OutgoingFinished)
+					return;
+
 				if (!this._frameHandler.OutputSingle)
 				{
 					this._frameHandler.Socket.SendPayload(default(Payload), this._frameHandler.StreamId, true, false).Wait();
@@ -253,6 +256,9 @@ namespace RSocket
 
 			protected override void DoOnNext(Payload value)
 			{
+				if (this._frameHandler.OutgoingFinished)
+					return;
+
 				if (this._frameHandler.OutputSingle)
 				{
 					this._frameHandler.Socket.SendPayload(value, this._frameHandler.StreamId, true, true).Wait();
