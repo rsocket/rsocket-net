@@ -16,7 +16,7 @@ namespace RSocket
 	public abstract class FrameHandler : IFrameHandler
 	{
 		bool _disposed = false;
-		int _initialOutputRequest = 0;
+		int _initialOutgoingRequest = 0;
 
 		TaskCompletionSource<bool> _waitIncomingCompleteHandler = new TaskCompletionSource<bool>();
 		TaskCompletionSource<bool> _waitOutgoingCompleteHandler = new TaskCompletionSource<bool>();
@@ -32,7 +32,7 @@ namespace RSocket
 		public bool IncomingFinished { get { return this._incomingFinished; } }
 		public bool OutgoingFinished { get { return this._outgoingFinished; } }
 
-		protected FrameHandler(RSocket socket)
+		FrameHandler(RSocket socket)
 		{
 			this.Socket = socket;
 
@@ -46,9 +46,9 @@ namespace RSocket
 			this.StreamId = streamId;
 		}
 
-		protected FrameHandler(RSocket socket, int streamId, int initialOutputRequest) : this(socket, streamId)
+		protected FrameHandler(RSocket socket, int streamId, int initialOutgoingRequest) : this(socket, streamId)
 		{
-			this._initialOutputRequest = initialOutputRequest;
+			this._initialOutgoingRequest = initialOutgoingRequest;
 		}
 
 		public RSocket Socket { get; set; }
@@ -197,8 +197,8 @@ namespace RSocket
 
 		public virtual async Task ToTask()
 		{
-			if (this._initialOutputRequest > 0)
-				this.HandleRequestN(this._initialOutputRequest);
+			if (this._initialOutgoingRequest > 0)
+				this.HandleRequestN(this._initialOutgoingRequest);
 			await Task.WhenAll(this._waitIncomingCompleteHandler.Task, this._waitOutgoingCompleteHandler.Task);
 		}
 

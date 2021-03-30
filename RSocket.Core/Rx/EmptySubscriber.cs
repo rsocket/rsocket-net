@@ -4,9 +4,9 @@ using System.Text;
 
 namespace RSocket
 {
-	public class EmptySubscriber : IObserver<Payload>
+	public class EmptySubscriber<T> : IObserver<T>
 	{
-		public static readonly EmptySubscriber Instance = new EmptySubscriber();
+		public static readonly EmptySubscriber<T> Instance = new EmptySubscriber<T>();
 
 		EmptySubscriber()
 		{
@@ -22,7 +22,7 @@ namespace RSocket
 
 		}
 
-		public void OnNext(Payload value)
+		public void OnNext(T value)
 		{
 
 		}
