@@ -11,6 +11,7 @@ namespace RSocketDemo
 
 		int _errorTrigger = int.MaxValue;
 
+
 		public OutputSubscription(RSocket.RSocket socket, IObserver<Payload> observer, int maxResponses = int.MaxValue, int errorTrigger = int.MaxValue) : base(observer)
 		{
 			this.Socket = socket;

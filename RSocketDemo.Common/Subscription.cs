@@ -14,6 +14,7 @@ namespace RSocketDemo
 		protected int _requests;
 		protected int _resposes;
 		protected int _maxResponses = int.MaxValue;
+		public int GenDataTimeInterval = 0;
 
 		protected List<int> _requestNList = new List<int>();
 		bool _disposed;
@@ -72,6 +73,7 @@ namespace RSocketDemo
 						{
 							var payload = this.GenPayload(this._resposes + 1);
 							this._observer.OnNext(payload);
+							Thread.Sleep(this.GenDataTimeInterval);
 						}
 						catch (Exception ex)
 						{

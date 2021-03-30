@@ -83,6 +83,10 @@ namespace RSocket
 
 		void IRSocketProtocol.Error(RSocketProtocol.Error message)
 		{
+#if DEBUG
+			Console.WriteLine($"Handling error message[{Enum.GetName(message.ErrorCode.GetType(), message.ErrorCode)}]...............stream[{this.StreamId}]");
+#endif
+
 			if (message.Stream > 0)
 			{
 				this.MessageDispatch(message.Stream, handler =>
@@ -143,11 +147,16 @@ namespace RSocket
 			});
 		}
 
-
 		void IRSocketProtocol.RequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			this.HandleRequestFireAndForget(message, metadata, data);
 		}
+		/// <summary>
+		/// Called by socket thread, so this method affects how efficiently the thread receives data.
+		/// </summary>
+		/// <param name="message"></param>
+		/// <param name="metadata"></param>
+		/// <param name="data"></param>
 		protected virtual void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			throw new NotImplementedException();

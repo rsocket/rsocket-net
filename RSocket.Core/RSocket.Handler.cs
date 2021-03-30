@@ -45,7 +45,7 @@ namespace RSocket
 				catch (Exception ex)
 				{
 #if DEBUG
-					Console.WriteLine($"An exception occurred while processing message: {ex.Message} {ex.StackTrace}");
+					Console.WriteLine($"An exception occurred while processing message[{header.Stream}, {header.Type}]: {ex.Message} {ex.StackTrace}");
 #endif
 
 					if (header.Stream > 0)

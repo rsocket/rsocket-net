@@ -13,6 +13,8 @@ namespace RSocketDemo
 		int _maxOutputs = int.MaxValue;
 		int _errorTrigger = int.MaxValue;
 
+		public int GenDataTimeInterval = 0;
+
 		public OutputPublisher(RSocket.RSocket socket) : base(socket)
 		{
 
@@ -26,6 +28,7 @@ namespace RSocketDemo
 		protected override ISubscription DoSubscribe(IObserver<Payload> observer)
 		{
 			OutputSubscription subscription = new OutputSubscription(this.Socket, observer, this._maxOutputs, this._errorTrigger);
+			subscription.GenDataTimeInterval = this.GenDataTimeInterval;
 			subscription.Start();
 			return subscription;
 		}

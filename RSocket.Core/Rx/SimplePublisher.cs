@@ -9,8 +9,6 @@ namespace RSocket
 	{
 		IObserver<T> _subscriber;
 
-		bool _disposed;
-
 		public SimplePublisher()
 		{
 		}
@@ -22,12 +20,7 @@ namespace RSocket
 
 		public void Dispose()
 		{
-			if (this._disposed)
-				return;
-
 			this.Unsubscribe();
-
-			this._disposed = true;
 		}
 
 		public void OnCompleted()
@@ -60,11 +53,6 @@ namespace RSocket
 
 		ISubscription IPublisher<T>.Subscribe(IObserver<T> observer)
 		{
-			if (this._disposed)
-			{
-				throw new ObjectDisposedException(this.GetType().FullName);
-			}
-
 			this._subscriber = observer;
 			return new Subscription(this);
 		}

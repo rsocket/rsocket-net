@@ -156,7 +156,7 @@ namespace RSocket
 		public virtual void HandleCancel(RSocketProtocol.Cancel message)
 		{
 #if DEBUG
-			Console.WriteLine($"Handling cancel message...");
+			Console.WriteLine($"Handling cancel message...............stream[{this.StreamId}]");
 #endif
 
 			this.FinishOutgoing();
@@ -184,6 +184,9 @@ namespace RSocket
 		}
 		internal void SendCancelFrame()
 		{
+#if DEBUG
+			Console.WriteLine($"Sending cancel frame...............stream[{this.StreamId}]");
+#endif
 			this.Socket.SendCancel(this.StreamId).Wait();
 		}
 		//called by InboundSubscription.

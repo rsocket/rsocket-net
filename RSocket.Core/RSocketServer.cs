@@ -34,6 +34,12 @@ namespace RSocket
 						var setup = new Setup(header, ref reader);
 						this.Setup = setup;
 						this.HandleSetup(setup, setup.ReadMetadata(reader), setup.ReadData(reader));
+
+						if (setup.KeepAlive > 0 && setup.Lifetime > 0)
+						{
+							this.StartKeepAlive(TimeSpan.FromMilliseconds(setup.KeepAlive), TimeSpan.FromMilliseconds(setup.Lifetime));
+							this.SendKeepAlive(0, false);
+						}
 					}
 					catch (RSocketErrorException)
 					{
@@ -64,11 +70,7 @@ namespace RSocket
 
 		protected override void HandleSetup(RSocketProtocol.Setup message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			if (message.KeepAlive > 0 && message.Lifetime > 0)
-			{
-				this.StartKeepAlive(TimeSpan.FromMilliseconds(message.KeepAlive), TimeSpan.FromMilliseconds(message.Lifetime));
-				this.SendKeepAlive(0, false);
-			}
+
 		}
 	}
 }
