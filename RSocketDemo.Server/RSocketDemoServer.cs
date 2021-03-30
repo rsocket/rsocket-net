@@ -25,7 +25,7 @@ namespace RSocketDemo
 
 			this.Streamer = this.ForRequestStream;
 
-			this.Channeler = this.ForReuqestChannel;
+			this.Channeler = this.ForRequestChannel;
 		}
 
 		protected override void HandleSetup(RSocketProtocol.Setup message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
@@ -95,14 +95,14 @@ namespace RSocketDemo
 			return new OutputPublisher(this, 5);
 		}
 
-		IObservable<Payload> ForReuqestChannel((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IPublisher<Payload> incoming)
+		IObservable<Payload> ForRequestChannel((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request, IPublisher<Payload> incoming)
 		{
 			string data = request.Data.ConvertToString();
 			string metadata = request.Metadata.ConvertToString();
 
 			if (metadata == "handle.request.error")
 			{
-				throw new Exception("This is a test error while executing handling ReuqestChannel.");
+				throw new Exception("This is a test error while executing handling RequestChannel.");
 			}
 
 			if (metadata == "gen.data.error")
