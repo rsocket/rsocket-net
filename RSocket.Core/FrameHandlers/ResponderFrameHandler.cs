@@ -45,7 +45,6 @@ namespace RSocket
 		{
 			base.HandleCancel(message);
 			this.IncomingSubscriber?.OnError(new OperationCanceledException("Inbound has been canceled."));
-			this.CancelInput();
 		}
 	}
 }

@@ -51,7 +51,7 @@ namespace RSocket
 				this.FrameHandlerRemove(streamId);
 				frameHandler.Dispose();
 #if DEBUG
-				Console.WriteLine($"----------------Responder.frameHandler.Dispose(): stream[{streamId}]----------------");
+				Console.WriteLine($"----------------Channel of responder has terminated: stream[{streamId}]----------------");
 #endif
 			}
 		}

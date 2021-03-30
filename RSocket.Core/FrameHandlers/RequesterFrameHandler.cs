@@ -26,15 +26,14 @@ namespace RSocket
 			return this._outgoing;
 		}
 
-		protected override void Dispose(bool disposing)
+		public override void OnIncomingCanceled()
 		{
+			if (this.IncomingFinished && this.OutgoingFinished)
+				return;
 
-		}
-
-		internal override void OnIncomingCanceled()
-		{
-			this.CancelOutput();
-			base.OnIncomingCanceled();
+			this.FinishIncoming();
+			this.FinishOutgoing();
+			this.SendCancelFrame();
 		}
 	}
 }

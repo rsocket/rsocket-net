@@ -17,7 +17,7 @@ namespace RSocket
 		protected override void OnSubscribe(int streamId, FrameHandler frameHandler)
 		{
 			base.OnSubscribe(streamId, frameHandler);
-			frameHandler.CancelOutput();
+			frameHandler.FinishOutgoing();
 		}
 	}
 }

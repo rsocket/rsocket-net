@@ -20,7 +20,7 @@ namespace RSocket
 
 		public override async Task ToTask()
 		{
-			this.CancelInput();
+			this.FinishIncoming();
 			await base.ToTask();
 		}
 	}

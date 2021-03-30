@@ -107,6 +107,8 @@ namespace RSocketDemo
 
 			if (metadata == "gen.data.error")
 			{
+				this.SubscribeIncoming(data, metadata, incoming);
+
 				int errorTrigger = 0;
 				if (!int.TryParse(data, out errorTrigger))
 				{
@@ -129,22 +131,27 @@ namespace RSocketDemo
 				return echoData;
 			}
 
-			ISubscription subscription = incoming.Subscribe(a =>
-			   {
-				   Console.WriteLine($"client message: {a.Data.ConvertToString()}");
-			   }, error =>
-			   {
-				   Console.WriteLine($"onError: {error.Message}");
-			   }, () =>
-			   {
-				   Console.WriteLine($"onCompleted");
-			   });
-
-			Console.WriteLine($"sending request(n) to client: {int.MaxValue}");
-			subscription.Request(int.MaxValue);
+			this.SubscribeIncoming(data, metadata, incoming);
 
 			//Returns an object that supports backpressure.
 			return new OutputPublisher(this, 5);
+		}
+
+		void SubscribeIncoming(string data, string metadata, IPublisher<Payload> incoming)
+		{
+			ISubscription subscription = incoming.Subscribe(a =>
+			{
+				Console.WriteLine($"client message: {a.Data.ConvertToString()}");
+			}, error =>
+			{
+				Console.WriteLine($"onError: {error.Message}");
+			}, () =>
+			{
+				Console.WriteLine($"onCompleted");
+			});
+
+			Console.WriteLine($"sending request(n) to client: {int.MaxValue}");
+			subscription.Request(int.MaxValue);
 		}
 	}
 }
