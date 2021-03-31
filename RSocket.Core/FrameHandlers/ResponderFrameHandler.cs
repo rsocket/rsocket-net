@@ -41,9 +41,9 @@ namespace RSocket
 
 		}
 
-		public override void HandleCancel(RSocketProtocol.Cancel message)
+		protected override void HandleCancelCore()
 		{
-			base.HandleCancel(message);
+			base.HandleCancelCore();
 			this.IncomingSubscriber?.OnError(new OperationCanceledException("Inbound has been canceled."));
 		}
 	}

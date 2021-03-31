@@ -100,6 +100,8 @@ namespace RSocketDemo
 			string data = request.Data.ConvertToString();
 			string metadata = request.Metadata.ConvertToString();
 
+			Console.WriteLine($"ForRequestChannel: {data},{metadata}");
+
 			if (metadata == "handle.request.error")
 			{
 				throw new Exception("This is a test error while executing handling RequestChannel.");

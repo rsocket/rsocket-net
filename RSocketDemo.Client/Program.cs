@@ -23,18 +23,24 @@ namespace RSocketDemo
 	{
 		static RSocketServer _server;
 		static RSocketClient _client;
+
+		static void ReadKey()
+		{
+			Console.ReadKey();
+		}
+
 		static async Task Main(string[] args)
 		{
 			//should run RSocketDemo.Server first.
 			Console.WriteLine($"client started...{Thread.CurrentThread.ManagedThreadId}");
 			Console.ReadKey();
 
+			SocketTransport socketTransport = new SocketTransport("127.0.0.1", 8888);
+			_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(60), Lifetime = TimeSpan.FromSeconds(120) });
+			await _client.ConnectAsync(data: Encoding.UTF8.GetBytes("setup.data"), metadata: Encoding.UTF8.GetBytes("setup.metadata"));
+
 			while (true)
 			{
-				SocketTransport socketTransport = new SocketTransport("127.0.0.1", 8888);
-				_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(60), Lifetime = TimeSpan.FromSeconds(120) });
-				await _client.ConnectAsync(data: Encoding.UTF8.GetBytes("setup.data"), metadata: Encoding.UTF8.GetBytes("setup.metadata"));
-
 				await RequestFireAndForgetTest();
 
 				await RequestResponseTest();
@@ -51,7 +57,7 @@ namespace RSocketDemo
 				await ErrorTest();
 
 				Console.WriteLine("-----------------------------------over-----------------------------------");
-				Console.ReadKey();
+				//Console.ReadKey();
 			}
 
 			Console.ReadKey();
@@ -64,7 +70,7 @@ namespace RSocketDemo
 			await _client.RequestFireAndForget(data.ToReadOnlySequence(), metadata.ToReadOnlySequence());
 
 			Console.WriteLine($"RequestFireAndForgetTest over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 
 		static async Task RequestResponseTest(string data = "data", string metadata = "metadata")
@@ -76,7 +82,7 @@ namespace RSocketDemo
 			Console.WriteLine($"server message: {result.Data.ConvertToString()}  {Thread.CurrentThread.ManagedThreadId}");
 
 			Console.WriteLine($"RequestResponseTest over");
-			Console.ReadKey();
+			ReadKey();
 		}
 
 		static async Task RequestStreamTest(string data = "data", string metadata = "metadata")
@@ -92,7 +98,7 @@ namespace RSocketDemo
 			}
 
 			Console.WriteLine($"{testName} over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 		static async Task RequestStreamTest1()
 		{
@@ -111,7 +117,7 @@ namespace RSocketDemo
 			Console.WriteLine($"server message total: {subscriber.MsgList.Count}");
 
 			Console.WriteLine($"RequestStreamTest1 over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 
 		static async Task RequestChannelTest(string data = "data", string metadata = "metadata")
@@ -130,7 +136,7 @@ namespace RSocketDemo
 			}
 
 			Console.WriteLine($"{testName} over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 		static async Task RequestChannelTest1()
 		{
@@ -151,7 +157,7 @@ namespace RSocketDemo
 			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
 			Console.WriteLine($"{testName} over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 		/// <summary>
 		/// Backpressure.
@@ -178,7 +184,7 @@ namespace RSocketDemo
 			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
 			Console.WriteLine($"{testName} over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 
 		static async Task ErrorTest()
@@ -196,7 +202,7 @@ namespace RSocketDemo
 				Console.WriteLine($"An error has occurred while executing RequestResponse: {ex.Message}");
 			}
 
-			Console.ReadKey();
+			ReadKey();
 
 			result = _client.RequestStream(data: default, metadata: "handle.request.error".ToReadOnlySequence());
 			result = result.ObserveOn(TaskPoolScheduler.Default);
@@ -212,7 +218,7 @@ namespace RSocketDemo
 				Console.WriteLine($"An error has occurred while executing RequestStream[handle.request.error]: {ex.Message}");
 			}
 
-			Console.ReadKey();
+			ReadKey();
 
 			result = _client.RequestStream(data: default, metadata: "gen.data.error".ToReadOnlySequence());
 			result = result.ObserveOn(TaskPoolScheduler.Default);
@@ -228,7 +234,7 @@ namespace RSocketDemo
 				Console.WriteLine($"An error has occurred while executing RequestStream[gen.data.error]: {ex.Message}");
 			}
 
-			Console.ReadKey();
+			ReadKey();
 
 			//int initialRequest = 2;
 			int initialRequest = int.MaxValue;
@@ -262,7 +268,7 @@ namespace RSocketDemo
 			}
 
 			Console.WriteLine($"ErrorTest over....................................................");
-			Console.ReadKey();
+			ReadKey();
 		}
 
 		static IPublisher<Payload> RequestChannel(int outputs, int initialRequest, string data = "data", string metadata = "metadata")

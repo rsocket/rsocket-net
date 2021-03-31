@@ -34,11 +34,6 @@ namespace RSocket
 			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(observer, this._frameHandler);
 			var sub = subscriber.Subscribe(this._source);
 
-			if (this._frameHandler.IncomingFinished)
-			{
-				subscriber.OnCompleted();
-			}
-
 			return new IncomingStreamSubscription(sub, this._frameHandler, subscriber);
 		}
 

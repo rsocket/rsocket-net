@@ -80,7 +80,12 @@ namespace RSocket.Transports
 			this.Running = ProcessSocketAsync(Socket);
 		}
 
-		public Task StopAsync() => Task.CompletedTask;      //TODO More graceful shutdown
+		public async Task StopAsync()
+		{
+			this.Front.Input.Complete();
+			this.Front.Output.Complete();
+			this.Socket.Shutdown(SocketShutdown.Both);
+		}
 
 		private async Task ProcessSocketAsync(Socket socket)
 		{

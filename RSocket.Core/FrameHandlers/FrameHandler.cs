@@ -101,6 +101,10 @@ namespace RSocket
 			this.IncomingSubscriber.OnError(new OperationCanceledException("Outbound has terminated with an error.", error));
 			this.Socket.SendError(ErrorCodes.Application_Error, this.StreamId, $"{error.Message}\n{error.StackTrace}").Wait();
 		}
+		object EnsureHaveBeenReady()
+		{
+			return this.OutgoingSubscription;
+		}
 
 		public void FinishIncoming()
 		{
@@ -125,6 +129,11 @@ namespace RSocket
 
 		public virtual void HandlePayload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			this.EnsureHaveBeenReady();
+			this.HandlePayloadCore(message, metadata, data);
+		}
+		protected virtual void HandlePayloadCore(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		{
 			if (this._incomingFinished)
 				return;
 
@@ -145,8 +154,14 @@ namespace RSocket
 		{
 			this.HandleRequestN(message.RequestNumber);
 		}
-		internal void HandleRequestN(int n)
+		public virtual void HandleRequestN(int n)
 		{
+			this.EnsureHaveBeenReady();
+			this.HandleRequestNCore(n);
+		}
+		protected virtual void HandleRequestNCore(int n)
+		{
+			this.EnsureHaveBeenReady();
 			if (this._outgoingFinished)
 				return;
 
@@ -158,11 +173,20 @@ namespace RSocket
 #if DEBUG
 			Console.WriteLine($"Handling cancel message...............stream[{this.StreamId}]");
 #endif
-
+			this.EnsureHaveBeenReady();
+			this.HandleCancelCore();
+		}
+		protected virtual void HandleCancelCore()
+		{
 			this.FinishOutgoing();
 		}
 
 		public virtual void HandleError(RSocketProtocol.Error message)
+		{
+			this.EnsureHaveBeenReady();
+			this.HandleErrorCore(message);
+		}
+		protected virtual void HandleErrorCore(RSocketProtocol.Error message)
 		{
 			this.FinishOutgoing();
 			this.IncomingSubscriber.OnError(message.MakeException());
