@@ -15,6 +15,8 @@ namespace RSocketDemo
 
 		public int GenDataTimeInterval = 0;
 
+		public Action<Subscription> OnSubscriptionDisposing { get; set; }
+
 		public OutputPublisher(RSocket.RSocket socket) : base(socket)
 		{
 
@@ -28,6 +30,10 @@ namespace RSocketDemo
 		protected override ISubscription DoSubscribe(IObserver<Payload> observer)
 		{
 			OutputSubscription subscription = new OutputSubscription(this.Socket, observer, this._maxOutputs, this._errorTrigger);
+
+			if (this.OnSubscriptionDisposing != null)
+				subscription.OnDisposing += this.OnSubscriptionDisposing;
+
 			subscription.GenDataTimeInterval = this.GenDataTimeInterval;
 			subscription.Start();
 			return subscription;

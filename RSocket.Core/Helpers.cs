@@ -12,6 +12,11 @@ namespace RSocket
 {
 	internal static class Helpers
 	{
+		public static ReadOnlySequence<byte> Clone(this ReadOnlySequence<byte> sequence)
+		{
+			return new ReadOnlySequence<byte>(sequence.ToArray());
+		}
+
 		public static ReadOnlySequence<byte> StringToByteSequence(string s)
 		{
 			if (s == null)

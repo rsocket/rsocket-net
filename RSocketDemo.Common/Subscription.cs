@@ -11,15 +11,17 @@ namespace RSocketDemo
 	public class Subscription : ISubscription
 	{
 		IObserver<Payload> _observer;
-		protected int _requests;
-		protected int _resposes;
-		protected int _maxResponses = int.MaxValue;
+		public int _requests;
+		public int _resposes;
+		public int _maxResponses = int.MaxValue;
 		public int GenDataTimeInterval = 0;
 
-		protected List<int> _requestNList = new List<int>();
+		public List<int> _requestNList = new List<int>();
 		bool _disposed;
 
 		BlockingCollection<int> _requestNs = new BlockingCollection<int>();
+
+		public event Action<Subscription> OnDisposing;
 
 		public Subscription(IObserver<Payload> observer)
 		{
@@ -31,13 +33,16 @@ namespace RSocketDemo
 			if (this._disposed)
 				return;
 
+			this._requestNs.Add(-1);
 			this.Dispose(true);
 			this._disposed = true;
 		}
 
 		protected virtual void Dispose(bool disposing)
 		{
-
+			var onDisposing = this.OnDisposing;
+			if (onDisposing != null)
+				onDisposing(this);
 		}
 
 		public void Request(int n)
@@ -63,6 +68,9 @@ namespace RSocketDemo
 				while (true)
 				{
 					int requestN = this._requestNs.Take();
+
+					if (requestN < 0)
+						break;
 
 					for (int i = 0; i < requestN; i++)
 					{
@@ -90,10 +98,10 @@ namespace RSocketDemo
 							return;
 						}
 
-						if ((this._maxResponses - this._resposes) <= 10)
-						{
-							Thread.Sleep(500);
-						}
+						//if ((this._maxResponses - this._resposes) <= 10)
+						//{
+						//	Thread.Sleep(500);
+						//}
 					}
 				}
 			});

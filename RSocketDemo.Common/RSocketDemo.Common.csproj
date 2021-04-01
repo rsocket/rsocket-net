@@ -2,6 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
+		<RootNamespace>RSocketDemo</RootNamespace>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -11,9 +12,10 @@
 		<!--<PackageReference Include="Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets" Version="2.2.1" />-->
 		<PackageReference Include="protobuf-net" Version="2.4.0" />
 		<PackageReference Include="System.Linq.Async" Version="4.0.0-preview.6.build.801" />
+		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\RSocket.Core\RSocket.Core.csproj" />
+		<ProjectReference Include="..\RSocket.Core\RSocket.Core.csproj" />
 	</ItemGroup>
 </Project>

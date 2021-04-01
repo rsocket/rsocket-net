@@ -125,6 +125,8 @@ namespace RSocket
 
 		void IRSocketProtocol.Payload(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			data = data.Clone();
+			metadata = metadata.Clone();
 			this.MessageDispatch(message.Stream, handler =>
 			{
 				handler.HandlePayload(message, metadata, data);
@@ -149,6 +151,8 @@ namespace RSocket
 
 		void IRSocketProtocol.RequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			data = data.Clone();
+			metadata = metadata.Clone();
 			this.HandleRequestFireAndForget(message, metadata, data);
 		}
 		/// <summary>
@@ -164,6 +168,8 @@ namespace RSocket
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			data = data.Clone();
+			metadata = metadata.Clone();
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
 				RequestResponseResponderFrameHandler frameHandler = new RequestResponseResponderFrameHandler(this, stream, metadata, data);
@@ -173,6 +179,8 @@ namespace RSocket
 
 		void IRSocketProtocol.RequestStream(RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			data = data.Clone();
+			metadata = metadata.Clone();
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
 				Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>, IObservable<Payload>> channeler = (request, incoming) =>
@@ -189,6 +197,17 @@ namespace RSocket
 
 		void IRSocketProtocol.RequestChannel(RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
+			/*
+			 * If the `ReadOnlySequence<byte>` object is from socket buffer, it will appear exception when executing `ReadOnlySequence<byte>.ToArray` method in frame handler in some cases. It doesn't always come up and i don't know why!!! So i create a new `ReadOnlySequence<byte>` object as a temporary solution.
+			 * The exception:
+			 * Specified argument was out of the range of valid values.
+			   Parameter name: start
+			   at System.ReadOnlyMemory`1.Slice(Int32 start, Int32 length)
+               at System.Buffers.BuffersExtensions.ToArray[T](ReadOnlySequence`1& sequence)
+			   at RSocketDemo.RSocketDemoServer.ForRequestChannel(ValueTuple`2 request, IPublisher`1
+			 */
+			data = data.Clone();
+			metadata = metadata.Clone();
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
 				ResponderFrameHandler frameHandler = new ResponderFrameHandler(this, stream, metadata, data, message.InitialRequest, this.Channeler);

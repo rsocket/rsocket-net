@@ -10,6 +10,11 @@ namespace RSocket
 {
 	public static class RSocketExtension
 	{
+		public static async Task RequestFireAndForget(this RSocket socket, string data, string metadata = default)
+		{
+			await socket.RequestFireAndForget(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata));
+		}
+
 		public static async Task<string> RequestResponse(this RSocket socket, string data, string metadata = default)
 		{
 			var payload = await socket.RequestResponse(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata));

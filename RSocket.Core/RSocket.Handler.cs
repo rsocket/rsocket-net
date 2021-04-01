@@ -104,13 +104,13 @@ namespace RSocket
 					var keepalive = new KeepAlive(header, ref reader);
 					sink.KeepAlive(keepalive);
 					break;
-				case Types.Request_Response:
-					var requestresponse = new RequestResponse(header, ref reader);
-					if (requestresponse.Validate()) { sink.RequestResponse(requestresponse, requestresponse.ReadMetadata(reader), requestresponse.ReadData(reader)); }
-					break;
 				case Types.Request_Fire_And_Forget:
 					var requestfireandforget = new RequestFireAndForget(header, ref reader);
 					if (requestfireandforget.Validate()) { sink.RequestFireAndForget(requestfireandforget, requestfireandforget.ReadMetadata(reader), requestfireandforget.ReadData(reader)); }
+					break;
+				case Types.Request_Response:
+					var requestresponse = new RequestResponse(header, ref reader);
+					if (requestresponse.Validate()) { sink.RequestResponse(requestresponse, requestresponse.ReadMetadata(reader), requestresponse.ReadData(reader)); }
 					break;
 				case Types.Request_Stream:
 					var requeststream = new RequestStream(header, ref reader);
