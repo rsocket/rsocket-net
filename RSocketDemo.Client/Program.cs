@@ -92,10 +92,11 @@ namespace RSocketDemo
 			int initialRequest = int.MaxValue;
 			IPublisher<Payload> result = _client.RequestStream(data.ToReadOnlySequence(), metadata.ToReadOnlySequence(), initialRequest);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
-			await foreach (var item in result.ToAsyncEnumerable())
+
+			await result.ToAsyncEnumerable().ForEachAsync(async (a) =>
 			{
-				Console.WriteLine($"server message: {item.Data.ConvertToString()}");
-			}
+				Console.WriteLine($"server message: {a.Data.ConvertToString()}");
+			});
 
 			Console.WriteLine($"{testName} over....................................................");
 			ReadKey();
@@ -130,10 +131,10 @@ namespace RSocketDemo
 
 			IPublisher<Payload> result = RequestChannel(5, initialRequest, data: data, metadata: metadata);
 			result = result.ObserveOn(TaskPoolScheduler.Default);
-			await foreach (var item in result.ToAsyncEnumerable())
+			await result.ToAsyncEnumerable().ForEachAsync(async (a) =>
 			{
-				Console.WriteLine($"server message: {item.Data.ConvertToString()} {Thread.CurrentThread.ManagedThreadId}");
-			}
+				Console.WriteLine($"server message: {a.Data.ConvertToString()}");
+			});
 
 			Console.WriteLine($"{testName} over....................................................");
 			ReadKey();
@@ -208,10 +209,10 @@ namespace RSocketDemo
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			try
 			{
-				await foreach (var item in result.ToAsyncEnumerable())
+				await result.ToAsyncEnumerable().ForEachAsync(async (a) =>
 				{
-					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
-				}
+					Console.WriteLine($"server message: {a.Data.ConvertToString()}");
+				});
 			}
 			catch (Exception ex)
 			{
@@ -224,10 +225,10 @@ namespace RSocketDemo
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			try
 			{
-				await foreach (var item in result.ToAsyncEnumerable())
+				await result.ToAsyncEnumerable().ForEachAsync(async (a) =>
 				{
-					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
-				}
+					Console.WriteLine($"server message: {a.Data.ConvertToString()}");
+				});
 			}
 			catch (Exception ex)
 			{
@@ -243,10 +244,10 @@ namespace RSocketDemo
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			try
 			{
-				await foreach (var item in result.ToAsyncEnumerable())
+				await result.ToAsyncEnumerable().ForEachAsync(async (a) =>
 				{
-					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
-				}
+					Console.WriteLine($"server message: {a.Data.ConvertToString()}");
+				});
 			}
 			catch (Exception ex)
 			{
@@ -257,10 +258,10 @@ namespace RSocketDemo
 			result = result.ObserveOn(TaskPoolScheduler.Default);
 			try
 			{
-				await foreach (var item in result.ToAsyncEnumerable())
+				await result.ToAsyncEnumerable().ForEachAsync(async (a) =>
 				{
-					Console.WriteLine($"server message: {item.Data.ConvertToString()}");
-				}
+					Console.WriteLine($"server message: {a.Data.ConvertToString()}");
+				});
 			}
 			catch (Exception ex)
 			{

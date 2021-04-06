@@ -61,9 +61,9 @@ namespace RSocket.Tests
 
 			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
 				{
-					var (requestData, requestMetadata) = (request.Data.ToArray(), request.Metadata.ToArray());
+					var (data, metadata) = (request.Data.ToArray(), request.Metadata.ToArray());
 
-					var outgoing = from index in AsyncEnumerable.Range(0, count) select (Data: requestData.Skip(index).Take(1), Metadata: requestMetadata.Skip(index).Take(1));
+					var outgoing = from index in AsyncEnumerable.Range(0, count) select (Data: data.Skip(index).Take(1), Metadata: metadata.Skip(index).Take(1));
 
 					return outgoing.Select(a => new Payload(new ReadOnlySequence<byte>(a.Data.ToArray()), new ReadOnlySequence<byte>(a.Metadata.ToArray()))).ToObservable();
 				};
