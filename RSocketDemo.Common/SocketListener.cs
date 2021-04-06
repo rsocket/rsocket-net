@@ -10,13 +10,13 @@ using System.Threading.Tasks;
 
 namespace RSocketDemo
 {
-	internal sealed class SocketConnectionListener : IConnectionListener
+	internal sealed class SocketListener : ISocketListener
 	{
 		private Socket _listenSocket;
 
 		public EndPoint EndPoint { get; private set; }
 
-		internal SocketConnectionListener(
+		internal SocketListener(
 			EndPoint endpoint)
 		{
 			EndPoint = endpoint;
@@ -50,26 +50,26 @@ namespace RSocketDemo
 			EndPoint = listenSocket.LocalEndPoint;
 
 			listenSocket.Listen(100);
-			_listenSocket = listenSocket;
+			this._listenSocket = listenSocket;
 		}
 
-		public async ValueTask<SocketConnection> AcceptAsync(CancellationToken cancellationToken = default)
+		public async ValueTask<Socket> AcceptAsync(CancellationToken cancellationToken = default)
 		{
 			while (true)
 			{
 				try
 				{
-					Debug.Assert(_listenSocket != null, "Bind must be called first.");
+					Debug.Assert(this._listenSocket != null, "Bind must be called first.");
 
-					var acceptSocket = await _listenSocket.AcceptAsync();
+					var acceptSocket = await this._listenSocket.AcceptAsync();
 
 					//// Only apply no delay to Tcp based endpoints
 					//if (acceptSocket.LocalEndPoint is IPEndPoint)
 					//{
 					//	acceptSocket.NoDelay = _options.NoDelay;
 					//}
-					var connection = new SocketConnection(acceptSocket);
-					return connection;
+
+					return acceptSocket;
 				}
 				catch (ObjectDisposedException)
 				{
@@ -91,7 +91,7 @@ namespace RSocketDemo
 
 		public ValueTask UnbindAsync(CancellationToken cancellationToken = default)
 		{
-			_listenSocket?.Dispose();
+			this._listenSocket?.Dispose();
 
 			//_socketHandle?.Dispose();
 			return default;
@@ -99,7 +99,7 @@ namespace RSocketDemo
 
 		public ValueTask DisposeAsync()
 		{
-			_listenSocket?.Dispose();
+			this._listenSocket?.Dispose();
 
 			//_socketHandle?.Dispose();
 

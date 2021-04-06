@@ -35,7 +35,7 @@ namespace RSocketDemo
 			Console.WriteLine($"client started...{Thread.CurrentThread.ManagedThreadId}");
 			Console.ReadKey();
 
-			SocketTransport socketTransport = new SocketTransport("127.0.0.1", 8888);
+			ClientSocketTransport socketTransport = new ClientSocketTransport("127.0.0.1", 8888);
 			_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(60), Lifetime = TimeSpan.FromSeconds(120) });
 			await _client.ConnectAsync(data: Encoding.UTF8.GetBytes("setup.data"), metadata: Encoding.UTF8.GetBytes("setup.metadata"));
 
@@ -57,7 +57,7 @@ namespace RSocketDemo
 				await ErrorTest();
 
 				Console.WriteLine("-----------------------------------over-----------------------------------");
-				//Console.ReadKey();
+				Console.ReadKey();
 			}
 
 			Console.ReadKey();

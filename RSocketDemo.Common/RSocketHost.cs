@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,58 +14,59 @@ namespace RSocketDemo
 {
 	public class RSocketHost
 	{
-		private readonly IConnectionListenerFactory _connectionListenerFactory;
-		public readonly ConcurrentDictionary<string, (RSocketServer Server, Task ExecutionTask)> _connections = new ConcurrentDictionary<string, (RSocketServer, Task)>();
-		private readonly ILogger<RSocketHost> _logger;
+		readonly ISocketListenerFactory _socketListenerFactory;
+		public readonly ConcurrentDictionary<string, (RSocketServer Server, Task ExecutionTask)> _servers = new ConcurrentDictionary<string, (RSocketServer, Task)>();
+		readonly ILogger<RSocketHost> _logger;
 
-		private IConnectionListener _connectionListener;
+		ISocketListener _socketListener;
 
 		IPEndPoint _ip;
 
 		Func<IRSocketTransport, RSocketServer> _serverBuilder;
 
-		public RSocketHost(IConnectionListenerFactory connectionListenerFactory, IPEndPoint ip, Func<IRSocketTransport, RSocketServer> serverBuilder)
+		public RSocketHost(ISocketListenerFactory socketListenerFactory, IPEndPoint ip, Func<IRSocketTransport, RSocketServer> serverBuilder)
 		{
-			_connectionListenerFactory = connectionListenerFactory;
-			_ip = ip;
+			this._socketListenerFactory = socketListenerFactory;
+			this._ip = ip;
 			this._serverBuilder = serverBuilder;
 		}
 
 		public async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
-			_connectionListener = await _connectionListenerFactory.BindAsync(this._ip, stoppingToken);
+			this._socketListener = await this._socketListenerFactory.BindAsync(this._ip, stoppingToken);
 
 			while (true)
 			{
-				SocketConnection connection = await _connectionListener.AcceptAsync(stoppingToken);
-				Console.WriteLine($"client[{connection.ConnectionId}] established...");
+				Socket socket = await this._socketListener.AcceptAsync(stoppingToken);
+
 				// AcceptAsync will return null upon disposing the listener
-				if (connection == null)
+				if (socket == null)
 				{
 					break;
 				}
 
-				RSocketServer server = this._serverBuilder(connection);
-				_connections[connection.ConnectionId] = (server, Accept(server, connection));
+				string connectionId = Guid.NewGuid().ToString();
+
+#if DEBUG
+				Console.WriteLine($"client[{connectionId}] established...");
+#endif
+
+				ServerSocketTransport transport = new ServerSocketTransport(socket);
+				RSocketServer server = this._serverBuilder(transport);
+				this._servers[connectionId] = (server, Accept(server, transport, connectionId));
 			}
 
-			List<Task> connectionsExecutionTasks = new List<Task>(_connections.Count);
+			List<Task> connectionsExecutionTasks = new List<Task>(this._servers.Count);
 
-			foreach (var connection in _connections)
+			foreach (var connection in this._servers)
 			{
 				connectionsExecutionTasks.Add(connection.Value.ExecutionTask);
-				//connection.Value.Context.Abort();
 			}
 
 			await Task.WhenAll(connectionsExecutionTasks);
 		}
 
-		//public override async Task StopAsync(CancellationToken cancellationToken)
-		//{
-		//	await _connectionListener.DisposeAsync();
-		//}
-
-		private async Task Accept(RSocketServer server, SocketConnection connection)
+		async Task Accept(RSocketServer server, SocketTransport transport, string connectionId)
 		{
 			try
 			{
@@ -74,7 +76,7 @@ namespace RSocketDemo
 
 				//_logger.LogInformation("Connection {ConnectionId} connected", connectionContext.ConnectionId);
 
-				await connection.Running;
+				await transport.Running;
 				//await connectionContext.ConnectionClosed.WaitAsync();
 			}
 			//catch (ConnectionResetException)
@@ -90,15 +92,14 @@ namespace RSocketDemo
 			{
 				//await connectionContext.DisposeAsync();
 				server.Dispose();
-				_connections.TryRemove(connection.ConnectionId, out _);
+				this._servers.TryRemove(connectionId, out _);
 
 #if DEBUG
-				Console.WriteLine($"Connection {connection.ConnectionId} disconnected");
+				Console.WriteLine($"Connection {connectionId} disconnected");
 #endif
 
 				//_logger.LogInformation("Connection {ConnectionId} disconnected", connectionContext.ConnectionId);
 			}
 		}
 	}
-
 }
