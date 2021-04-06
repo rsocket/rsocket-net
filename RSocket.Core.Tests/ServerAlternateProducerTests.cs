@@ -22,11 +22,12 @@ namespace RSocket.Tests
 		[TestMethod]
 		public async Task ServerRequestStreamTest()
 		{
-            //Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
-            //    Observable.Interval(TimeSpan.FromMilliseconds(10))
-            //        .Take(3)
-            //        .Select(i => (request.Data, request.Metadata))
-            //        .ToAsyncEnumerable();
+			Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+			{
+				return Observable.Interval(TimeSpan.FromMilliseconds(10))
+						.Take(3)
+						.Select(i => new Payload(request.Data, request.Metadata));
+			};
 
 			var (data, metadata) = ("TEST DATA", "METADATA?_____");
 
