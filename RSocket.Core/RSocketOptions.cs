@@ -22,7 +22,7 @@ namespace RSocket
 		public string DataMimeType { get; set; } = BINARYMIMETYPE;
 		public string MetadataMimeType { get; set; } = BINARYMIMETYPE;
 
-		public static readonly RSocketOptions Default = new RSocketOptions()
+		public static new readonly RSocketOptions Default = new RSocketOptions()
 		{
 			KeepAlive = TimeSpan.FromMinutes(1),
 			Lifetime = TimeSpan.FromMinutes(3),

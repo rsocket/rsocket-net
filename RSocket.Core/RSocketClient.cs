@@ -16,7 +16,7 @@ namespace RSocket
 
 		public RSocketClient(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options)
 		{
-			this.Options = options;
+			this.Options = options ?? RSocketOptions.Default;
 		}
 
 		public Task ConnectAsync(RSocketOptions options = default, byte[] data = default, byte[] metadata = default, byte[] resumeToken = default) => ConnectAsync(options ?? this.Options, data: data == default ? default : new ReadOnlySequence<byte>(data), metadata: metadata == default ? default : new ReadOnlySequence<byte>(metadata), resumeToken: resumeToken);
