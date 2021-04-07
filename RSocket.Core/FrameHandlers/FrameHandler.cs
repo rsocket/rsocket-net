@@ -38,7 +38,7 @@ namespace RSocket
 
 			this._incomingReceiver = new IncomingReceiver(this);
 			this.Incoming = this.CreateIncoming();
-			this._lazyOutgoing = new Lazy<IPublisher<Payload>>(this.CreateOutgingLazy, LazyThreadSafetyMode.ExecutionAndPublication);
+			this._lazyOutgoing = new Lazy<IPublisher<Payload>>(this.CreateOutgoingLazy, LazyThreadSafetyMode.ExecutionAndPublication);
 			this._lazyOutgoingSubscriber = new Lazy<(ISubscription Subscription, IObserver<Payload> Subscriber)>(this.SubscribeOutgoing, LazyThreadSafetyMode.ExecutionAndPublication);
 		}
 		protected FrameHandler(RSocket socket, int streamId) : this(socket)
@@ -68,15 +68,15 @@ namespace RSocket
 		{
 			return new IncomingStream(this._incomingReceiver, this);
 		}
-		protected virtual IPublisher<Payload> CreateOutging()
+		protected virtual IPublisher<Payload> CreateOutgoing()
 		{
 			return new SimplePublisher<Payload>();
 		}
-		IPublisher<Payload> CreateOutgingLazy()
+		IPublisher<Payload> CreateOutgoingLazy()
 		{
 			try
 			{
-				return this.CreateOutging();
+				return this.CreateOutgoing();
 			}
 			catch (Exception ex)
 			{

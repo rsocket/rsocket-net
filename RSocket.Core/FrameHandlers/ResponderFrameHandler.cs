@@ -25,11 +25,11 @@ namespace RSocket
 			this._channeler = channeler;
 		}
 
-		protected override IPublisher<Payload> CreateOutging()
+		protected override IPublisher<Payload> CreateOutgoing()
 		{
 			if (this._channeler == null)
 			{
-				return base.CreateOutging();
+				return base.CreateOutgoing();
 			}
 
 			var outputPayloads = this._channeler((this._data, this._metadata), this.Incoming);

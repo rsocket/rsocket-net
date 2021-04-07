@@ -21,7 +21,7 @@ namespace RSocket
 			this._outgoing = Helpers.AsPublisher(outgoing);
 		}
 
-		protected override IPublisher<Payload> CreateOutging()
+		protected override IPublisher<Payload> CreateOutgoing()
 		{
 			return this._outgoing;
 		}
