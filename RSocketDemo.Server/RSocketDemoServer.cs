@@ -21,10 +21,9 @@ namespace RSocketDemo
 		public RSocketDemoServer(IRSocketTransport transport, RSocketOptions options = default)
 			: base(transport, options)
 		{
+			this.FireAndForgetHandler = this.ForRequestFireAndForget;
 			this.Responder = this.ForRequestResponse;
-
 			this.Streamer = this.ForRequestStream;
-
 			this.Channeler = this.ForRequestChannel;
 		}
 
@@ -46,11 +45,11 @@ namespace RSocketDemo
 			}
 		}
 
-		protected override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		public void ForRequestFireAndForget((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
-			Console.WriteLine($"client.RequestFireAndForget: {data.ConvertToString()},{metadata.ConvertToString()}");
+			Console.WriteLine($"client.RequestFireAndForget: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
 
-			if (metadata.ConvertToString() == "handle.request.error")
+			if (request.Metadata.ConvertToString() == "handle.request.error")
 			{
 				throw new Exception("This is a test error while executing handling RequestFireAndForget.");
 			}

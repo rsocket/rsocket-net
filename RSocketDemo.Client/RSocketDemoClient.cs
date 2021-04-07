@@ -11,13 +11,12 @@ namespace RSocketDemo
 	{
 		public RSocketDemoClient(IRSocketTransport transport, RSocketOptions options = default) : base(transport, options)
 		{
-
-
+			this.FireAndForgetHandler = this.ForRequestFireAndForget;
 		}
 
-		protected override void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void ForRequestFireAndForget((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
-			Console.WriteLine($"Received RequestFireAndForget msg: {data.ConvertToString()}");
+			Console.WriteLine($"Received RequestFireAndForget msg: {request.Data.ConvertToString()}");
 		}
 	}
 }

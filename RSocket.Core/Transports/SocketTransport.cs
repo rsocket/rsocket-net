@@ -91,19 +91,19 @@ namespace RSocket.Transports
 		public PipeReader Input => Front.Input;
 		public PipeWriter Output => Front.Output;
 
-		public SocketTransport(PipeOptions outputOptions = default, PipeOptions inputOptions = default)
+		protected SocketTransport(PipeOptions outputOptions = default, PipeOptions inputOptions = default)
 		{
 			Logger = new LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
 			(Front, Back) = DuplexPipe.CreatePair(outputOptions, inputOptions);
 		}
 
-		public async Task StartAsync(CancellationToken cancel = default)
+		public virtual async Task StartAsync(CancellationToken cancel = default)
 		{
 			this._socket = await this.CreateSocket();
 			Running = ProcessSocketAsync(this._socket);
 		}
 
-		public async Task StopAsync()
+		public virtual async Task StopAsync()
 		{
 			await Task.CompletedTask;
 			this.Front.Input.Complete();
@@ -217,58 +217,6 @@ namespace RSocket.Transports
 				Back.Input.Complete();
 			}
 
-		}
-	}
-}
-
-namespace System.Net.Sockets
-{
-	internal static class SocketExtensions
-	{
-		public static ValueTask SendAsync(this Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
-		{
-#if NETCOREAPP3_0
-            if (buffer.IsSingleSegment)
-            {
-                return socket.SendAsync(buffer.First, webSocketMessageType, endOfMessage: true, cancellationToken);
-            }
-            else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
-#else
-			if (buffer.IsSingleSegment)
-			{
-				var isArray = MemoryMarshal.TryGetArray(buffer.First, out var segment);
-				Debug.Assert(isArray);
-				return new ValueTask(socket.SendAsync(segment, socketFlags));       //TODO Cancellation?
-			}
-			else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
-#endif
-		}
-
-		static async ValueTask SendMultiSegmentAsync(Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
-		{
-#if NETCOREAPP3_0
-			var position = buffer.Start;
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
-			{
-				await socket.SendAsync(prevSegment, socketFlags);
-				prevSegment = segment;
-			}
-			await socket.SendAsync(prevSegment, socketFlags);
-#else
-			var position = buffer.Start;
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
-			{
-				var isArray = MemoryMarshal.TryGetArray(prevSegment, out var arraySegment);
-				Debug.Assert(isArray);
-				await socket.SendAsync(arraySegment, socketFlags);
-				prevSegment = segment;
-			}
-			var isArrayEnd = MemoryMarshal.TryGetArray(prevSegment, out var arraySegmentEnd);
-			Debug.Assert(isArrayEnd);
-			await socket.SendAsync(arraySegmentEnd, socketFlags);
-#endif
 		}
 	}
 }

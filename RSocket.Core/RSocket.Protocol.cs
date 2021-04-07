@@ -15,6 +15,10 @@ namespace RSocket
 {
 	public partial class RSocket : IRSocketProtocol
 	{
+		/// <summary>
+		/// Called by socket thread, so this method affects how efficiently the thread receives data.
+		/// </summary>
+		public Action<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> FireAndForgetHandler { get; set; } = request => throw new NotImplementedException();
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<Payload>> Responder { get; set; } = request => throw new NotImplementedException();
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Streamer { get; set; } = request => throw new NotImplementedException();
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<Payload>, IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
@@ -153,17 +157,7 @@ namespace RSocket
 		{
 			data = data.Clone();
 			metadata = metadata.Clone();
-			this.HandleRequestFireAndForget(message, metadata, data);
-		}
-		/// <summary>
-		/// Called by socket thread, so this method affects how efficiently the thread receives data.
-		/// </summary>
-		/// <param name="message"></param>
-		/// <param name="metadata"></param>
-		/// <param name="data"></param>
-		protected virtual void HandleRequestFireAndForget(RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-			throw new NotImplementedException();
+			this.FireAndForgetHandler((data, metadata));
 		}
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
