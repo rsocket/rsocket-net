@@ -97,15 +97,9 @@ namespace RSocketDemo
 							this._observer.OnCompleted();
 							return;
 						}
-
-						//if ((this._maxResponses - this._resposes) <= 10)
-						//{
-						//	Thread.Sleep(500);
-						//}
 					}
 				}
 			});
 		}
 	}
-
 }

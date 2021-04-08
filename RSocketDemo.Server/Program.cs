@@ -20,10 +20,9 @@ namespace RSocketDemo
 {
 	class Program
 	{
-		static RSocketServer _server;
-		static RSocketClient _client;
 		static async Task Main(string[] args)
 		{
+			await Task.CompletedTask;
 			IPAddress iP = IPAddress.Parse("127.0.0.1");
 			IPEndPoint iPEndPoint = new IPEndPoint(iP, 8888);
 

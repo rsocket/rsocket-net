@@ -78,6 +78,7 @@ namespace RSocket.Transports
 	public abstract class SocketTransport : IRSocketTransport
 	{
 		Socket _socket;
+		int _completeFlag = 2;
 
 		public Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
@@ -88,19 +89,19 @@ namespace RSocket.Transports
 		protected IDuplexPipe Front { get; private set; }
 		protected IDuplexPipe Back { get; private set; }
 
-		public PipeReader Input => Front.Input;
-		public PipeWriter Output => Front.Output;
+		public PipeReader Input => this.Front.Input;
+		public PipeWriter Output => this.Front.Output;
 
 		protected SocketTransport(PipeOptions outputOptions = default, PipeOptions inputOptions = default)
 		{
-			Logger = new LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
+			this.Logger = new LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
 			(Front, Back) = DuplexPipe.CreatePair(outputOptions, inputOptions);
 		}
 
 		public virtual async Task StartAsync(CancellationToken cancel = default)
 		{
 			this._socket = await this.CreateSocket();
-			Running = ProcessSocketAsync(this._socket);
+			this.Running = ProcessSocketAsync(this._socket);
 		}
 
 		public virtual async Task StopAsync()
@@ -121,7 +122,6 @@ namespace RSocket.Transports
 
 			await Task.WhenAll(receiving, sending);
 		}
-
 
 		async Task StartReceiving(Socket socket)
 		{
@@ -168,10 +168,9 @@ namespace RSocket.Transports
 			finally
 			{
 				this.Back.Output.Complete();
+				this.TryDisposeSocket();
 			}
 		}
-
-
 		async Task StartSending(Socket socket)
 		{
 			Exception error = null;
@@ -214,9 +213,18 @@ namespace RSocket.Transports
 			}
 			finally
 			{
-				Back.Input.Complete();
+				this.Back.Input.Complete();
+				this.TryDisposeSocket();
 			}
+		}
 
+		void TryDisposeSocket()
+		{
+			if (Interlocked.Decrement(ref this._completeFlag) == 0)
+			{
+				this._socket?.Close();
+				this._socket?.Dispose();
+			}
 		}
 	}
 }

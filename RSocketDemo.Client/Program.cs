@@ -21,7 +21,6 @@ namespace RSocketDemo
 {
 	class Program
 	{
-		static RSocketServer _server;
 		static RSocketClient _client;
 
 		static void ReadKey()
@@ -281,7 +280,6 @@ namespace RSocketDemo
 
 				for (int i = 0; i < outputs; i++)
 				{
-					//Thread.Sleep(500);
 					o.OnNext(i);
 				}
 
