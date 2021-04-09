@@ -1,25 +1,18 @@
-using RSocket.Exceptions;
 using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static RSocket.RSocketProtocol;
 
 namespace RSocket
 {
-	public abstract class FrameHandler : IFrameHandler
+	public abstract partial class FrameHandler : IFrameHandler
 	{
 		bool _disposed = false;
 		int _initialOutgoingRequest = 0;
 
-		TaskCompletionSource<bool> _waitIncomingCompleteHandler = new TaskCompletionSource<bool>();
-		TaskCompletionSource<bool> _waitOutgoingCompleteHandler = new TaskCompletionSource<bool>();
+		TaskCompletionSource<bool> _waitIncomingCompleteHandler = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		TaskCompletionSource<bool> _waitOutgoingCompleteHandler = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
 		IncomingReceiver _incomingReceiver;
 
@@ -251,49 +244,6 @@ namespace RSocket
 		protected virtual void Dispose(bool disposing)
 		{
 
-		}
-
-
-		class DefaultOutgoingSubscriber : Subscriber<Payload>, IObserver<Payload>
-		{
-			FrameHandler _frameHandler;
-
-			public DefaultOutgoingSubscriber(FrameHandler frameHandler)
-			{
-				this._frameHandler = frameHandler;
-			}
-
-			protected override void DoOnCompleted()
-			{
-				if (this._frameHandler.OutgoingFinished)
-					return;
-
-				if (!this._frameHandler.OutputSingle)
-				{
-					this._frameHandler.Socket.SendPayload(default(Payload), this._frameHandler.StreamId, true, false).Wait();
-				}
-
-				this._frameHandler.FinishOutgoing();
-			}
-
-			protected override void DoOnError(Exception error)
-			{
-				this._frameHandler.OnOutgoingError(error);
-			}
-
-			protected override void DoOnNext(Payload value)
-			{
-				if (this._frameHandler.OutgoingFinished)
-					return;
-
-				if (this._frameHandler.OutputSingle)
-				{
-					this._frameHandler.Socket.SendPayload(value, this._frameHandler.StreamId, true, true).Wait();
-					return;
-				}
-
-				this._frameHandler.Socket.SendPayload(value, this._frameHandler.StreamId, false, true).Wait();
-			}
 		}
 	}
 }
