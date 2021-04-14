@@ -12,42 +12,28 @@ namespace RSocketDemo
 {
 	internal sealed class SocketListener : ISocketListener
 	{
-		private Socket _listenSocket;
+		Socket _listenSocket;
 
 		public EndPoint EndPoint { get; private set; }
 
 		internal SocketListener(
 			EndPoint endpoint)
 		{
-			EndPoint = endpoint;
+			this.EndPoint = endpoint;
 		}
 
 		internal void Bind()
 		{
-			if (_listenSocket != null)
+			if (this._listenSocket != null)
 			{
 				throw new InvalidOperationException();
 			}
 
-			Socket listenSocket;
-
-			listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			BindSocket();
-
-			void BindSocket()
-			{
-				try
-				{
-					listenSocket.Bind(EndPoint);
-				}
-				catch (SocketException e) when (e.SocketErrorCode == SocketError.AddressAlreadyInUse)
-				{
-					throw new Exception(e.Message, e);
-				}
-			}
+			Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			listenSocket.Bind(this.EndPoint);
 
 			Debug.Assert(listenSocket.LocalEndPoint != null);
-			EndPoint = listenSocket.LocalEndPoint;
+			this.EndPoint = listenSocket.LocalEndPoint;
 
 			listenSocket.Listen(100);
 			this._listenSocket = listenSocket;

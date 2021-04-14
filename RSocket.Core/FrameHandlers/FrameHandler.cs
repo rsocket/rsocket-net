@@ -227,6 +227,7 @@ namespace RSocket
 			if (this._disposed)
 				return;
 
+			this.TriggerErrorIfIncomingUnfinished();
 			this.FinishIncoming();
 			this.FinishOutgoing();
 
@@ -236,14 +237,25 @@ namespace RSocket
 			}
 			catch
 			{
-
 			}
+
 			this._disposed = true;
 		}
-
 		protected virtual void Dispose(bool disposing)
 		{
+		}
+		void TriggerErrorIfIncomingUnfinished()
+		{
+			if (this._incomingFinished)
+				return;
 
+			try
+			{
+				this.IncomingSubscriber.OnError(new OperationCanceledException("Channel has terminated."));
+			}
+			catch
+			{
+			}
 		}
 	}
 }

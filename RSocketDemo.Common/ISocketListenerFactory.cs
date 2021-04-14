@@ -9,22 +9,22 @@ namespace RSocketDemo
 {
 	public interface ISocketListenerFactory
 	{
-		ValueTask<ISocketListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default);
+		Task<ISocketListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default);
 	}
 
 	public sealed class SocketTransportFactory : ISocketListenerFactory
 	{
-
 		public SocketTransportFactory()
 		{
 
 		}
 
-		public ValueTask<ISocketListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default)
+		public async Task<ISocketListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default)
 		{
+			await Task.CompletedTask;
 			var transport = new SocketListener(endpoint);
 			transport.Bind();
-			return new ValueTask<ISocketListener>(transport);
+			return transport;
 		}
 	}
 }

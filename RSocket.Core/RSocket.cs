@@ -111,26 +111,23 @@ namespace RSocket
 			IPublisher<Payload> incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
 			//var ret = await incoming.ToAsyncEnumerable().FirstAsync(); //Cannot use linq operation to get the payload, because of it will produces redundant cancel frame. ps: 'ISubscription.Dispose()' will be executed before 'IObserver<T>.OnComplete()' when using 'IObservable<T>.ToAsyncEnumerable().FirstAsync()' method.
 
-			TaskCompletionSource<bool> taskSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-			Payload ret = default(Payload);
+			TaskCompletionSource<Payload> taskSignal = new TaskCompletionSource<Payload>(TaskCreationOptions.RunContinuationsAsynchronously);
 
 			var sub = incoming.Subscribe(a =>
 			{
-				ret = a;
-				taskSignal.TrySetResult(true);
+				taskSignal.TrySetResult(a);
 			}, error =>
 			{
 				taskSignal.TrySetException(error);
 			}, () =>
 			{
 				if (taskSignal.Task.Status != TaskStatus.RanToCompletion)
-					taskSignal.TrySetResult(true);
+					taskSignal.TrySetCanceled();
 			});
 
 			try
 			{
-				await taskSignal.Task;
-				return ret;
+				return await taskSignal.Task;
 			}
 			finally
 			{
