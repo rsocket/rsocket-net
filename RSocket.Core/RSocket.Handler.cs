@@ -52,7 +52,7 @@ namespace RSocket
 					{
 						string errorText = $"{ex.Message}\n{ex.StackTrace}";
 						this.RemoveAndReleaseFrameHandler(header.Stream);
-						await this.SendError(ErrorCodes.Application_Error, header.Stream, errorText, false);
+						await this.SendError(header.Stream, ErrorCodes.Application_Error, errorText, false);
 					}
 					else
 					{
@@ -85,7 +85,7 @@ namespace RSocket
 
 			async Task SendErrorAndCloseConnection(RSocketErrorException ex)
 			{
-				await this.SendError(ex.ErrorCode, ex.StreamId, ex.Message, false);
+				await this.SendError(ex.StreamId, ex.ErrorCode, ex.Message, false);
 				await this.CloseConnection();
 			}
 		}

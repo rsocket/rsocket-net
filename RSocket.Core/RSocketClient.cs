@@ -31,7 +31,7 @@ namespace RSocket
 
 		public Task Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, byte[] resumeToken = default, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
-			return new RSocketProtocol.Setup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, resumeToken: resumeToken, data: data, metadata: metadata).WriteFlush(Transport.Output, data: data, metadata: metadata);
+			return this.SendSetup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, resumeToken: resumeToken, data: data, metadata: metadata);
 		}
 
 		/// <summary>A simplfied RSocket Client that operates only on UTF-8 strings.</summary>

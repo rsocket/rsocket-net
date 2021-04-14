@@ -28,6 +28,7 @@ namespace RSocket
 		IDisposable _ticksDisposable = Disposable.Empty;
 
 		int _connectionClosedFlag = 0;
+		internal SemaphoreSlim OutputSyncLock = new SemaphoreSlim(1, 1);
 
 		PrefetchOptions Options { get; set; }
 
@@ -35,6 +36,7 @@ namespace RSocket
 
 		//TODO Hide.
 		public IRSocketTransport Transport { get; set; }
+
 		private int StreamId = 1 - 2;       //SPEC: Stream IDs on the client MUST start at 1 and increment by 2 sequentially, such as 1, 3, 5, 7, etc
 		protected internal virtual int NewStreamId() => Interlocked.Add(ref StreamId, 2);  //TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
 
@@ -95,7 +97,7 @@ namespace RSocket
 		{
 			this.CheckConnectionStatus();
 			var streamId = this.NewStreamId();
-			await new RSocketProtocol.RequestFireAndForget(streamId, data, metadata).WriteFlush(this.Transport.Output, data, metadata);
+			await this.SendRequestFireAndForget(streamId, data, metadata);
 		}
 
 		public virtual async Task<Payload> RequestResponse(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
@@ -103,7 +105,7 @@ namespace RSocket
 			this.CheckConnectionStatus();
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				await new RSocketProtocol.RequestResponse(streamId, data, metadata).WriteFlush(Transport.Output, data, metadata);
+				await this.SendRequestResponse(streamId, data, metadata);
 			};
 
 			IPublisher<Payload> incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
@@ -143,7 +145,7 @@ namespace RSocket
 		public Task RequestResponse(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
 		{
 			var id = StreamDispatch(stream);
-			return new RSocketProtocol.RequestResponse(id, data, metadata).WriteFlush(Transport.Output, data, metadata);
+			return this.SendRequestResponse(id, data, metadata);
 		}
 
 		public IPublisher<Payload> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
@@ -151,8 +153,7 @@ namespace RSocket
 			this.CheckConnectionStatus();
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				var channel = new RSocketProtocol.RequestStream(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
-				await channel.WriteFlush(this.Transport.Output, data, metadata);
+				await this.SendRequestStream(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
 			};
 
 			var incoming = new RequestStreamRequesterIncomingStream(this, channelEstablisher);
@@ -166,7 +167,7 @@ namespace RSocket
 		public Task RequestStream(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			var id = StreamDispatch(stream);
-			return new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
+			return this.SendRequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial));
 		}
 
 		public IPublisher<Payload> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IPublisher<Payload> source, int initial = RSocketOptions.INITIALDEFAULT)
@@ -183,8 +184,7 @@ namespace RSocket
 
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				var channel = new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
-				await channel.WriteFlush(this.Transport.Output, data, metadata);
+				await this.SendRequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
 			};
 
 			var incoming = new RequesterIncomingStream(this, source, channelEstablisher);
@@ -200,7 +200,7 @@ namespace RSocket
 		public async Task<IRSocketChannel> RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
 			var id = StreamDispatch(stream);
-			await new RSocketProtocol.RequestChannel(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
+			await this.SendRequestChannel(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial));
 			var channel = new ChannelHandler(this, id);
 			return channel;
 		}
@@ -215,7 +215,7 @@ namespace RSocket
 			public Task Send(Payload value)
 			{
 				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				return new RSocketProtocol.Payload(Stream, value.Data, value.Metadata, next: true).WriteFlush(Socket.Transport.Output, value.Data, value.Metadata);
+				return this.Socket.SendPayload(this.Stream, value.Data, value.Metadata, next: true);
 				//if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
 				//return new RSocketProtocol.Payload(Stream, value.data, value.metadata, next: true).WriteFlush(Socket.Transport.Output, value.data, value.metadata);
 			}
@@ -223,7 +223,7 @@ namespace RSocket
 			public Task Complete()
 			{
 				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				return new RSocketProtocol.Payload(Stream, complete: true).WriteFlush(Socket.Transport.Output);
+				return this.Socket.SendPayload(this.Stream, complete: true);
 				//if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
 				//return new RSocketProtocol.Payload(Stream, complete: true).WriteFlush(Socket.Transport.Output);
 			}
@@ -319,6 +319,7 @@ namespace RSocket
 			this._ticksDisposable.Dispose();
 			this.CloseConnection().Wait();
 			this.ReleaseAllFrameHandlers(RSocketProtocol.ErrorCodes.Connection_Close, null);
+			this.OutputSyncLock.Dispose();
 
 			this.Dispose(true);
 

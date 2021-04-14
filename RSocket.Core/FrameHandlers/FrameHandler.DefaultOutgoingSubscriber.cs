@@ -20,7 +20,7 @@ namespace RSocket
 
 				if (!this._frameHandler.OutputSingle)
 				{
-					this._frameHandler.Socket.SendPayload(default(Payload), this._frameHandler.StreamId, true, false).Wait();
+					this._frameHandler.Socket.SendPayload(this._frameHandler.StreamId, complete: true, next: false).Wait();
 				}
 
 				this._frameHandler.FinishOutgoing();
@@ -38,11 +38,11 @@ namespace RSocket
 
 				if (this._frameHandler.OutputSingle)
 				{
-					this._frameHandler.Socket.SendPayload(value, this._frameHandler.StreamId, true, true).Wait();
+					this._frameHandler.Socket.SendPayload(this._frameHandler.StreamId, data: value.Data, metadata: value.Metadata, complete: true, next: true).Wait();
 					return;
 				}
 
-				this._frameHandler.Socket.SendPayload(value, this._frameHandler.StreamId, false, true).Wait();
+				this._frameHandler.Socket.SendPayload(this._frameHandler.StreamId, data: value.Data, metadata: value.Metadata, complete: false, next: true).Wait();
 			}
 		}
 	}

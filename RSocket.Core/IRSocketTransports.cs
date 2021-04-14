@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +11,7 @@ namespace RSocket
 	public interface IRSocketTransport
 	{
 		PipeReader Input { get; }
-		PipeWriter Output { get; }
+		PipeWriter Output { get; } /* ps: PipeWriter is not a thread-safe object. */
 
 		Task StartAsync(CancellationToken cancel = default);
 		Task StopAsync();

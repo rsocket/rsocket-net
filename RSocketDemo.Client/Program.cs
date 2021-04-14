@@ -41,25 +41,57 @@ namespace RSocketDemo
 			while (true)
 			{
 				await RequestFireAndForgetTest();
+				ReadKey();
 
 				await RequestResponseTest();
+				ReadKey();
 
 				await RequestStreamTest();
+				ReadKey();
 				await RequestStreamTest1();
+				ReadKey();
 
 				await RequestChannelTest();
+				ReadKey();
 				await RequestChannelTest(metadata: "echo");
+				ReadKey();
 				await RequestChannelTest1();
+				ReadKey();
 
 				await RequestChannelTest_Backpressure(); //backpressure
+				ReadKey();
 
 				await ErrorTest();
+				ReadKey();
+
+				await RunParallel();
+				ReadKey();
 
 				Console.WriteLine("-----------------------------------over-----------------------------------");
 				Console.ReadKey();
 			}
 
 			Console.ReadKey();
+		}
+
+		public static async Task RunParallel(int threads = 20)
+		{
+			List<Task> list = new List<Task>();
+			for (int i = 0; i < threads; i++)
+			{
+				var t = Task.Run(async () =>
+				{
+					await RequestChannelTest();
+				});
+
+				list.Add(t);
+			}
+
+			var task = Task.WhenAll(list);
+
+			await task;
+
+			Console.WriteLine("RunParallel over......................................");
 		}
 
 		static async Task RequestFireAndForgetTest(string data = "data", string metadata = "metadata")
@@ -69,7 +101,6 @@ namespace RSocketDemo
 			await _client.RequestFireAndForget(data.ToReadOnlySequence(), metadata.ToReadOnlySequence());
 
 			Console.WriteLine($"RequestFireAndForgetTest over....................................................");
-			ReadKey();
 		}
 
 		static async Task RequestResponseTest(string data = "data", string metadata = "metadata")
@@ -81,7 +112,6 @@ namespace RSocketDemo
 			Console.WriteLine($"server message: {result.Data.ConvertToString()}  {Thread.CurrentThread.ManagedThreadId}");
 
 			Console.WriteLine($"RequestResponseTest over");
-			ReadKey();
 		}
 
 		static async Task RequestStreamTest(string data = "data", string metadata = "metadata")
@@ -98,7 +128,6 @@ namespace RSocketDemo
 			});
 
 			Console.WriteLine($"{testName} over....................................................");
-			ReadKey();
 		}
 		static async Task RequestStreamTest1()
 		{
@@ -117,7 +146,6 @@ namespace RSocketDemo
 			Console.WriteLine($"server message total: {subscriber.MsgList.Count}");
 
 			Console.WriteLine($"RequestStreamTest1 over....................................................");
-			ReadKey();
 		}
 
 		static async Task RequestChannelTest(string data = "data", string metadata = "metadata")
@@ -136,7 +164,6 @@ namespace RSocketDemo
 			});
 
 			Console.WriteLine($"{testName} over....................................................");
-			ReadKey();
 		}
 		static async Task RequestChannelTest1()
 		{
@@ -157,7 +184,6 @@ namespace RSocketDemo
 			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
 			Console.WriteLine($"{testName} over....................................................");
-			ReadKey();
 		}
 		/// <summary>
 		/// Backpressure.
@@ -184,7 +210,6 @@ namespace RSocketDemo
 			Console.WriteLine($"server message: {subscriber.MsgList.Count}");
 
 			Console.WriteLine($"{testName} over....................................................");
-			ReadKey();
 		}
 
 		static async Task ErrorTest()
@@ -268,7 +293,6 @@ namespace RSocketDemo
 			}
 
 			Console.WriteLine($"ErrorTest over....................................................");
-			ReadKey();
 		}
 
 		static IPublisher<Payload> RequestChannel(int outputs, int initialRequest, string data = "data", string metadata = "metadata")

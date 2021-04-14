@@ -92,7 +92,7 @@ namespace RSocket
 		{
 			this.FinishOutgoing();
 			this.IncomingSubscriber.OnError(new OperationCanceledException("Outbound has terminated with an error.", error));
-			this.Socket.SendError(ErrorCodes.Application_Error, this.StreamId, $"{error.Message}\n{error.StackTrace}").Wait();
+			this.Socket.SendError(this.StreamId, ErrorCodes.Application_Error, $"{error.Message}\n{error.StackTrace}").Wait();
 		}
 		object EnsureHaveBeenReady()
 		{

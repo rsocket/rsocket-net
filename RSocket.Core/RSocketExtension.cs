@@ -34,11 +34,62 @@ namespace RSocket
 			return socket.RequestChannel(Helpers.StringToByteSequence(data), Helpers.StringToByteSequence(metadata), source, int.MaxValue).ToAsyncEnumerable().Select(a => Encoding.UTF8.GetString(a.Data.ToArray()));
 		}
 
-		internal static Task SendPayload(this RSocket socket, Payload payload, int streamId, bool complete = false, bool next = false)
+
+		internal static async Task OutputSync(this RSocket socket, Func<System.IO.Pipelines.PipeWriter, Task> func)
 		{
-			return new RSocketProtocol.Payload(streamId, payload.Data, payload.Metadata, complete: complete, next: next).WriteFlush(socket.Transport.Output, payload.Data, payload.Metadata);
+			//lock (socket.Transport.Output)
+			//{
+			//	func(socket.Transport.Output).Wait();
+			//	return;
+			//}
+
+			await socket.OutputSyncLock.WaitAsync();
+			try
+			{
+				/* ps: PipeWriter is not a thread-safe object. */
+				await func(socket.Transport.Output);
+			}
+			finally
+			{
+				socket.OutputSyncLock.Release();
+			}
 		}
-		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, string errorText, bool throwIfExceptionOccurred = true)
+		internal static Task SendRequestFireAndForget(this RSocket socket, int streamId, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, Int32 initialRequest = 0, bool follows = false)
+		{
+			return socket.OutputSync(output =>
+			{
+				return new RSocketProtocol.RequestFireAndForget(streamId, data, metadata, initialRequest, follows).WriteFlush(output, data, metadata);
+			});
+		}
+		internal static Task SendRequestResponse(this RSocket socket, int streamId, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, Int32 initialRequest = 0, bool follows = false)
+		{
+			return socket.OutputSync(output =>
+			{
+				return new RSocketProtocol.RequestResponse(streamId, data, metadata, initialRequest, follows).WriteFlush(output, data, metadata);
+			});
+		}
+		internal static Task SendRequestStream(this RSocket socket, int streamId, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, Int32 initialRequest = 0, bool follows = false)
+		{
+			return socket.OutputSync(output =>
+			{
+				return new RSocketProtocol.RequestStream(streamId, data, metadata, initialRequest, follows).WriteFlush(output, data, metadata);
+			});
+		}
+		internal static Task SendRequestChannel(this RSocket socket, int streamId, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, Int32 initialRequest = 0, bool follows = false, bool complete = false)
+		{
+			return socket.OutputSync(output =>
+			{
+				return new RSocketProtocol.RequestChannel(streamId, data, metadata, initialRequest, follows, complete).WriteFlush(output, data, metadata);
+			});
+		}
+		internal static Task SendPayload(this RSocket socket, int streamId, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default, bool follows = false, bool complete = false, bool next = false)
+		{
+			return socket.OutputSync(output =>
+			   {
+				   return new RSocketProtocol.Payload(streamId, data, metadata, follows: follows, complete: complete, next: next).WriteFlush(output, data, metadata);
+			   });
+		}
+		internal static Task SendError(this RSocket socket, int streamId, ErrorCodes errorCode, string errorText, bool throwIfExceptionOccurred = true)
 		{
 			var errorData = default(ReadOnlySequence<byte>);
 
@@ -46,13 +97,16 @@ namespace RSocket
 			{
 				errorData = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(errorText));
 			}
-			return SendError(socket, errorCode, streamId, errorData, throwIfExceptionOccurred);
+			return SendError(socket, streamId, errorCode, errorData, throwIfExceptionOccurred);
 		}
-		internal static Task SendError(this RSocket socket, ErrorCodes errorCode, int streamId, ReadOnlySequence<byte> errorData, bool throwIfExceptionOccurred = true)
+		internal static Task SendError(this RSocket socket, int streamId, ErrorCodes errorCode, ReadOnlySequence<byte> errorData, bool throwIfExceptionOccurred = true)
 		{
 			try
 			{
-				return new RSocketProtocol.Error(errorCode, streamId, errorData).WriteFlush(socket.Transport.Output, errorData);
+				return socket.OutputSync(output =>
+				{
+					return new RSocketProtocol.Error(errorCode, streamId, errorData).WriteFlush(output, errorData);
+				});
 			}
 			catch
 			{
@@ -64,18 +118,34 @@ namespace RSocket
 		}
 		internal static Task SendCancel(this RSocket socket, int streamId = 0)
 		{
-			var cancel = new Cancel(streamId);
-			return cancel.WriteFlush(socket.Transport.Output);
+			return socket.OutputSync(output =>
+			{
+				var cancel = new Cancel(streamId);
+				return cancel.WriteFlush(output);
+			});
 		}
 		internal static Task SendRequestN(this RSocket socket, int streamId, int n)
 		{
-			var requestne = new RequestN(streamId, default(ReadOnlySequence<byte>), initialRequest: n);
-			return requestne.WriteFlush(socket.Transport.Output);
+			return socket.OutputSync(output =>
+			{
+				var requestne = new RequestN(streamId, default(ReadOnlySequence<byte>), initialRequest: n);
+				return requestne.WriteFlush(output);
+			});
 		}
 		internal static Task SendKeepAlive(this RSocket socket, int lastReceivedPosition, bool respond)
 		{
-			RSocketProtocol.KeepAlive keepAlive = new RSocketProtocol.KeepAlive(lastReceivedPosition, respond);
-			return keepAlive.WriteFlush(socket.Transport.Output);
+			return socket.OutputSync(output =>
+			{
+				RSocketProtocol.KeepAlive keepAlive = new RSocketProtocol.KeepAlive(lastReceivedPosition, respond);
+				return keepAlive.WriteFlush(output);
+			});
+		}
+		internal static Task SendSetup(this RSocket socket, TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, byte[] resumeToken = default, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		{
+			return socket.OutputSync(output =>
+			{
+				return new RSocketProtocol.Setup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, resumeToken: resumeToken, data: data, metadata: metadata).WriteFlush(output, data: data, metadata: metadata);
+			});
 		}
 	}
 }
