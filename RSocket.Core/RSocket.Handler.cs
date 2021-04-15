@@ -51,7 +51,7 @@ namespace RSocket
 					if (header.Stream > 0)
 					{
 						string errorText = $"{ex.Message}\n{ex.StackTrace}";
-						this.RemoveAndReleaseFrameHandler(header.Stream);
+						this.RemoveAndReleaseChannel(header.Stream);
 						await this.SendError(header.Stream, ErrorCodes.Application_Error, errorText, false);
 					}
 					else

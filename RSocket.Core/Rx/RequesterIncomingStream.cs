@@ -30,29 +30,29 @@ namespace RSocket
 
 		ISubscription IPublisher<Payload>.Subscribe(IObserver<Payload> observer)
 		{
-			var streamId = this.Socket.NewStreamId();
+			var channelId = this.Socket.NewStreamId();
 
-			RequesterFrameHandler frameHandler = new RequesterFrameHandler(this.Socket, streamId, this._outputs);
+			RequesterChannel channel = new RequesterChannel(this.Socket, channelId, this._outputs);
 
-			this.Socket.FrameHandlerDispatch(streamId, frameHandler);
-			var sub = frameHandler.Incoming.Subscribe(observer);
+			this.Socket.AddChannel(channel);
+			var sub = channel.Incoming.Subscribe(observer);
 
-			this.Socket.Schedule(streamId, async (stream, cancel) =>
+			this.Socket.Schedule(channelId, async (stream, cancel) =>
 			{
 				try
 				{
-					await this._channelEstablisher(streamId).ConfigureAwait(false); //TODO handle error
-					Task frameHandlerTask = frameHandler.ToTask();
-					this.OnSubscribe(streamId, frameHandler); //TODO handle error
-					await frameHandlerTask;
+					await this._channelEstablisher(channelId).ConfigureAwait(false);
+					Task channelTask = channel.ToTask();
+					this.OnSubscribe(channel);
+					await channelTask;
 				}
 				finally
 				{
-					this.Socket.FrameHandlerRemove(streamId);
-					frameHandler.Dispose();
+					this.Socket.RemoveChannel(channelId);
+					channel.Dispose();
 
 #if DEBUG
-					Console.WriteLine($"----------------Channel of requester has terminated: stream[{streamId}]----------------");
+					Console.WriteLine($"----------------Channel of requester has terminated: stream[{channelId}]----------------");
 #endif
 				}
 			});
@@ -60,7 +60,7 @@ namespace RSocket
 			return sub;
 		}
 
-		protected virtual void OnSubscribe(int streamId, FrameHandler frameHandler)
+		protected virtual void OnSubscribe(Channel channel)
 		{
 
 		}

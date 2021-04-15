@@ -9,7 +9,7 @@ namespace RSocket
 	class IncomingStream : IPublisher<Payload>
 	{
 		IObservable<Payload> _source;
-		FrameHandler _frameHandler;
+		Channel _channel;
 
 		int _subscribedFlag = 0;
 		bool IsSubscribed
@@ -20,10 +20,10 @@ namespace RSocket
 			}
 		}
 
-		public IncomingStream(IObservable<Payload> source, FrameHandler frameHandler)
+		public IncomingStream(IObservable<Payload> source, Channel channel)
 		{
 			this._source = source;
-			this._frameHandler = frameHandler;
+			this._channel = channel;
 		}
 
 		public ISubscription Subscribe(IObserver<Payload> observer)
@@ -31,10 +31,10 @@ namespace RSocket
 			if (this.IsSubscribed)
 				throw new InvalidOperationException("Incoming stream allows only one Subscriber");
 
-			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(observer, this._frameHandler);
+			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(observer, this._channel);
 			var sub = subscriber.Subscribe(this._source);
 
-			return new IncomingStreamSubscription(sub, this._frameHandler, subscriber);
+			return new IncomingStreamSubscription(sub, this._channel, subscriber);
 		}
 
 		IDisposable IObservable<Payload>.Subscribe(IObserver<Payload> observer)

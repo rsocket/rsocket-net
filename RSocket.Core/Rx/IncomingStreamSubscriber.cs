@@ -7,12 +7,12 @@ namespace RSocket
 	class IncomingStreamSubscriber : Subscriber<Payload>, IObserver<Payload>, ISubscription
 	{
 		IObserver<Payload> _observer;
-		FrameHandler _frameHandler;
+		Channel _channel;
 
-		public IncomingStreamSubscriber(IObserver<Payload> observer, FrameHandler frameHandler)
+		public IncomingStreamSubscriber(IObserver<Payload> observer, Channel channel)
 		{
 			this._observer = observer;
-			this._frameHandler = frameHandler;
+			this._channel = channel;
 		}
 
 		protected override void DoOnCompleted()
@@ -25,7 +25,7 @@ namespace RSocket
 			{
 			}
 
-			this._frameHandler.OnIncomingCompleted();
+			this._channel.OnIncomingCompleted();
 		}
 
 		protected override void DoOnError(Exception error)
@@ -38,7 +38,7 @@ namespace RSocket
 			{
 			}
 
-			this._frameHandler.OnIncomingCompleted();
+			this._channel.OnIncomingCompleted();
 		}
 
 		protected override void DoOnNext(Payload value)
@@ -49,7 +49,7 @@ namespace RSocket
 			}
 			catch
 			{
-				this._frameHandler.OnIncomingCanceled();
+				this._channel.OnIncomingCanceled();
 				throw;
 			}
 		}

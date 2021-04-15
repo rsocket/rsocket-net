@@ -1,22 +1,12 @@
 using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace RSocket
 {
-	public class RequesterFrameHandler : FrameHandler
+	public class RequesterChannel : Channel
 	{
 		IPublisher<Payload> _outgoing;
 
-		public RequesterFrameHandler(RSocket socket
-			, int streamId
-			, IObservable<Payload> outgoing) : base(socket, streamId)
+		public RequesterChannel(RSocket socket, int channelId, IObservable<Payload> outgoing) : base(socket, channelId)
 		{
 			this._outgoing = Helpers.AsPublisher(outgoing);
 		}

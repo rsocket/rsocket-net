@@ -39,7 +39,7 @@ namespace RSocket
 		{
 			//lock (socket.Transport.Output)
 			//{
-			//	func(socket.Transport.Output).Wait();
+			//	func(socket.Transport.Output).Wait(); //There is a deadlock hazard here.
 			//	return;
 			//}
 

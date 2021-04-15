@@ -1,24 +1,16 @@
 using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), RSocket.IPublisher<RSocket.Payload>, System.IObservable<RSocket.Payload>>;
 
 namespace RSocket
 {
-	public class ResponderFrameHandler : FrameHandler
+	public class ResponderChannel : Channel
 	{
 		protected ReadOnlySequence<byte> _metadata;
 		protected ReadOnlySequence<byte> _data;
 		Channeler _channeler;
 
-		public ResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, streamId, initialRequest)
+		public ResponderChannel(RSocket socket, int channelId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, channelId, initialRequest)
 		{
 			this._metadata = metadata;
 			this._data = data;

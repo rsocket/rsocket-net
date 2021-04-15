@@ -8,15 +8,15 @@ namespace RSocket
 	class IncomingStreamSubscription : ISubscription
 	{
 		IDisposable _subscription;
-		FrameHandler _frameHandler;
+		Channel _channel;
 		IncomingStreamSubscriber _subscriber;
 
 		bool _disposed;
 
-		public IncomingStreamSubscription(IDisposable subscription, FrameHandler frameHandler, IncomingStreamSubscriber subscriber)
+		public IncomingStreamSubscription(IDisposable subscription, Channel channel, IncomingStreamSubscriber subscriber)
 		{
 			this._subscription = subscription;
-			this._frameHandler = frameHandler;
+			this._channel = channel;
 			this._subscriber = subscriber;
 		}
 
@@ -37,12 +37,12 @@ namespace RSocket
 				/* 
 				 * The subscription will be disposed when `this._observer.OnError` or `this._observer.OnCompleted` methods calling in some cases, so we execute `OnIncomingCompleted` method again ensure the incoming status is completed. 
 				 */
-				this._frameHandler.OnIncomingCompleted();
+				this._channel.OnIncomingCompleted();
 			}
 
 			this.DisposeSubscription();
 
-			this._frameHandler.OnIncomingCanceled();
+			this._channel.OnIncomingCanceled();
 		}
 
 		public void Request(int n)
@@ -53,7 +53,7 @@ namespace RSocket
 			if (this._subscriber.IsCompleted)
 				return;
 
-			this._frameHandler.OnIncomingSubscriberRequestN(n);
+			this._channel.OnIncomingSubscriberRequestN(n);
 		}
 	}
 }

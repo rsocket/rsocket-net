@@ -15,6 +15,12 @@ using IRSocketStream = System.IObserver<RSocket.Payload>;
 
 namespace RSocket
 {
+	public interface IRSocketChannel
+	{
+		Task Send(Payload value);
+		Task Complete();
+	}
+
 	partial class RSocket
 	{
 		public class Receiver<T> : IAsyncEnumerable<T>

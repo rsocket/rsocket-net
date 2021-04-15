@@ -9,18 +9,10 @@ using System.Threading.Tasks;
 
 using IRSocketStream = System.IObserver<RSocket.Payload>;
 using System.Reactive.Disposables;
-using System.Reactive.Threading.Tasks;
 using RSocket.Exceptions;
-using System.Reactive.Concurrency;
 
 namespace RSocket
 {
-	public interface IRSocketChannel
-	{
-		Task Send(Payload value);
-		Task Complete();
-	}
-
 	public partial class RSocket : IRSocketProtocol, IDisposable
 	{
 		bool _disposed;
@@ -37,45 +29,33 @@ namespace RSocket
 		//TODO Hide.
 		public IRSocketTransport Transport { get; set; }
 
-		private int StreamId = 1 - 2;       //SPEC: Stream IDs on the client MUST start at 1 and increment by 2 sequentially, such as 1, 3, 5, 7, etc
-		protected internal virtual int NewStreamId() => Interlocked.Add(ref StreamId, 2);  //TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
+		int StreamId = 1 - 2;
+		protected internal virtual int NewStreamId() => Interlocked.Add(ref StreamId, 2);
 
-		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
-		private int StreamDispatch(int id, IRSocketStream transform) { Dispatcher[id] = transform; return id; }
-		private int StreamDispatch(IRSocketStream transform) => StreamDispatch(NewStreamId(), transform);
-		private IRSocketStream StreamRemove(int id)
+		ConcurrentDictionary<int, IChannel> _activeChannels = new ConcurrentDictionary<int, IChannel>();
+		internal void AddChannel(IChannel channel)
 		{
-			this.Dispatcher.TryRemove(id, out var transform);
-			return transform;
+			this._activeChannels[channel.ChannelId] = channel;
 		}
-
-
-		private ConcurrentDictionary<int, IFrameHandler> FrameHandlerDispatcher = new ConcurrentDictionary<int, IFrameHandler>();
-		internal int FrameHandlerDispatch(int id, IFrameHandler frameHandler) { FrameHandlerDispatcher[id] = frameHandler; return id; }
-		private int FrameHandlerDispatch(IFrameHandler frameHandler) => FrameHandlerDispatch(NewStreamId(), frameHandler);
-		internal IFrameHandler FrameHandlerRemove(int id)
+		internal IChannel RemoveChannel(int id)
 		{
-			this.FrameHandlerDispatcher.TryRemove(id, out var frameHandler);
-			return frameHandler;
+			this._activeChannels.TryRemove(id, out var channel);
+			return channel;
 		}
-		internal void RemoveAndReleaseFrameHandler(int streamId)
+		internal void RemoveAndReleaseChannel(int id)
 		{
-			IFrameHandler frameHandler = this.FrameHandlerRemove(streamId);
-			if (frameHandler != null)
+			IChannel channel = this.RemoveChannel(id);
+			if (channel != null)
 			{
 				try
 				{
-					frameHandler.Dispose();
+					channel.Dispose();
 				}
 				catch
 				{
 				}
 			}
 		}
-
-		//TODO Stream Destruction - i.e. removal from the dispatcher.
-
-		protected IDisposable ChannelSubscription;      //TODO Tracking state for channels
 
 		public RSocket(IRSocketTransport transport, PrefetchOptions options = default)
 		{
@@ -137,13 +117,7 @@ namespace RSocket
 		[Obsolete("This method has obsoleted.")]
 		public virtual Task<T> RequestResponse<T>(Func<Payload, T> resultmapper,
 		ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-		=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
-		[Obsolete("This method has obsoleted.")]
-		public Task RequestResponse(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
-		{
-			var id = StreamDispatch(stream);
-			return this.SendRequestResponse(id, data, metadata);
-		}
+		=> throw new NotSupportedException("This method has obsoleted.");
 
 		public IPublisher<Payload> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
 		{
@@ -159,12 +133,11 @@ namespace RSocket
 		[Obsolete("This method has obsoleted.")]
 		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<Payload, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<T>(stream => RequestStream(stream, data, metadata), value => resultmapper(value));
+			=> throw new NotSupportedException("This method has obsoleted.");
 		[Obsolete("This method has obsoleted.")]
 		public Task RequestStream(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			var id = StreamDispatch(stream);
-			return this.SendRequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial));
+			throw new NotSupportedException("This method has obsoleted.");
 		}
 
 		public IPublisher<Payload> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IPublisher<Payload> source, int initial = RSocketOptions.INITIALDEFAULT)
@@ -187,44 +160,11 @@ namespace RSocket
 			var incoming = new RequesterIncomingStream(this, source, channelEstablisher);
 			return incoming;
 		}
-		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
 		[Obsolete("This method has obsoleted.")]
 		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
 			Func<Payload, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => new Payload(default, sourcemapper(_)), value => resultmapper(value));
-		[Obsolete("This method has obsoleted.")]
-		public async Task<IRSocketChannel> RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
-		{
-			var id = StreamDispatch(stream);
-			await this.SendRequestChannel(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial));
-			var channel = new ChannelHandler(this, id);
-			return channel;
-		}
-
-		protected internal class ChannelHandler : IRSocketChannel       //TODO hmmm...
-		{
-			readonly RSocket Socket;
-			readonly int Stream;
-
-			public ChannelHandler(RSocket socket, int stream) { Socket = socket; Stream = stream; }
-
-			public Task Send(Payload value)
-			{
-				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				return this.Socket.SendPayload(this.Stream, value.Data, value.Metadata, next: true);
-				//if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				//return new RSocketProtocol.Payload(Stream, value.data, value.metadata, next: true).WriteFlush(Socket.Transport.Output, value.data, value.metadata);
-			}
-
-			public Task Complete()
-			{
-				if (!Socket.FrameHandlerDispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				return this.Socket.SendPayload(this.Stream, complete: true);
-				//if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				//return new RSocketProtocol.Payload(Stream, complete: true).WriteFlush(Socket.Transport.Output);
-			}
-		}
+			=> throw new NotSupportedException("This method has obsoleted.");
 
 		internal void StartKeepAlive(TimeSpan keepAliveInterval, TimeSpan keepAliveTimeout)
 		{
@@ -253,27 +193,27 @@ namespace RSocket
 				Console.WriteLine(errorText);
 #endif
 
-				this.ReleaseAllFrameHandlers(RSocketProtocol.ErrorCodes.Connection_Error, errorText);
+				this.ReleaseAllChannels(RSocketProtocol.ErrorCodes.Connection_Error, errorText);
 				return;
 			}
 
 			this.SendKeepAlive(0, true);
 		}
 
-		void ReleaseAllFrameHandlers(RSocketProtocol.ErrorCodes errorCode, string errorText)
+		void ReleaseAllChannels(RSocketProtocol.ErrorCodes errorCode, string errorText)
 		{
 			var errorData = Helpers.StringToByteSequence(errorText);
 			lock (this)
 			{
-				foreach (var kv in this.FrameHandlerDispatcher)
+				foreach (var kv in this._activeChannels)
 				{
-					int streamId = kv.Key;
-					var frameHandler = kv.Value;
+					var channel = kv.Value;
+					int channelId = channel.ChannelId;
 					try
 					{
-						frameHandler.HandleError(new RSocketProtocol.Error(errorCode, streamId, errorData, errorText));
-						this.FrameHandlerRemove(streamId);
-						frameHandler.Dispose();
+						channel.HandleError(new RSocketProtocol.Error(errorCode, channelId, errorData, errorText));
+						this.RemoveChannel(channelId);
+						channel.Dispose();
 					}
 					catch
 					{
@@ -315,7 +255,7 @@ namespace RSocket
 
 			this._ticksDisposable.Dispose();
 			this.CloseConnection().Wait();
-			this.ReleaseAllFrameHandlers(RSocketProtocol.ErrorCodes.Connection_Close, null);
+			this.ReleaseAllChannels(RSocketProtocol.ErrorCodes.Connection_Close, null);
 			this.OutputSyncLock.Dispose();
 
 			this.Dispose(true);

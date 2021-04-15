@@ -6,7 +6,7 @@ using static RSocket.RSocketProtocol;
 
 namespace RSocket
 {
-	public abstract partial class FrameHandler : IFrameHandler
+	public abstract partial class Channel : IChannel
 	{
 		bool _disposed = false;
 		int _initialOutgoingRequest = 0;
@@ -25,7 +25,7 @@ namespace RSocket
 		public bool IncomingFinished { get { return this._incomingFinished; } }
 		public bool OutgoingFinished { get { return this._outgoingFinished; } }
 
-		FrameHandler(RSocket socket)
+		Channel(RSocket socket)
 		{
 			this.Socket = socket;
 
@@ -34,18 +34,17 @@ namespace RSocket
 			this._lazyOutgoing = new Lazy<IPublisher<Payload>>(this.CreateOutgoingLazy, LazyThreadSafetyMode.ExecutionAndPublication);
 			this._lazyOutgoingSubscriber = new Lazy<(ISubscription Subscription, IObserver<Payload> Subscriber)>(this.SubscribeOutgoing, LazyThreadSafetyMode.ExecutionAndPublication);
 		}
-		protected FrameHandler(RSocket socket, int streamId) : this(socket)
+		protected Channel(RSocket socket, int channelId) : this(socket)
 		{
-			this.StreamId = streamId;
+			this.ChannelId = channelId;
 		}
-
-		protected FrameHandler(RSocket socket, int streamId, int initialOutgoingRequest) : this(socket, streamId)
+		protected Channel(RSocket socket, int channelId, int initialOutgoingRequest) : this(socket, channelId)
 		{
 			this._initialOutgoingRequest = initialOutgoingRequest;
 		}
 
 		public RSocket Socket { get; set; }
-		public int StreamId { get; set; }
+		public int ChannelId { get; set; }
 
 		public IPublisher<Payload> Incoming { get; private set; }
 		public IPublisher<Payload> Outgoing { get { return this._lazyOutgoing.Value; } }
@@ -92,7 +91,7 @@ namespace RSocket
 		{
 			this.FinishOutgoing();
 			this.IncomingSubscriber.OnError(new OperationCanceledException("Outbound has terminated with an error.", error));
-			this.Socket.SendError(this.StreamId, ErrorCodes.Application_Error, $"{error.Message}\n{error.StackTrace}").Wait();
+			this.Socket.SendError(this.ChannelId, ErrorCodes.Application_Error, $"{error.Message}\n{error.StackTrace}").Wait();
 		}
 		object EnsureHaveBeenReady()
 		{
@@ -164,7 +163,7 @@ namespace RSocket
 		public virtual void HandleCancel(RSocketProtocol.Cancel message)
 		{
 #if DEBUG
-			Console.WriteLine($"Handling cancel message...............stream[{this.StreamId}]");
+			Console.WriteLine($"Handling cancel message...............stream[{this.ChannelId}]");
 #endif
 			this.EnsureHaveBeenReady();
 			this.HandleCancelCore();
@@ -202,9 +201,9 @@ namespace RSocket
 		internal void SendCancelFrame()
 		{
 #if DEBUG
-			Console.WriteLine($"Sending cancel frame...............stream[{this.StreamId}]");
+			Console.WriteLine($"Sending cancel frame...............stream[{this.ChannelId}]");
 #endif
-			this.Socket.SendCancel(this.StreamId).Wait();
+			this.Socket.SendCancel(this.ChannelId).Wait();
 		}
 		//called by InboundSubscription.
 		public void OnIncomingSubscriberRequestN(int n)
@@ -212,7 +211,7 @@ namespace RSocket
 			if (this._incomingFinished)
 				return;
 
-			this.Socket.SendRequestN(this.StreamId, n).Wait();
+			this.Socket.SendRequestN(this.ChannelId, n).Wait();
 		}
 
 		public virtual async Task ToTask()

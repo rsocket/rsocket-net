@@ -14,10 +14,10 @@ namespace RSocket
 
 		}
 
-		protected override void OnSubscribe(int streamId, FrameHandler frameHandler)
+		protected override void OnSubscribe(Channel channel)
 		{
-			base.OnSubscribe(streamId, frameHandler);
-			frameHandler.FinishOutgoing();
+			base.OnSubscribe(channel);
+			channel.FinishOutgoing();
 		}
 	}
 }

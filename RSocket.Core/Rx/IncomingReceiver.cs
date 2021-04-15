@@ -7,9 +7,9 @@ namespace RSocket
 {
 	class IncomingReceiver : SimplePublisher<Payload>, IObservable<Payload>, IDisposable
 	{
-		public IncomingReceiver(FrameHandler frameHandler)
+		public IncomingReceiver(Channel channel)
 		{
-			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(EmptySubscriber<Payload>.Instance, frameHandler);
+			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(EmptySubscriber<Payload>.Instance, channel);
 			subscriber.Subscribe(this); //In case the application layer does not subscribe incoming that the incoming status is unfinished always.
 		}
 	}

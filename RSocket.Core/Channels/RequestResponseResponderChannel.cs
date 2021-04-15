@@ -1,19 +1,12 @@
 using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace RSocket
 {
-	public class RequestResponseResponderFrameHandler : RequestStreamResponderFrameHandler
+	public class RequestResponseResponderChannel : RequestStreamResponderChannel
 	{
-		public RequestResponseResponderFrameHandler(RSocket socket, int streamId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) : base(socket, streamId, metadata, data, 0, null)
+		public RequestResponseResponderChannel(RSocket socket, int channelId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) : base(socket, channelId, metadata, data, 0, null)
 		{
 
 		}

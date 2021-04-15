@@ -23,45 +23,46 @@ namespace RSocket
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Streamer { get; set; } = request => throw new NotImplementedException();
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<Payload>, IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
 
-		void MessageDispatch(int streamId, Action<IFrameHandler> act)
+		void MessageDispatch(int streamId, Action<IChannel> act)
 		{
-			if (this.FrameHandlerDispatcher.TryGetValue(streamId, out var frameHandler))
+			if (this._activeChannels.TryGetValue(streamId, out var channel))
 			{
-				act(frameHandler);
+				act(channel);
 			}
 			else
 			{
 #if DEBUG
-				Console.WriteLine($"missing handler: {streamId}");
+				Console.WriteLine($"missing frame handler: {streamId}");
 #endif
-				//TODO Log missing handler here.
+				//TODO Log missing frame handler here.
 			}
 		}
-		async Task ExecuteFrameHandler(int streamId, IFrameHandler frameHandler)
+		async Task ChannelDispatch(IChannel channel)
 		{
-			this.FrameHandlerDispatch(streamId, frameHandler);
+			int channelId = channel.ChannelId;
+			this.AddChannel(channel);
 			try
 			{
 				/*
-				 * Using a new task to run the handler in case blocking socket thread.
+				 * Using a new task to run the channel in case blocking socket thread.
 				 */
 				await Task.Run(async () =>
 				{
-					await frameHandler.ToTask();
+					await channel.ToTask();
 				});
 			}
 			catch (Exception ex)
 			{
 #if DEBUG
-				Console.WriteLine($"error: stream[{streamId}] {ex.Message} {ex.StackTrace}");
+				Console.WriteLine($"error: stream[{channelId}] {ex.Message} {ex.StackTrace}");
 #endif
 			}
 			finally
 			{
-				this.FrameHandlerRemove(streamId);
-				frameHandler.Dispose();
+				this.RemoveChannel(channelId);
+				channel.Dispose();
 #if DEBUG
-				Console.WriteLine($"----------------Channel of responder has terminated: stream[{streamId}]----------------");
+				Console.WriteLine($"----------------Channel of responder has terminated: stream[{channelId}]----------------");
 #endif
 			}
 		}
@@ -88,7 +89,7 @@ namespace RSocket
 		void IRSocketProtocol.Error(RSocketProtocol.Error message)
 		{
 #if DEBUG
-			Console.WriteLine($"Handling error message[{Enum.GetName(message.ErrorCode.GetType(), message.ErrorCode)}]...............stream[{this.StreamId}]");
+			Console.WriteLine($"Handling error message[{Enum.GetName(message.ErrorCode.GetType(), message.ErrorCode)}]...............stream[{message.Stream}]");
 #endif
 
 			if (message.Stream > 0)
@@ -113,12 +114,12 @@ namespace RSocket
 				case RSocketProtocol.ErrorCodes.Connection_Error:
 					{
 						this.CloseConnection().Wait();
-						this.ReleaseAllFrameHandlers(message.ErrorCode, message.ErrorText);
+						this.ReleaseAllChannels(message.ErrorCode, message.ErrorText);
 					}
 					break;
 				case RSocketProtocol.ErrorCodes.Connection_Close:
 					{
-						this.ReleaseAllFrameHandlers(message.ErrorCode, message.ErrorText);
+						this.ReleaseAllChannels(message.ErrorCode, message.ErrorText);
 						this.CloseConnection().Wait();
 					}
 					break;
@@ -166,8 +167,8 @@ namespace RSocket
 			metadata = metadata.Clone();
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
-				RequestResponseResponderFrameHandler frameHandler = new RequestResponseResponderFrameHandler(this, stream, metadata, data);
-				await this.ExecuteFrameHandler(message.Stream, frameHandler);
+				RequestResponseResponderChannel channel = new RequestResponseResponderChannel(this, stream, metadata, data);
+				await this.ChannelDispatch(channel);
 			});
 		}
 
@@ -183,9 +184,8 @@ namespace RSocket
 					return outgoing;
 				};
 
-				RequestStreamResponderFrameHandler frameHandler = new RequestStreamResponderFrameHandler(this, stream, metadata, data, message.InitialRequest, channeler);
-
-				await this.ExecuteFrameHandler(message.Stream, frameHandler);
+				RequestStreamResponderChannel channel = new RequestStreamResponderChannel(this, stream, metadata, data, message.InitialRequest, channeler);
+				await this.ChannelDispatch(channel);
 			});
 		}
 
@@ -204,8 +204,8 @@ namespace RSocket
 			metadata = metadata.Clone();
 			Schedule(message.Stream, async (stream, cancel) =>
 			{
-				ResponderFrameHandler frameHandler = new ResponderFrameHandler(this, stream, metadata, data, message.InitialRequest, this.Channeler);
-				await this.ExecuteFrameHandler(message.Stream, frameHandler);
+				ResponderChannel channel = new ResponderChannel(this, stream, metadata, data, message.InitialRequest, this.Channeler);
+				await this.ChannelDispatch(channel);
 			});
 		}
 	}
