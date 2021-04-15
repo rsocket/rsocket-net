@@ -1,6 +1,6 @@
 using System;
 
-namespace RSocket
+namespace RSocket.Channels
 {
 	public abstract partial class Channel
 	{

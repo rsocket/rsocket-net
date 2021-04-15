@@ -51,17 +51,18 @@ namespace RSocketDemo
 
 			if (request.Metadata.ConvertToString() == "handle.request.error")
 			{
-				throw new Exception("This is a test error while executing handling RequestFireAndForget.");
+				throw new Exception("This is a test error while handling RequestFireAndForget.");
 			}
 		}
 
 		public async ValueTask<Payload> ForRequestResponse((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
+			await Task.CompletedTask;
 			Console.WriteLine($"client.RequestResponse: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
 
 			if (request.Metadata.ConvertToString() == "handle.request.error")
 			{
-				throw new Exception("This is a test error while executing handling RequestResponse.");
+				throw new Exception("This is a test error while handling RequestResponse.");
 			}
 
 			return new Payload(request.Data, request.Metadata);
@@ -76,7 +77,7 @@ namespace RSocketDemo
 
 			if (metadata == "handle.request.error")
 			{
-				throw new Exception("This is a test error while executing handling RequestStream.");
+				throw new Exception("This is a test error while handling RequestStream.");
 			}
 
 			if (metadata == "gen.data.error")
@@ -103,7 +104,7 @@ namespace RSocketDemo
 
 			if (metadata == "handle.request.error")
 			{
-				throw new Exception("This is a test error while executing handling RequestChannel.");
+				throw new Exception("This is a test error while handling RequestChannel.");
 			}
 
 			if (metadata == "gen.data.error")

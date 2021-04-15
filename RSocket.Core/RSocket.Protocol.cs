@@ -1,15 +1,8 @@
+using RSocket.Channels;
 using System;
 using System.Buffers;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Reactive.Linq;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-
-using IRSocketStream = System.IObserver<RSocket.Payload>;
-using System.Reactive.Disposables;
-using System.Reactive.Threading.Tasks;
 
 namespace RSocket
 {

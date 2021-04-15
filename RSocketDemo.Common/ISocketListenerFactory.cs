@@ -12,9 +12,9 @@ namespace RSocketDemo
 		Task<ISocketListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default);
 	}
 
-	public sealed class SocketTransportFactory : ISocketListenerFactory
+	public sealed class SocketListenerFactory : ISocketListenerFactory
 	{
-		public SocketTransportFactory()
+		public SocketListenerFactory()
 		{
 
 		}

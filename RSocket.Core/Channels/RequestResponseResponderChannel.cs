@@ -2,7 +2,7 @@ using System;
 using System.Buffers;
 using System.Threading.Tasks;
 
-namespace RSocket
+namespace RSocket.Channels
 {
 	public class RequestResponseResponderChannel : RequestStreamResponderChannel
 	{

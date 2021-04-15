@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using static RSocket.RSocketProtocol;
 
-namespace RSocket
+namespace RSocket.Channels
 {
 	public abstract partial class Channel : IChannel
 	{

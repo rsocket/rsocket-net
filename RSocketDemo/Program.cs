@@ -31,8 +31,8 @@ namespace RSocketDemo
 			IPAddress iP = IPAddress.Parse("127.0.0.1");
 			IPEndPoint iPEndPoint = new IPEndPoint(iP, 8888);
 
-			SocketTransportFactory socketTransportFactory = new SocketTransportFactory();
-			RSocketHost host = new RSocketHost(socketTransportFactory, iPEndPoint, a =>
+			SocketListenerFactory socketListenerFactory = new SocketListenerFactory();
+			RSocketHost host = new RSocketHost(socketListenerFactory, iPEndPoint, a =>
 			{
 				return new EchoServer(a);
 			});

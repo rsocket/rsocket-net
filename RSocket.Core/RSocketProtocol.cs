@@ -4,13 +4,11 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Buffers.Binary;
 
 namespace RSocket
 {
 	using System.Buffers;
 	using System.Threading;
-	using Microsoft.AspNetCore.Internal;
 
 	public partial class RSocketProtocol
 	{

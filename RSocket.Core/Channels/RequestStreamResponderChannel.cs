@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Threading.Tasks;
 using Channeler = System.Func<(System.Buffers.ReadOnlySequence<byte> Data, System.Buffers.ReadOnlySequence<byte> Metadata), System.IObservable<RSocket.Payload>, System.IObservable<RSocket.Payload>>;
 
-namespace RSocket
+namespace RSocket.Channels
 {
 	public class RequestStreamResponderChannel : ResponderChannel
 	{
