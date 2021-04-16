@@ -31,8 +31,9 @@ namespace RSocketDemo
 		static async Task Main(string[] args)
 		{
 			//should run RSocketDemo.Server first.
-			Console.WriteLine($"client started...{Thread.CurrentThread.ManagedThreadId}");
+			Console.WriteLine($"Enter any key to launch the client...");
 			Console.ReadKey();
+			Console.WriteLine($"Client started...{Thread.CurrentThread.ManagedThreadId}");
 
 			ClientSocketTransport socketTransport = new ClientSocketTransport("127.0.0.1", 8888);
 			_client = new RSocketDemoClient(socketTransport, new RSocketOptions() { InitialRequestSize = int.MaxValue, KeepAlive = TimeSpan.FromSeconds(60), Lifetime = TimeSpan.FromSeconds(120) });
