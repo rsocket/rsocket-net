@@ -101,19 +101,19 @@ namespace RSocket
 				case RSocketProtocol.ErrorCodes.Unsupported_Setup:
 				case RSocketProtocol.ErrorCodes.Invalid_Setup:
 					{
-						this.CloseConnection().Wait();
+						this.CloseConnection();
 					}
 					break;
 				case RSocketProtocol.ErrorCodes.Connection_Error:
 					{
-						this.CloseConnection().Wait();
+						this.CloseConnection();
 						this.ReleaseAllChannels(message.ErrorCode, message.ErrorText);
 					}
 					break;
 				case RSocketProtocol.ErrorCodes.Connection_Close:
 					{
 						this.ReleaseAllChannels(message.ErrorCode, message.ErrorText);
-						this.CloseConnection().Wait();
+						this.CloseConnection();
 					}
 					break;
 				default:

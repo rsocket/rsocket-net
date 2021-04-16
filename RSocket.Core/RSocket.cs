@@ -184,7 +184,7 @@ namespace RSocket
 			{
 				//timeout
 				this._ticksDisposable.Dispose();
-				this.CloseConnection().Wait();
+				this.CloseConnection();
 
 				string errorText = $"No keep-alive acks for {keepAliveTimeout.TotalMilliseconds} ms.";
 
@@ -239,7 +239,11 @@ namespace RSocket
 				throw new ObjectDisposedException(this.GetType().FullName);
 		}
 
-		async Task CloseConnection()
+		void CloseConnection()
+		{
+			var _ = this.CloseConnectionAsync();
+		}
+		async Task CloseConnectionAsync()
 		{
 			if (Interlocked.CompareExchange(ref this._connectionClosedFlag, 1, 0) != 0)
 				return;
@@ -253,7 +257,7 @@ namespace RSocket
 				return;
 
 			this._ticksDisposable.Dispose();
-			this.CloseConnection().Wait();
+			this.CloseConnection();
 			this.ReleaseAllChannels(RSocketProtocol.ErrorCodes.Connection_Close, null);
 			this.OutputSyncLock.Dispose();
 

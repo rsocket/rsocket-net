@@ -20,7 +20,7 @@ namespace RSocket.Channels
 
 				if (!this._channel.OutputSingle)
 				{
-					this._channel.Socket.SendPayload(this._channel.ChannelId, complete: true, next: false).Wait();
+					this._channel.Socket.SendPayload(this._channel.ChannelId, complete: true, next: false);
 				}
 
 				this._channel.FinishOutgoing();
@@ -38,11 +38,11 @@ namespace RSocket.Channels
 
 				if (this._channel.OutputSingle)
 				{
-					this._channel.Socket.SendPayload(this._channel.ChannelId, data: value.Data, metadata: value.Metadata, complete: true, next: true).Wait();
+					this._channel.Socket.SendPayload(this._channel.ChannelId, data: value.Data, metadata: value.Metadata, complete: true, next: true);
 					return;
 				}
 
-				this._channel.Socket.SendPayload(this._channel.ChannelId, data: value.Data, metadata: value.Metadata, complete: false, next: true).Wait();
+				this._channel.Socket.SendPayload(this._channel.ChannelId, data: value.Data, metadata: value.Metadata, complete: false, next: true);
 			}
 		}
 	}

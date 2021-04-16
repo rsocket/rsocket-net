@@ -32,7 +32,7 @@ namespace RSocketDemo
 				return new RSocketDemoServer(a);
 			});
 			var task = host.ExecuteAsync(CancellationToken.None);
-			Console.WriteLine("server started...");
+			Console.WriteLine("Server started...");
 
 			while (true)
 			{

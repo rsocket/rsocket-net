@@ -81,7 +81,7 @@ namespace RSocket
 			async Task SendErrorAndCloseConnection(RSocketErrorException ex)
 			{
 				await this.SendError(ex.StreamId, ex.ErrorCode, ex.Message, false);
-				await this.CloseConnection();
+				await this.CloseConnectionAsync();
 			}
 		}
 

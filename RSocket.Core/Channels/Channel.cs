@@ -91,7 +91,7 @@ namespace RSocket.Channels
 		{
 			this.FinishOutgoing();
 			this.IncomingSubscriber.OnError(new OperationCanceledException("Outbound has terminated with an error.", error));
-			this.Socket.SendError(this.ChannelId, ErrorCodes.Application_Error, $"{error.Message}\n{error.StackTrace}").Wait();
+			this.Socket.SendError(this.ChannelId, ErrorCodes.Application_Error, $"{error.Message}\n{error.StackTrace}");
 		}
 		object EnsureHaveBeenReady()
 		{
@@ -153,7 +153,6 @@ namespace RSocket.Channels
 		}
 		protected virtual void HandleRequestNCore(int n)
 		{
-			this.EnsureHaveBeenReady();
 			if (this._outgoingFinished)
 				return;
 
@@ -203,7 +202,7 @@ namespace RSocket.Channels
 #if DEBUG
 			Console.WriteLine($"Sending cancel frame...............stream[{this.ChannelId}]");
 #endif
-			this.Socket.SendCancel(this.ChannelId).Wait();
+			this.Socket.SendCancel(this.ChannelId);
 		}
 		//called by InboundSubscription.
 		public void OnIncomingSubscriberRequestN(int n)
@@ -211,7 +210,7 @@ namespace RSocket.Channels
 			if (this._incomingFinished)
 				return;
 
-			this.Socket.SendRequestN(this.ChannelId, n).Wait();
+			this.Socket.SendRequestN(this.ChannelId, n);
 		}
 
 		public virtual async Task ToTask()
