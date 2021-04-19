@@ -45,8 +45,10 @@ namespace RSocketDemo
 			}
 		}
 
-		public void ForRequestFireAndForget((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
+		public async Task ForRequestFireAndForget((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
+			await Task.CompletedTask;
+
 			Console.WriteLine($"client.RequestFireAndForget: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");
 
 			if (request.Metadata.ConvertToString() == "handle.request.error")
@@ -55,7 +57,7 @@ namespace RSocketDemo
 			}
 		}
 
-		public async ValueTask<Payload> ForRequestResponse((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
+		public async Task<Payload> ForRequestResponse((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
 			await Task.CompletedTask;
 			Console.WriteLine($"client.RequestResponse: {request.Data.ConvertToString()},{request.Metadata.ConvertToString()}");

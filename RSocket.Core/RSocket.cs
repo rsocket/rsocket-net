@@ -75,8 +75,14 @@ namespace RSocket
 		public virtual async Task RequestFireAndForget(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
 			this.CheckConnectionStatus();
-			var streamId = this.NewStreamId();
-			await this.SendRequestFireAndForget(streamId, data, metadata);
+			Func<int, Task> channelEstablisher = async streamId =>
+			{
+				await this.SendRequestFireAndForget(streamId, data, metadata);
+			};
+
+			IPublisher<Payload> incoming = new RequestFireAndForgetRequesterIncomingStream(this, channelEstablisher);
+			incoming.Subscribe();
+			await Task.CompletedTask;
 		}
 
 		public virtual async Task<Payload> RequestResponse(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)

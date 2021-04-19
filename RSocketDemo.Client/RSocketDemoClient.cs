@@ -4,6 +4,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace RSocketDemo
 {
@@ -14,8 +15,9 @@ namespace RSocketDemo
 			this.FireAndForgetHandler = this.ForRequestFireAndForget;
 		}
 
-		void ForRequestFireAndForget((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
+		async Task ForRequestFireAndForget((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request)
 		{
+			await Task.CompletedTask;
 			Console.WriteLine($"Received RequestFireAndForget msg: {request.Data.ConvertToString()}");
 		}
 	}

@@ -8,11 +8,8 @@ namespace RSocket
 {
 	public partial class RSocket : IRSocketProtocol
 	{
-		/// <summary>
-		/// Called by socket thread, so this method affects how efficiently the thread receives data.
-		/// </summary>
-		public Action<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> FireAndForgetHandler { get; set; } = request => throw new NotImplementedException();
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<Payload>> Responder { get; set; } = request => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), Task> FireAndForgetHandler { get; set; } = request => throw new NotImplementedException();
+		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), Task<Payload>> Responder { get; set; } = request => throw new NotImplementedException();
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Streamer { get; set; } = request => throw new NotImplementedException();
 		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IPublisher<Payload>, IObservable<Payload>/*You can return an IPublisher<T> object which implements backpressure*/> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
 
@@ -151,16 +148,21 @@ namespace RSocket
 		{
 			data = data.Clone();
 			metadata = metadata.Clone();
-			this.FireAndForgetHandler((data, metadata));
+
+			Schedule(message.Stream, async (streamId, cancel) =>
+			{
+				RequestFireAndForgetResponderChannel channel = new RequestFireAndForgetResponderChannel(this, streamId, metadata, data);
+				await this.ChannelDispatch(channel);
+			});
 		}
 
 		void IRSocketProtocol.RequestResponse(RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
 			data = data.Clone();
 			metadata = metadata.Clone();
-			Schedule(message.Stream, async (stream, cancel) =>
+			Schedule(message.Stream, async (streamId, cancel) =>
 			{
-				RequestResponseResponderChannel channel = new RequestResponseResponderChannel(this, stream, metadata, data);
+				RequestResponseResponderChannel channel = new RequestResponseResponderChannel(this, streamId, metadata, data);
 				await this.ChannelDispatch(channel);
 			});
 		}
@@ -169,7 +171,7 @@ namespace RSocket
 		{
 			data = data.Clone();
 			metadata = metadata.Clone();
-			Schedule(message.Stream, async (stream, cancel) =>
+			Schedule(message.Stream, async (streamId, cancel) =>
 			{
 				Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<Payload>, IObservable<Payload>> channeler = (request, incoming) =>
 				{
@@ -177,7 +179,7 @@ namespace RSocket
 					return outgoing;
 				};
 
-				RequestStreamResponderChannel channel = new RequestStreamResponderChannel(this, stream, metadata, data, message.InitialRequest, channeler);
+				RequestStreamResponderChannel channel = new RequestStreamResponderChannel(this, streamId, metadata, data, message.InitialRequest, channeler);
 				await this.ChannelDispatch(channel);
 			});
 		}
@@ -195,9 +197,9 @@ namespace RSocket
 			 */
 			data = data.Clone();
 			metadata = metadata.Clone();
-			Schedule(message.Stream, async (stream, cancel) =>
+			Schedule(message.Stream, async (streamId, cancel) =>
 			{
-				ResponderChannel channel = new ResponderChannel(this, stream, metadata, data, message.InitialRequest, this.Channeler);
+				ResponderChannel channel = new ResponderChannel(this, streamId, metadata, data, message.InitialRequest, this.Channeler);
 				await this.ChannelDispatch(channel);
 			});
 		}

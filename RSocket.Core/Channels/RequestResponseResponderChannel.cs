@@ -10,7 +10,7 @@ namespace RSocket.Channels
 		{
 
 		}
-
+		
 		protected override bool OutputSingle => true;
 
 		public override async Task ToTask()
