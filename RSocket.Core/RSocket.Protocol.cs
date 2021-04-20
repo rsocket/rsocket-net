@@ -148,7 +148,6 @@ namespace RSocket
 		{
 			data = data.Clone();
 			metadata = metadata.Clone();
-
 			Schedule(message.Stream, async (streamId, cancel) =>
 			{
 				RequestFireAndForgetResponderChannel channel = new RequestFireAndForgetResponderChannel(this, streamId, metadata, data);

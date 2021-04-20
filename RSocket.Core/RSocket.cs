@@ -58,14 +58,14 @@ namespace RSocket
 
 		public RSocket(IRSocketTransport transport, PrefetchOptions options = default)
 		{
-			Transport = transport;
-			Options = options ?? PrefetchOptions.Default;
+			this.Transport = transport;
+			this.Options = options ?? PrefetchOptions.Default;
 		}
 
 		/// <summary>Binds the RSocket to its Transport and begins handling messages.</summary>
 		/// <param name="cancel">Cancellation for the handler. Requesting cancellation will stop message handling.</param>
 		/// <returns>The handler task.</returns>
-		public Task Connect(CancellationToken cancel = default) => this.Handler(Transport.Input, cancel);
+		public Task Connect(CancellationToken cancel = default) => this.Handler(this.Transport.Input, cancel);
 
 		public virtual void OnClose()
 		{
@@ -81,7 +81,7 @@ namespace RSocket
 			};
 
 			IPublisher<Payload> incoming = new RequestFireAndForgetRequesterIncomingStream(this, channelEstablisher);
-			incoming.Subscribe();
+			incoming.Subscribe().Dispose();
 			await Task.CompletedTask;
 		}
 
@@ -156,7 +156,6 @@ namespace RSocket
 			 */
 
 			this.CheckConnectionStatus();
-
 			Func<int, Task> channelEstablisher = async streamId =>
 			{
 				await this.SendRequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
