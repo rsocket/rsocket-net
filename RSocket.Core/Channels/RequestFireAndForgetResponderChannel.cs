@@ -15,7 +15,7 @@ namespace RSocket.Channels
 		{
 			try
 			{
-				await this.Socket.FireAndForgetHandler((this._data, this._metadata));
+				await this.Socket.FireAndForgetHandler((this.Data, this.Metadata));
 			}
 			catch (Exception ex)
 			{

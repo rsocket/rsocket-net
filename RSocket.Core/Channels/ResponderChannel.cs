@@ -6,16 +6,17 @@ namespace RSocket.Channels
 {
 	public class ResponderChannel : Channel
 	{
-		protected ReadOnlySequence<byte> _metadata;
-		protected ReadOnlySequence<byte> _data;
 		Channeler _channeler;
 
 		public ResponderChannel(RSocket socket, int channelId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data, int initialRequest, Channeler channeler) : base(socket, channelId, initialRequest)
 		{
-			this._metadata = metadata;
-			this._data = data;
+			this.Metadata = metadata;
+			this.Data = data;
 			this._channeler = channeler;
 		}
+
+		public ReadOnlySequence<byte> Data { get; set; }
+		public ReadOnlySequence<byte> Metadata { get; set; }
 
 		protected override IPublisher<Payload> CreateOutgoing()
 		{
@@ -24,7 +25,7 @@ namespace RSocket.Channels
 				return base.CreateOutgoing();
 			}
 
-			var outputPayloads = this._channeler((this._data, this._metadata), this.Incoming);
+			var outputPayloads = this._channeler((this.Data, this.Metadata), this.Incoming);
 			return Helpers.AsPublisher(outputPayloads);
 		}
 

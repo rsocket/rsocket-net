@@ -34,14 +34,13 @@ namespace RSocket
 			if (this._subscriber.IsCompleted)
 			{
 				/* 
-				 * The subscription will be disposed when `this._observer.OnError` or `this._observer.OnCompleted` methods calling in some cases, so we execute `OnIncomingCompleted` method again ensure the incoming status is completed. 
+				 * The subscription will be disposed when `this._observer.OnError` or `this._observer.OnCompleted` methods be called in some cases, so we execute `channel.FinishIncoming` method here ensure the incoming status is completed. 
 				 */
-				this._channel.OnIncomingCompleted();
+				this._channel.FinishIncoming();
 			}
 
 			this.DisposeSubscription();
-
-			this._channel.OnIncomingCanceled();
+			this._channel.OnIncomingSubscriptionCanceled();
 		}
 
 		public void Request(int n)
@@ -49,10 +48,7 @@ namespace RSocket
 			if (this._disposed)
 				return;
 
-			if (this._subscriber.IsCompleted)
-				return;
-
-			this._channel.OnIncomingSubscriberRequestN(n);
+			this._channel.OnIncomingSubscriptionRequestN(n);
 		}
 	}
 }

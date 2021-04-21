@@ -15,15 +15,7 @@ namespace RSocket.Channels
 
 			protected override void DoOnCompleted()
 			{
-				if (this._channel.OutgoingFinished)
-					return;
-
-				if (!this._channel.OutputSingle)
-				{
-					this._channel.Socket.SendPayload(this._channel.ChannelId, complete: true, next: false);
-				}
-
-				this._channel.FinishOutgoing();
+				this._channel.OnOutgoingCompleted();
 			}
 
 			protected override void DoOnError(Exception error)
@@ -31,18 +23,9 @@ namespace RSocket.Channels
 				this._channel.OnOutgoingError(error);
 			}
 
-			protected override void DoOnNext(Payload value)
+			protected override void DoOnNext(Payload payload)
 			{
-				if (this._channel.OutgoingFinished)
-					return;
-
-				if (this._channel.OutputSingle)
-				{
-					this._channel.Socket.SendPayload(this._channel.ChannelId, data: value.Data, metadata: value.Metadata, complete: true, next: true);
-					return;
-				}
-
-				this._channel.Socket.SendPayload(this._channel.ChannelId, data: value.Data, metadata: value.Metadata, complete: false, next: true);
+				this._channel.OnOutgoingNext(payload);
 			}
 		}
 	}

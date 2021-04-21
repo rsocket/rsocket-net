@@ -16,7 +16,7 @@ namespace RSocket.Channels
 			return this._outgoing;
 		}
 
-		public override void OnIncomingCanceled()
+		public override void OnIncomingSubscriptionCanceled()
 		{
 			if (this.IncomingFinished && this.OutgoingFinished)
 				return;

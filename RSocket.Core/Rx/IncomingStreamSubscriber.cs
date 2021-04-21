@@ -3,7 +3,7 @@ using System;
 
 namespace RSocket
 {
-	class IncomingStreamSubscriber : Subscriber<Payload>, IObserver<Payload>, ISubscription
+	class IncomingStreamSubscriber : Subscriber<Payload>, IObserver<Payload>
 	{
 		IObserver<Payload> _observer;
 		Channel _channel;
@@ -23,8 +23,6 @@ namespace RSocket
 			catch
 			{
 			}
-
-			this._channel.OnIncomingCompleted();
 		}
 
 		protected override void DoOnError(Exception error)
@@ -36,8 +34,6 @@ namespace RSocket
 			catch
 			{
 			}
-
-			this._channel.OnIncomingCompleted();
 		}
 
 		protected override void DoOnNext(Payload value)
@@ -46,10 +42,13 @@ namespace RSocket
 			{
 				this._observer.OnNext(value);
 			}
-			catch
+			catch (Exception ex)
 			{
-				this._channel.OnIncomingCanceled();
-				throw;
+#if DEBUG
+				Console.WriteLine($"An exception occurred while incoming subscriber handling payload: {ex.Message}\n{ex.StackTrace}");
+#endif
+
+				this._channel.OnIncomingSubscriberOnNextError();
 			}
 		}
 	}

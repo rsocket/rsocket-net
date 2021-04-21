@@ -4,29 +4,72 @@ using System.Threading.Tasks;
 
 namespace RSocket.Channels
 {
-	public class RequestResponseResponderChannel : RequestStreamResponderChannel
+	public class RequestResponseResponderChannel : RequestStreamResponderChannel, IPublisher<Payload>
 	{
-		public RequestResponseResponderChannel(RSocket socket, int channelId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) : base(socket, channelId, metadata, data, 0, null)
+		public RequestResponseResponderChannel(RSocket socket, int channelId, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) : base(socket, channelId, metadata, data, 1, null)
 		{
 
 		}
-		
-		protected override bool OutputSingle => true;
 
-		public override async Task ToTask()
+		protected override IPublisher<Payload> CreateOutgoing()
 		{
-			try
+			return this;
+		}
+
+		public override void OnOutgoingNext(Payload payload)
+		{
+			if (this.OutgoingFinished)
+				return;
+
+			this.Socket.SendPayload(this.ChannelId, data: payload.Data, metadata: payload.Metadata, complete: true, next: true);
+		}
+		public override void OnOutgoingCompleted()
+		{
+			this.FinishOutgoing();
+		}
+
+		public ISubscription Subscribe(IObserver<Payload> subscriber)
+		{
+			return new Subscription(this, subscriber);
+		}
+
+		IDisposable IObservable<Payload>.Subscribe(IObserver<Payload> subscriber)
+		{
+			return (this as IPublisher<Payload>).Subscribe(subscriber);
+		}
+
+		class Subscription : ISubscription
+		{
+			ResponderChannel _channel;
+			IObserver<Payload> _subscriber;
+
+			public Subscription(ResponderChannel channel, IObserver<Payload> subscriber)
 			{
-				var payload = await this.Socket.Responder((this._data, this._metadata));
-				this.OutgoingSubscriber.OnNext(payload);
-				this.OutgoingSubscriber.OnCompleted();
-			}
-			catch (Exception ex)
-			{
-				this.OutgoingSubscriber.OnError(ex);
+				this._channel = channel;
+				this._subscriber = subscriber;
 			}
 
-			await base.ToTask();
+			public void Dispose()
+			{
+
+			}
+
+			public void Request(int n)
+			{
+				Task.Run(async () =>
+				{
+					try
+					{
+						var payload = await this._channel.Socket.Responder((this._channel.Data, this._channel.Metadata));
+						this._subscriber.OnNext(payload);
+						this._subscriber.OnCompleted();
+					}
+					catch (Exception ex)
+					{
+						this._subscriber.OnError(ex);
+					}
+				});
+			}
 		}
 	}
 }

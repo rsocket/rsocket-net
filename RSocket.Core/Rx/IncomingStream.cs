@@ -30,7 +30,7 @@ namespace RSocket
 				throw new InvalidOperationException("Incoming stream allows only one Subscriber");
 
 			IncomingStreamSubscriber subscriber = new IncomingStreamSubscriber(observer, this._channel);
-			var sub = subscriber.Subscribe(this._source);
+			var sub = this._source.Subscribe(subscriber);
 
 			return new IncomingStreamSubscription(sub, this._channel, subscriber);
 		}
