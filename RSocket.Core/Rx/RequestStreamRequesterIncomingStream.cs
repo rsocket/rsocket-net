@@ -6,7 +6,7 @@ namespace RSocket
 {
 	class RequestStreamRequesterIncomingStream : RequesterIncomingStream
 	{
-		public RequestStreamRequesterIncomingStream(RSocket socket, Func<int, Task> channelEstablisher) : base(socket, new SimplePublisher<Payload>(), channelEstablisher)
+		public RequestStreamRequesterIncomingStream(RSocket socket, Func<int, Task> channelEstablisher) : base(socket, new Publisher<Payload>(), channelEstablisher)
 		{
 
 		}

@@ -30,7 +30,7 @@ namespace RSocket
 
 			var pub = source as IPublisher<T>;
 			if (pub == null)
-				pub = new Publisher<T>(source);
+				pub = new ObservableWrapper<T>(source);
 
 			return pub;
 		}

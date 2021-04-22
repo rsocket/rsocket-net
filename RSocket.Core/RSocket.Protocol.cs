@@ -22,7 +22,7 @@ namespace RSocket
 			else
 			{
 #if DEBUG
-				Console.WriteLine($"missing frame handler: {streamId}");
+				Console.WriteLine($"missing frame handler: stream[{streamId}]");
 #endif
 				//TODO Log missing frame handler here.
 			}

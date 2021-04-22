@@ -60,7 +60,7 @@ namespace RSocket.Channels
 		}
 		protected virtual IPublisher<Payload> CreateOutgoing()
 		{
-			return new SimplePublisher<Payload>();
+			return new Publisher<Payload>();
 		}
 
 		public void FinishIncoming()
@@ -93,7 +93,7 @@ namespace RSocket.Channels
 			catch (Exception ex)
 			{
 				this.OnOutgoingError(ex);
-				return new SimplePublisher<Payload>();
+				return new Publisher<Payload>();
 			}
 		}
 		(ISubscription Subscription, IObserver<Payload> Subscriber) SubscribeOutgoing()
@@ -147,18 +147,30 @@ namespace RSocket.Channels
 			if (this._incomingFinished)
 				return;
 
-			var incomingSubscriber = this.IncomingSubscriber;
+			var incomingReceiver = this._incomingReceiver;
 
 			if (message.IsNext)
 			{
-				incomingSubscriber.OnNext(new Payload(data, metadata));
+				incomingReceiver.OnNext(new Payload(data, metadata));
 			}
 
 			if (message.IsComplete)
 			{
-				incomingSubscriber.OnCompleted();
+				incomingReceiver.OnCompleted();
 				this.FinishIncoming();
 			}
+		}
+
+		public virtual void HandleError(RSocketProtocol.Error message)
+		{
+			this.EnsureHaveBeenReady();
+			this.HandleErrorCore(message);
+			this.FinishIncoming();
+		}
+		protected virtual void HandleErrorCore(RSocketProtocol.Error message)
+		{
+			this.FinishOutgoing();
+			this._incomingReceiver.OnError(message.MakeException());
 		}
 
 		public virtual void HandleRequestN(RSocketProtocol.RequestN message)
@@ -189,18 +201,6 @@ namespace RSocket.Channels
 		protected virtual void HandleCancelCore()
 		{
 			this.FinishOutgoing();
-		}
-
-		public virtual void HandleError(RSocketProtocol.Error message)
-		{
-			this.EnsureHaveBeenReady();
-			this.HandleErrorCore(message);
-			this.FinishIncoming();
-		}
-		protected virtual void HandleErrorCore(RSocketProtocol.Error message)
-		{
-			this.FinishOutgoing();
-			this.IncomingSubscriber.OnError(message.MakeException());
 		}
 
 

@@ -22,13 +22,7 @@ namespace RSocket
 				return;
 
 			this.Finished();
-			try
-			{
-				this.DoOnCompleted();
-			}
-			catch
-			{
-			}
+			this.DoOnCompleted();
 		}
 		protected virtual void DoOnCompleted()
 		{
@@ -39,15 +33,9 @@ namespace RSocket
 			if (this._completed)
 				return;
 
-			this._error = error;
 			this.Finished();
-			try
-			{
-				this.DoOnError(error);
-			}
-			catch
-			{
-			}
+			this._error = error;
+			this.DoOnError(error);
 		}
 
 		protected virtual void DoOnError(Exception error)

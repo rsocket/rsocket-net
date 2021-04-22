@@ -6,7 +6,7 @@ namespace RSocket
 {
 	class IncomingStream : IPublisher<Payload>
 	{
-		IObservable<Payload> _source;
+		IPublisher<Payload> _source;
 		Channel _channel;
 
 		int _subscribedFlag = 0;
@@ -14,11 +14,11 @@ namespace RSocket
 		{
 			get
 			{
-				return Interlocked.CompareExchange(ref this._subscribedFlag, 1, 0) != 0;
+				return Interlocked.Exchange(ref this._subscribedFlag, 1) != 0;
 			}
 		}
 
-		public IncomingStream(IObservable<Payload> source, Channel channel)
+		public IncomingStream(IPublisher<Payload> source, Channel channel)
 		{
 			this._source = source;
 			this._channel = channel;
