@@ -9,8 +9,8 @@ namespace RSocket
 		int _stoppedFlag;
 		int _disposedFlag;
 
-		public bool IsDisposed { get { return Volatile.Read(ref this._disposedFlag) != 0; } }
 		public bool IsStopped { get { return Volatile.Read(ref this._stoppedFlag) != 0; } }
+		public bool IsDisposed { get { return Volatile.Read(ref this._disposedFlag) != 0; } }
 
 		public Publisher()
 		{
@@ -27,7 +27,7 @@ namespace RSocket
 		{
 		}
 
-		public void OnCompleted()
+		public virtual void OnCompleted()
 		{
 			if (Interlocked.Exchange(ref this._stoppedFlag, 1) != 0 || this.IsDisposed)
 				return;
@@ -42,7 +42,7 @@ namespace RSocket
 			}
 		}
 
-		public void OnError(Exception error)
+		public virtual void OnError(Exception error)
 		{
 			if (Interlocked.Exchange(ref this._stoppedFlag, 1) != 0 || this.IsDisposed)
 				return;
@@ -57,7 +57,7 @@ namespace RSocket
 			}
 		}
 
-		public void OnNext(T value)
+		public virtual void OnNext(T value)
 		{
 			if (this.IsStopped || this.IsDisposed)
 				return;

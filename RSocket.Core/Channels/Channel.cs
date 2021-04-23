@@ -19,24 +19,17 @@ namespace RSocket.Channels
 		Lazy<IPublisher<Payload>> _lazyOutgoing;
 		Lazy<(ISubscription Subscription, IObserver<Payload> Subscriber)> _lazyOutgoingSubscriber;
 
-		bool _incomingFinished;
-		bool _outgoingFinished;
+		static readonly OperationCanceledException ChannelHasTerminatedException = new OperationCanceledException("Channel has terminated.");
 
-		public bool IncomingFinished { get { return this._incomingFinished; } }
-		public bool OutgoingFinished { get { return this._outgoingFinished; } }
-
-		Channel(RSocket socket)
+		protected Channel(RSocket socket, int channelId)
 		{
 			this.Socket = socket;
+			this.ChannelId = channelId;
 
 			this._incomingReceiver = new IncomingReceiver();
 			this.Incoming = this.CreateIncoming();
 			this._lazyOutgoing = new Lazy<IPublisher<Payload>>(this.CreateOutgoingLazy, LazyThreadSafetyMode.ExecutionAndPublication);
 			this._lazyOutgoingSubscriber = new Lazy<(ISubscription Subscription, IObserver<Payload> Subscriber)>(this.SubscribeOutgoing, LazyThreadSafetyMode.ExecutionAndPublication);
-		}
-		protected Channel(RSocket socket, int channelId) : this(socket)
-		{
-			this.ChannelId = channelId;
 		}
 		protected Channel(RSocket socket, int channelId, int initialOutgoingRequest) : this(socket, channelId)
 		{
@@ -45,6 +38,9 @@ namespace RSocket.Channels
 
 		public RSocket Socket { get; set; }
 		public int ChannelId { get; set; }
+
+		public bool IncomingFinished { get; private set; }
+		public bool OutgoingFinished { get; private set; }
 
 		public IPublisher<Payload> Incoming { get; private set; }
 		public IPublisher<Payload> Outgoing { get { return this._lazyOutgoing.Value; } }
@@ -65,20 +61,20 @@ namespace RSocket.Channels
 
 		public void FinishIncoming()
 		{
-			if (this._incomingFinished)
+			if (this.IncomingFinished)
 				return;
 
-			this._incomingFinished = true;
+			this.IncomingFinished = true;
 
 			this._incomingReceiver.Dispose();
 			this._waitIncomingCompleteHandler.TrySetResult(true);
 		}
 		public void FinishOutgoing()
 		{
-			if (this._outgoingFinished)
+			if (this.OutgoingFinished)
 				return;
 
-			this._outgoingFinished = true;
+			this.OutgoingFinished = true;
 
 			this._outgoingSubscription?.Dispose();
 			this._waitOutgoingCompleteHandler.TrySetResult(true);
@@ -102,7 +98,7 @@ namespace RSocket.Channels
 			var subscription = this.Outgoing.Subscribe(subscriber);
 			this._outgoingSubscription = subscription;
 
-			if (this._outgoingFinished) // In case another thread finishes outgoing
+			if (this.OutgoingFinished) // In case another thread finishes outgoing
 				this._outgoingSubscription.Dispose();
 
 			return (subscription, subscriber);
@@ -116,14 +112,14 @@ namespace RSocket.Channels
 
 		public virtual void OnOutgoingNext(Payload payload)
 		{
-			if (this._outgoingFinished)
+			if (this.OutgoingFinished)
 				return;
 
 			this.Socket.SendPayload(this.ChannelId, data: payload.Data, metadata: payload.Metadata, complete: false, next: true);
 		}
 		public virtual void OnOutgoingCompleted()
 		{
-			if (this._outgoingFinished)
+			if (this.OutgoingFinished)
 				return;
 
 			this.Socket.SendPayload(this.ChannelId, complete: true, next: false);
@@ -132,7 +128,8 @@ namespace RSocket.Channels
 		public virtual void OnOutgoingError(Exception error)
 		{
 			this.FinishOutgoing();
-			this.IncomingSubscriber.OnError(new OperationCanceledException("Outbound has terminated with an error.", error));
+			this.NotifyIncomingSubscriberError(new OperationCanceledException("Outbound has terminated with an error.", error));
+			this.FinishIncoming();
 			this.Socket.SendError(this.ChannelId, ErrorCodes.Application_Error, $"{error.Message}\n{error.StackTrace}");
 		}
 
@@ -144,7 +141,7 @@ namespace RSocket.Channels
 		}
 		protected virtual void HandlePayloadCore(RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
 		{
-			if (this._incomingFinished)
+			if (this.IncomingFinished)
 				return;
 
 			var incomingReceiver = this._incomingReceiver;
@@ -165,12 +162,12 @@ namespace RSocket.Channels
 		{
 			this.EnsureHaveBeenReady();
 			this.HandleErrorCore(message);
-			this.FinishIncoming();
 		}
 		protected virtual void HandleErrorCore(RSocketProtocol.Error message)
 		{
 			this.FinishOutgoing();
 			this._incomingReceiver.OnError(message.MakeException());
+			this.FinishIncoming();
 		}
 
 		public virtual void HandleRequestN(RSocketProtocol.RequestN message)
@@ -184,7 +181,7 @@ namespace RSocket.Channels
 		}
 		protected virtual void HandleRequestNCore(int n)
 		{
-			if (this._outgoingFinished)
+			if (this.OutgoingFinished)
 				return;
 
 			this.OutgoingSubscription.Request(n);
@@ -210,7 +207,7 @@ namespace RSocket.Channels
 		}
 		public virtual void OnIncomingSubscriptionCanceled()
 		{
-			if (this._incomingFinished)
+			if (this.IncomingFinished)
 				return;
 
 			this.FinishIncoming();
@@ -218,7 +215,7 @@ namespace RSocket.Channels
 		}
 		public void OnIncomingSubscriptionRequestN(int n)
 		{
-			if (this._incomingFinished)
+			if (this.IncomingFinished)
 				return;
 
 			this.Socket.SendRequestN(this.ChannelId, n);
@@ -244,7 +241,7 @@ namespace RSocket.Channels
 			if (this._disposed)
 				return;
 
-			this.TriggerErrorIfIncomingUnfinished();
+			this.NotifyIncomingSubscriberError(ChannelHasTerminatedException);
 			this.FinishIncoming();
 			this.FinishOutgoing();
 
@@ -261,14 +258,12 @@ namespace RSocket.Channels
 		protected virtual void Dispose(bool disposing)
 		{
 		}
-		void TriggerErrorIfIncomingUnfinished()
+		void NotifyIncomingSubscriberError(Exception ex)
 		{
-			if (this._incomingFinished)
-				return;
-
 			try
 			{
-				this.IncomingSubscriber.OnError(new OperationCanceledException("Channel has terminated."));
+				/* Incoming subscriber will receive an error if the incoming is unfinished. */
+				this.IncomingSubscriber.OnError(ex);
 			}
 			catch
 			{
