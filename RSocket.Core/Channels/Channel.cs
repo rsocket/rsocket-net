@@ -11,8 +11,8 @@ namespace RSocket.Channels
 		bool _disposed = false;
 		int _initialOutgoingRequest = 0;
 
-		TaskCompletionSource<bool> _waitIncomingCompleteHandler = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-		TaskCompletionSource<bool> _waitOutgoingCompleteHandler = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		TaskCompletionSource<bool> _incomingCompletionWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		TaskCompletionSource<bool> _outgoingCompletionWaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
 		IncomingReceiver _incomingReceiver;
 
@@ -67,7 +67,7 @@ namespace RSocket.Channels
 			this.IncomingFinished = true;
 
 			this._incomingReceiver.Dispose();
-			this._waitIncomingCompleteHandler.TrySetResult(true);
+			this._incomingCompletionWaiter.TrySetResult(true);
 		}
 		public void FinishOutgoing()
 		{
@@ -77,7 +77,7 @@ namespace RSocket.Channels
 			this.OutgoingFinished = true;
 
 			this._outgoingSubscription?.Dispose();
-			this._waitOutgoingCompleteHandler.TrySetResult(true);
+			this._outgoingCompletionWaiter.TrySetResult(true);
 		}
 
 		IPublisher<Payload> CreateOutgoingLazy()
@@ -233,7 +233,7 @@ namespace RSocket.Channels
 		{
 			if (this._initialOutgoingRequest > 0)
 				this.HandleRequestN(this._initialOutgoingRequest);
-			await Task.WhenAll(this._waitIncomingCompleteHandler.Task, this._waitOutgoingCompleteHandler.Task);
+			await Task.WhenAll(this._incomingCompletionWaiter.Task, this._outgoingCompletionWaiter.Task);
 		}
 
 		public void Dispose()
