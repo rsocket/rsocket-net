@@ -56,19 +56,22 @@ namespace RSocket.Channels
 
 			public void Request(int n)
 			{
-				Task.Run(async () =>
+				var task = this.ExecuteResponderAsync();
+			}
+
+			async Task ExecuteResponderAsync()
+			{
+				await Task.Yield();
+				try
 				{
-					try
-					{
-						var payload = await this._channel.Socket.Responder((this._channel.Data, this._channel.Metadata));
-						this._subscriber.OnNext(payload);
-						this._subscriber.OnCompleted();
-					}
-					catch (Exception ex)
-					{
-						this._subscriber.OnError(ex);
-					}
-				});
+					var payload = await this._channel.Socket.Responder((this._channel.Data, this._channel.Metadata));
+					this._subscriber.OnNext(payload);
+					this._subscriber.OnCompleted();
+				}
+				catch (Exception ex)
+				{
+					this._subscriber.OnError(ex);
+				}
 			}
 		}
 	}

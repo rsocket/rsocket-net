@@ -33,13 +33,8 @@ namespace RSocket
 			this.AddChannel(channel);
 			try
 			{
-				/*
-				 * Using a new task to run the channel in case blocking socket thread.
-				 */
-				await Task.Run(async () =>
-				{
-					await channel.ToTask();
-				});
+				await Task.Yield();
+				await channel.ToTask();
 			}
 			catch (Exception ex)
 			{

@@ -24,7 +24,7 @@ namespace RSocket
 				return (this._source as IPublisher<T>).Subscribe(observer);
 			}
 
-			Subscription sub = new Subscription(this._source.Subscribe(observer));
+			ISubscription sub = new SubscriptionAdapter(this._source.Subscribe(observer));
 			return sub;
 		}
 
