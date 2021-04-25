@@ -25,17 +25,6 @@ namespace RSocket
 
 			this._disposed = true;
 			this.DisposeSubscription();
-			try
-			{
-				this.Dispose(true);
-			}
-			catch
-			{
-			}
-		}
-
-		protected virtual void Dispose(bool disposing)
-		{
 		}
 
 		public void Request(int n)
@@ -43,11 +32,6 @@ namespace RSocket
 			if (this._disposed)
 				return;
 
-			this.DoRequest(n);
-		}
-
-		protected virtual void DoRequest(int n)
-		{
 			ISubscription sub = this._subscription as ISubscription;
 			sub?.Request(n);
 		}
