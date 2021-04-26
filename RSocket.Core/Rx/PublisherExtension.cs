@@ -66,10 +66,10 @@ namespace RSocket
 			IPublisher<T> _source;
 			Func<IObservable<T>, IObservable<T>> _adapter;
 
-			public PublisherAdapter(IPublisher<T> source, Func<IObservable<T>, IObservable<T>> _adapter)
+			public PublisherAdapter(IPublisher<T> source, Func<IObservable<T>, IObservable<T>> adapter)
 			{
 				this._source = source;
-				this._adapter = _adapter;
+				this._adapter = adapter;
 			}
 
 			public ISubscription Subscribe(IObserver<T> observer)
