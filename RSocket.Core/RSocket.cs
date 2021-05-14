@@ -3,204 +3,253 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reactive.Linq;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+using IRSocketStream = System.IObserver<RSocket.Payload>;
+using System.Reactive.Disposables;
+using RSocket.Exceptions;
 
 namespace RSocket
 {
-	public interface IRSocketChannel
+	public partial class RSocket : IRSocketProtocol, IDisposable
 	{
-		Task Send((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value);
-	}
+		bool _disposed;
+		DateTime _lastKeepAliveReceived = DateTime.Now;
+		IDisposable _ticksDisposable = Disposable.Empty;
 
-	public partial class RSocket : IRSocketProtocol
-	{
+		int _connectionClosedFlag = 0;
+		internal SemaphoreSlim OutputSyncLock = new SemaphoreSlim(1, 1);
+
 		PrefetchOptions Options { get; set; }
+
+		public bool IsClosed { get { return this._connectionClosedFlag != 0; } }
 
 		//TODO Hide.
 		public IRSocketTransport Transport { get; set; }
-		private int StreamId = 1 - 2;       //SPEC: Stream IDs on the client MUST start at 1 and increment by 2 sequentially, such as 1, 3, 5, 7, etc
-		private int NewStreamId() => Interlocked.Add(ref StreamId, 2);  //TODO SPEC: To reuse or not... Should tear down the client if this happens or have to skip in-use IDs.
 
-		private ConcurrentDictionary<int, IRSocketStream> Dispatcher = new ConcurrentDictionary<int, IRSocketStream>();
-		private int StreamDispatch(int id, IRSocketStream transform) { Dispatcher[id] = transform; return id; }
-		private int StreamDispatch(IRSocketStream transform) => StreamDispatch(NewStreamId(), transform);
-		//TODO Stream Destruction - i.e. removal from the dispatcher.
+		int StreamId = 1 - 2;
+		protected internal virtual int NewStreamId() => Interlocked.Add(ref StreamId, 2);
 
-		protected IDisposable ChannelSubscription;      //TODO Tracking state for channels
+		ConcurrentDictionary<int, IChannel> _activeChannels = new ConcurrentDictionary<int, IChannel>();
+		internal void AddChannel(IChannel channel)
+		{
+			this._activeChannels[channel.ChannelId] = channel;
+		}
+		internal IChannel RemoveChannel(int id)
+		{
+			this._activeChannels.TryRemove(id, out var channel);
+			return channel;
+		}
+		internal void RemoveAndReleaseChannel(int id)
+		{
+			IChannel channel = this.RemoveChannel(id);
+			if (channel != null)
+			{
+				try
+				{
+					channel.Dispose();
+				}
+				catch
+				{
+				}
+			}
+		}
 
 		public RSocket(IRSocketTransport transport, PrefetchOptions options = default)
 		{
-			Transport = transport;
-			Options = options ?? PrefetchOptions.Default;
+			this.Transport = transport;
+			this.Options = options ?? PrefetchOptions.Default;
 		}
 
 		/// <summary>Binds the RSocket to its Transport and begins handling messages.</summary>
 		/// <param name="cancel">Cancellation for the handler. Requesting cancellation will stop message handling.</param>
 		/// <returns>The handler task.</returns>
-		public Task Connect(CancellationToken cancel = default) => RSocketProtocol.Handler(this, Transport.Input, cancel);
-		public Task Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) => new RSocketProtocol.Setup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, data: data, metadata: metadata).WriteFlush(Transport.Output, data: data, metadata: metadata);
+		public Task Connect(CancellationToken cancel = default) => this.Handler(this.Transport.Input, cancel);
 
-
-		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
-
-		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
-			Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
-			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<TSource, T>(stream => RequestChannel(stream, data, metadata), source, _ => (default, sourcemapper(_)), value => resultmapper(value));
-
-		public async Task<IRSocketChannel> RequestChannel(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
+		public virtual void OnClose()
 		{
-			var id = StreamDispatch(stream);
-			await new RSocketProtocol.RequestChannel(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
-			var channel = new ChannelHandler(this, id);
-			return channel;
+
 		}
 
-		protected class ChannelHandler : IRSocketChannel       //TODO hmmm...
+		public virtual async Task RequestFireAndForget(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
 		{
-			readonly RSocket Socket;
-			readonly int Stream;
-
-			public ChannelHandler(RSocket socket, int stream) { Socket = socket; Stream = stream; }
-
-			public Task Send((ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) value)
+			this.CheckConnectionStatus();
+			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				if (!Socket.Dispatcher.ContainsKey(Stream)) { throw new InvalidOperationException("Channel is closed"); }
-				return new RSocketProtocol.Payload(Stream, value.data, value.metadata, next: true).WriteFlush(Socket.Transport.Output, value.data, value.metadata);
-			}
+				await this.SendRequestFireAndForget(streamId, data, metadata);
+			};
+
+			IPublisher<Payload> incoming = new RequestFireAndForgetRequesterIncomingStream(this, channelEstablisher);
+			incoming.Subscribe().Dispose();
+			await Task.CompletedTask;
 		}
 
+		public virtual async Task<Payload> RequestResponse(ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		{
+			this.CheckConnectionStatus();
+			Func<int, Task> channelEstablisher = async streamId =>
+			{
+				await this.SendRequestResponse(streamId, data, metadata);
+			};
 
-		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
+			IPublisher<Payload> incoming = new RequestResponseRequesterIncomingStream(this, channelEstablisher);
+			return await incoming.ObserveOn(System.Reactive.Concurrency.TaskPoolScheduler.Default).FirstAsync();
+		}
+		[Obsolete("This method has obsoleted.")]
+		public virtual Task<T> RequestResponse<T>(Func<Payload, T> resultmapper,
+		ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+		=> throw new NotSupportedException("This method has obsoleted.");
+
+		public IPublisher<Payload> RequestStream(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, int initial = RSocketOptions.INITIALDEFAULT)
+		{
+			this.CheckConnectionStatus();
+			Func<int, Task> channelEstablisher = async streamId =>
+			{
+				await this.SendRequestStream(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
+			};
+
+			var incoming = new RequestStreamRequesterIncomingStream(this, channelEstablisher);
+			return incoming;
+		}
+		[Obsolete("This method has obsoleted.")]
+		public virtual IAsyncEnumerable<T> RequestStream<T>(Func<Payload, T> resultmapper,
 			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<T>(stream => RequestStream(stream, data, metadata), value => resultmapper(value));
-
+			=> throw new NotSupportedException("This method has obsoleted.");
+		[Obsolete("This method has obsoleted.")]
 		public Task RequestStream(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			var id = StreamDispatch(stream);
-			return new RSocketProtocol.RequestStream(id, data, metadata, initialRequest: Options.GetInitialRequestSize(initial)).WriteFlush(Transport.Output, data, metadata);
+			throw new NotSupportedException("This method has obsoleted.");
 		}
 
-		public virtual Task<T> RequestResponse<T>(Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
-			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<T>(stream => RequestResponse(stream, data, metadata), resultmapper).ExecuteAsync();
-
-		public Task RequestResponse(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
+		public IPublisher<Payload> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IPublisher<Payload> source, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			var id = StreamDispatch(stream);
-			return new RSocketProtocol.RequestResponse(id, data, metadata).WriteFlush(Transport.Output, data, metadata);
+			return this.RequestChannel(data, metadata, (IObservable<Payload>)source, initial);
 		}
-
-
-		public virtual Task RequestFireAndForget(
-			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
-			=> new Receiver<bool>(stream => RequestFireAndForget(stream, data, metadata), _ => true).ExecuteAsync(result: true);
-
-		public Task RequestFireAndForget(IRSocketStream stream, ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata = default)
+		public IPublisher<Payload> RequestChannel(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata, IObservable<Payload> source, int initial = RSocketOptions.INITIALDEFAULT)
 		{
-			var id = StreamDispatch(stream);
-			return new RSocketProtocol.RequestFireAndForget(id, data, metadata).WriteFlush(Transport.Output, data, metadata);
-		}
+			/*
+			 * A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
+			 */
 
-
-		void IRSocketProtocol.Payload(in RSocketProtocol.Payload message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-			//Console.WriteLine($"{value.Header.Stream:0000}===>{Encoding.UTF8.GetString(value.Data.ToArray())}");
-			if (Dispatcher.TryGetValue(message.Stream, out var transform))
+			this.CheckConnectionStatus();
+			Func<int, Task> channelEstablisher = async streamId =>
 			{
-				if (message.IsNext) { transform.OnNext((metadata, data)); }
-				if (message.IsComplete) { transform.OnCompleted(); }
-			}
-			else
+				await this.SendRequestChannel(streamId, data, metadata, initialRequest: this.Options.GetInitialRequestSize(initial));
+			};
+
+			var incoming = new RequesterIncomingStream(this, source, channelEstablisher);
+			return incoming;
+		}
+		[Obsolete("This method has obsoleted.")]
+		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
+			Func<Payload, T> resultmapper,
+			ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default)
+			=> throw new NotSupportedException("This method has obsoleted.");
+
+		internal void StartKeepAlive(TimeSpan keepAliveInterval, TimeSpan keepAliveTimeout)
+		{
+			this._lastKeepAliveReceived = DateTime.Now;
+
+			if (!(keepAliveInterval.TotalMilliseconds > 0 && keepAliveTimeout.TotalMilliseconds > 0))
+				return;
+
+			var timer = Observable.Timer(keepAliveInterval, keepAliveInterval);
+			this._ticksDisposable = timer.Subscribe(a =>
+			  {
+				  this.KeepAliveIntervalTick(keepAliveTimeout);
+			  });
+		}
+		void KeepAliveIntervalTick(TimeSpan keepAliveTimeout)
+		{
+			if ((DateTime.Now - this._lastKeepAliveReceived).TotalMilliseconds > keepAliveTimeout.TotalMilliseconds)
 			{
-				//TODO Log missing stream here.
+				//timeout
+				this._ticksDisposable.Dispose();
+				this.CloseConnection();
+
+				string errorText = $"No keep-alive acks for {keepAliveTimeout.TotalMilliseconds} ms.";
+
+#if DEBUG
+				Console.WriteLine(errorText);
+#endif
+
+				this.ReleaseAllChannels(RSocketProtocol.ErrorCodes.Connection_Error, errorText);
+				return;
+			}
+
+			this.SendKeepAlive(0, true);
+		}
+
+		void ReleaseAllChannels(RSocketProtocol.ErrorCodes errorCode, string errorText)
+		{
+			var errorData = Helpers.StringToByteSequence(errorText);
+			lock (this)
+			{
+				foreach (var kv in this._activeChannels)
+				{
+					var channel = kv.Value;
+					int channelId = channel.ChannelId;
+					try
+					{
+						channel.HandleError(new RSocketProtocol.Error(errorCode, channelId, errorData, errorText));
+						this.RemoveChannel(channelId);
+						channel.Dispose();
+					}
+					catch
+					{
+					}
+				}
 			}
 		}
 
-
-		void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
+		internal void Schedule(int stream, Func<int, CancellationToken, Task> operation, CancellationToken cancel = default)
 		{
 			var task = operation(stream, cancel);
-			if (!task.IsCompleted) { task.ConfigureAwait(false); }         //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
-		}
-
-
-		public virtual void Setup(in RSocketProtocol.Setup value) => throw new InvalidOperationException($"Client cannot process Setup frames");    //TODO This exception just stalls processing. Need to make sure it's handled.
-		void IRSocketProtocol.Error(in RSocketProtocol.Error message) { throw new NotImplementedException(); }  //TODO Handle Errors!
-		void IRSocketProtocol.RequestFireAndForget(in RSocketProtocol.RequestFireAndForget message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data) => throw new NotImplementedException();
-
-
-		public void Respond<TRequest, TResult>(
-			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
-			Func<TRequest, IAsyncEnumerable<TResult>> producer,
-			Func<TResult, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> resultTransform) =>
-			Responder = (request) => (from result in producer(requestTransform(request)) select resultTransform(result)).FirstAsync();
-
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), ValueTask<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Responder { get; set; } = request => throw new NotImplementedException();
-
-		void IRSocketProtocol.RequestResponse(in RSocketProtocol.RequestResponse message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
-		{
-			Schedule(message.Stream, async (stream, cancel) =>
+			if (!task.IsCompleted)
 			{
-				var value = await Responder((data, metadata));     //TODO Handle Errors.
-				await new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true, complete: true).WriteFlush(Transport.Output, value.Data, value.Metadata);
-			});
+				task.ConfigureAwait(false); //FUTURE Someday might want to schedule these in a different pool or perhaps track all in-flight tasks.
+			}
 		}
 
-
-		public void Stream<TRequest, TResult>(
-			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
-			Func<TRequest, IAsyncEnumerable<TResult>> producer,
-			Func<TResult, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> resultTransform) =>
-			Streamer = (request) => from result in producer(requestTransform(request)) select resultTransform(result);
-
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IAsyncEnumerable<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)>> Streamer { get; set; } = request => throw new NotImplementedException();
-
-		void IRSocketProtocol.RequestStream(in RSocketProtocol.RequestStream message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void CheckConnectionStatus()
 		{
-			Schedule(message.Stream, async (stream, cancel) =>
-			{
-				var source = Streamer((data, metadata));     //TODO Handle Errors.
-				await ForEach(source,
-					action: value => new RSocketProtocol.Payload(stream, value.Data, value.Metadata, next: true).WriteFlush(Transport.Output, value.Data, value.Metadata),
-					final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
-			});
+			if (this.IsClosed)
+				throw new ConnectionCloseException("The connection has been closed.");
+
+			if (this._disposed)
+				throw new ObjectDisposedException(this.GetType().FullName);
 		}
 
-
-		//TODO, probably need to have an IAE<T> pipeline overload too.
-
-		public void Channel<TRequest, TIncoming, TOutgoing>(Func<TRequest, IObservable<TIncoming>, IAsyncEnumerable<TOutgoing>> pipeline,
-			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TRequest> requestTransform,
-			Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), TIncoming> incomingTransform,
-			Func<TOutgoing, (ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata)> outgoingTransform) =>
-			Channeler = (request, incoming) => from result in pipeline(requestTransform(request), from item in incoming select incomingTransform(item)) select outgoingTransform(result);
-
-
-		public Func<(ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata), IObservable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>, IAsyncEnumerable<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata)>> Channeler { get; set; } = (request, incoming) => throw new NotImplementedException();
-
-
-		void IRSocketProtocol.RequestChannel(in RSocketProtocol.RequestChannel message, ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)
+		void CloseConnection()
 		{
-			Schedule(message.Stream, async (stream, cancel) =>
-			{
-				var inc = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => () => StreamDispatch(stream, observer));
-				var outgoing = Channeler((data, metadata), inc);     //TODO Handle Errors.
-
-				await ForEach(outgoing,
-					action: value => new RSocketProtocol.Payload(stream, value.data, value.metadata, next: true).WriteFlush(Transport.Output, value.data, value.metadata),
-					final: () => new RSocketProtocol.Payload(stream, complete: true).WriteFlush(Transport.Output));
-			});
+			var _ = this.CloseConnectionAsync();
 		}
-
-		static async Task ForEach<TSource>(IAsyncEnumerable<TSource> source, Func<TSource, Task> action, CancellationToken cancel = default, Func<Task> final = default)
+		async Task CloseConnectionAsync()
 		{
-			await source.ForEachAsync(item => action(item), cancel);
-			await final?.Invoke();
+			if (Interlocked.CompareExchange(ref this._connectionClosedFlag, 1, 0) != 0)
+				return;
+
+			await this.Transport.StopAsync();
+			this.OnClose();
+		}
+		public void Dispose()
+		{
+			if (this._disposed)
+				return;
+
+			this._ticksDisposable.Dispose();
+			this.CloseConnection();
+			this.ReleaseAllChannels(RSocketProtocol.ErrorCodes.Connection_Close, null);
+			this.OutputSyncLock.Dispose();
+
+			this.Dispose(true);
+
+			this._disposed = true;
+		}
+		protected virtual void Dispose(bool disposing)
+		{
+
 		}
 	}
 }

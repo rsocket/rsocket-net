@@ -1,135 +1,131 @@
+using Microsoft.Extensions.Logging;
+using RSocket.Transports;
 using System;
-using System.Net;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.Pipelines;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Buffers;
 
 namespace RSocket.Transports
 {
-	//TODO Readd transport logging - worth it during debugging.
-	public class SocketTransport : IRSocketTransport
+	public class ServerSocketTransport : SocketTransport, IRSocketTransport
 	{
-		private IPEndPoint Endpoint;
-		private Socket Socket;
-
-		internal Task Running { get; private set; } = Task.CompletedTask;
-		//private CancellationTokenSource Cancellation;
-#pragma warning disable CS0649
-		private volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
-#pragma warning restore CS0649
-
-		public Uri Url { get; private set; }
-		private LoggerFactory Logger;
-
-		IDuplexPipe Front, Back;
-		public PipeReader Input => Front.Input;
-		public PipeWriter Output => Front.Output;
-
-		public SocketTransport(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default) : this(new Uri(url), outputoptions, inputoptions) { }
-		public SocketTransport(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
+		Socket _socket;
+		public ServerSocketTransport(Socket socket, PipeOptions outputOptions = default, PipeOptions inputOptions = default) : base(outputOptions, inputOptions)
 		{
-			Url = url;
-			if (string.Compare(url.Scheme, "TCP", true) != 0) { throw new ArgumentException("Only TCP connections are supported.", nameof(Url)); }
-			if (url.Port == -1) { throw new ArgumentException("TCP Port must be specified.", nameof(Url)); }
-
-			//Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
-			Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
-			(Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
+			this._socket = socket;
 		}
 
-		public async Task StartAsync(CancellationToken cancel = default)
+		protected override async Task<Socket> CreateSocket()
 		{
-			var dns = await Dns.GetHostEntryAsync(Url.Host);
+			await Task.CompletedTask;
+			return this._socket;
+		}
+	}
+
+	public class ClientSocketTransport : SocketTransport, IRSocketTransport
+	{
+		IPAddress IP { get; set; }
+		int Port { get; set; }
+
+		public static async Task<ClientSocketTransport> Create(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default)
+		{
+			return await Create(new Uri(url), outputoptions, inputoptions);
+		}
+		public static async Task<ClientSocketTransport> Create(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default)
+		{
+			if (string.Compare(url.Scheme, "TCP", true) != 0)
+			{
+				throw new ArgumentException("Only TCP connections are supported.", nameof(url));
+			}
+			if (url.Port == -1)
+			{
+				throw new ArgumentException("TCP Port must be specified.", nameof(url));
+			}
+
+			var dns = await Dns.GetHostEntryAsync(url.Host);
 			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
-			Endpoint = new IPEndPoint(dns.AddressList[0], Url.Port);
 
-			Socket = new Socket(Endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-			Socket.Connect(dns.AddressList, Url.Port);  //TODO Would like this to be async... Why so serious???
+			IPAddress ip = dns.AddressList[0];
 
-			Running = ProcessSocketAsync(Socket);
+			return new ClientSocketTransport(ip, url.Port, outputoptions, inputoptions);
 		}
 
-		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
+		public ClientSocketTransport(string ip, int port, PipeOptions outputOptions = default, PipeOptions inputOptions = default, WebSocketOptions options = default) : this(IPAddress.Parse(ip), port, outputOptions, inputOptions, options)
+		{
+		}
+		public ClientSocketTransport(IPAddress ip, int port, PipeOptions outputOptions = default, PipeOptions inputOptions = default, WebSocketOptions options = default) : base(outputOptions, inputOptions)
+		{
+			this.IP = ip;
+			this.Port = port;
+		}
 
-		private async Task ProcessSocketAsync(Socket socket)
+		protected override async Task<Socket> CreateSocket()
+		{
+			await Task.CompletedTask;
+			Socket socket = new Socket(this.IP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+			socket.Connect(this.IP, this.Port);  //TODO Would like this to be async... Why so serious???
+			return socket;
+		}
+	}
+
+	public abstract class SocketTransport : IRSocketTransport
+	{
+		Socket _socket;
+		int _completeFlag = 2;
+
+		public Task Running { get; private set; } = Task.CompletedTask;
+		//private CancellationTokenSource Cancellation;
+		volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
+
+		LoggerFactory Logger;
+
+		protected IDuplexPipe Front { get; private set; }
+		protected IDuplexPipe Back { get; private set; }
+
+		public PipeReader Input => this.Front.Input;
+		public PipeWriter Output => this.Front.Output;
+
+		protected SocketTransport(PipeOptions outputOptions = default, PipeOptions inputOptions = default)
+		{
+			this.Logger = new LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
+			(Front, Back) = DuplexPipe.CreatePair(outputOptions, inputOptions);
+		}
+
+		public virtual async Task StartAsync(CancellationToken cancel = default)
+		{
+			this._socket = await this.CreateSocket();
+			this.Running = ProcessSocketAsync(this._socket);
+		}
+
+		public virtual async Task StopAsync()
+		{
+			await Task.CompletedTask;
+			this.Front.Input.Complete();
+			this.Front.Output.Complete();
+			this._socket?.Shutdown(SocketShutdown.Both);
+		}
+
+		protected abstract Task<Socket> CreateSocket();
+
+		async Task ProcessSocketAsync(Socket socket)
 		{
 			// Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
-			var receiving = StartReceiving(socket);
-			var sending = StartSending(socket);
+			var receiving = this.StartReceiving(socket);
+			var sending = this.StartSending(socket);
 
-			var trigger = await Task.WhenAny(receiving, sending);
-
-			//if (trigger == receiving)
-			//{
-			//	Log.WaitingForSend(_logger);
-
-			//	// We're waiting for the application to finish and there are 2 things it could be doing
-			//	// 1. Waiting for application data
-			//	// 2. Waiting for a websocket send to complete
-
-			//	// Cancel the application so that ReadAsync yields
-			//	_application.Input.CancelPendingRead();
-
-			//	using (var delayCts = new CancellationTokenSource())
-			//	{
-			//		var resultTask = await Task.WhenAny(sending, Task.Delay(_options.CloseTimeout, delayCts.Token));
-
-			//		if (resultTask != sending)
-			//		{
-			//			// We timed out so now we're in ungraceful shutdown mode
-			//			Log.CloseTimedOut(_logger);
-
-			//			// Abort the websocket if we're stuck in a pending send to the client
-			//			_aborted = true;
-
-			//			socket.Abort();
-			//		}
-			//		else
-			//		{
-			//			delayCts.Cancel();
-			//		}
-			//	}
-			//}
-			//else
-			//{
-			//	Log.WaitingForClose(_logger);
-
-			//	// We're waiting on the websocket to close and there are 2 things it could be doing
-			//	// 1. Waiting for websocket data
-			//	// 2. Waiting on a flush to complete (backpressure being applied)
-
-			//	using (var delayCts = new CancellationTokenSource())
-			//	{
-			//		var resultTask = await Task.WhenAny(receiving, Task.Delay(_options.CloseTimeout, delayCts.Token));
-
-			//		if (resultTask != receiving)
-			//		{
-			//			// Abort the websocket if we're stuck in a pending receive from the client
-			//			_aborted = true;
-
-			//			socket.Abort();
-
-			//			// Cancel any pending flush so that we can quit
-			//			_application.Output.CancelPendingFlush();
-			//		}
-			//		else
-			//		{
-			//			delayCts.Cancel();
-			//		}
-			//	}
-			//}
+			await Task.WhenAll(receiving, sending);
 		}
 
-
-		private async Task StartReceiving(Socket socket)
+		async Task StartReceiving(Socket socket)
 		{
-			var token = default(CancellationToken);	//Cancellation?.Token ?? default;
+			var token = default(CancellationToken); //Cancellation?.Token ?? default;
 
 			try
 			{
@@ -142,13 +138,14 @@ namespace RSocket.Transports
 					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
                     var received = await socket.ReceiveAsync(memory, token);
 #else
-					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
+					var memory = this.Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
 					var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment); Debug.Assert(isArray);
+
 					var received = await socket.ReceiveAsync(arraySegment, SocketFlags.None);   //TODO Cancellation?
 #endif
 					//Log.MessageReceived(_logger, receive.MessageType, receive.Count, receive.EndOfMessage);
 					Back.Output.Advance(received);
-					var flushResult = await Back.Output.FlushAsync();
+					var flushResult = await this.Back.Output.FlushAsync();
 					if (flushResult.IsCanceled || flushResult.IsCompleted) { break; }
 				}
 			}
@@ -163,13 +160,18 @@ namespace RSocket.Transports
 			}
 			catch (Exception ex)
 			{
-				if (!Aborted && !token.IsCancellationRequested) { Back.Output.Complete(ex); throw; }
+				if (!Aborted && !token.IsCancellationRequested)
+				{
+					this.Back.Output.Complete(ex); throw;
+				}
 			}
-			finally { Back.Output.Complete(); }
+			finally
+			{
+				this.Back.Output.Complete();
+				this.TryDisposeSocket();
+			}
 		}
-
-
-		private async Task StartSending(Socket socket)
+		async Task StartSending(Socket socket)
 		{
 			Exception error = null;
 
@@ -177,7 +179,7 @@ namespace RSocket.Transports
 			{
 				while (true)
 				{
-					var result = await Back.Input.ReadAsync();
+					var result = await this.Back.Input.ReadAsync();
 					var buffer = result.Buffer;
 					var consumed = buffer.Start;        //RSOCKET Framing
 
@@ -201,7 +203,7 @@ namespace RSocket.Transports
 					}
 					finally
 					{
-						Back.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
+						this.Back.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
 					}
 				}
 			}
@@ -211,68 +213,18 @@ namespace RSocket.Transports
 			}
 			finally
 			{
-				//// Send the close frame before calling into user code
-				//if (WebSocketCanSend(socket))
-				//{
-				//	// We're done sending, send the close frame to the client if the websocket is still open
-				//	await socket.CloseOutputAsync(error != null ? WebSocketCloseStatus.InternalServerError : WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-				//}
-				Back.Input.Complete();
+				this.Back.Input.Complete();
+				this.TryDisposeSocket();
 			}
-
-		}
-	}
-}
-
-
-namespace System.Net.Sockets
-{
-	internal static class SocketExtensions
-	{
-		public static ValueTask SendAsync(this Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
-		{
-#if NETCOREAPP3_0
-            if (buffer.IsSingleSegment)
-            {
-                return socket.SendAsync(buffer.First, webSocketMessageType, endOfMessage: true, cancellationToken);
-            }
-            else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
-#else
-			if (buffer.IsSingleSegment)
-			{
-				var isArray = MemoryMarshal.TryGetArray(buffer.First, out var segment);
-				Debug.Assert(isArray);
-				return new ValueTask(socket.SendAsync(segment, socketFlags));       //TODO Cancellation?
-			}
-			else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
-#endif
 		}
 
-		static async ValueTask SendMultiSegmentAsync(Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
+		void TryDisposeSocket()
 		{
-#if NETCOREAPP3_0
-			var position = buffer.Start;
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
+			if (Interlocked.Decrement(ref this._completeFlag) == 0)
 			{
-				await socket.SendAsync(prevSegment, socketFlags);
-				prevSegment = segment;
+				this._socket?.Close();
+				this._socket?.Dispose();
 			}
-			await socket.SendAsync(prevSegment, socketFlags);
-#else
-			var position = buffer.Start;
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
-			{
-				var isArray = MemoryMarshal.TryGetArray(prevSegment, out var arraySegment);
-				Debug.Assert(isArray);
-				await socket.SendAsync(arraySegment, socketFlags);
-				prevSegment = segment;
-			}
-			var isArrayEnd = MemoryMarshal.TryGetArray(prevSegment, out var arraySegmentEnd);
-			Debug.Assert(isArrayEnd);
-			await socket.SendAsync(arraySegmentEnd, socketFlags);
-#endif
 		}
 	}
 }

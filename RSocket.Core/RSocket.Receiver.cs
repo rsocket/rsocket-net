@@ -11,18 +11,24 @@ using System.Reactive.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Threading.Tasks;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+using IRSocketStream = System.IObserver<RSocket.Payload>;
 
 namespace RSocket
 {
+	public interface IRSocketChannel
+	{
+		Task Send(Payload value);
+		Task Complete();
+	}
+
 	partial class RSocket
 	{
 		public class Receiver<T> : IAsyncEnumerable<T>
 		{
 			readonly Func<IRSocketStream, Task> Subscriber;
-			readonly Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> Mapper;
+			readonly Func<Payload, T> Mapper;
 
-			public Receiver(Func<IRSocketStream, Task> subscriber, Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> mapper)
+			public Receiver(Func<IRSocketStream, Task> subscriber, Func<Payload, T> mapper)
 			{
 				Subscriber = subscriber;
 				Mapper = mapper;
@@ -30,46 +36,51 @@ namespace RSocket
 
 			public async Task<T> ExecuteAsync(CancellationToken cancellation = default)
 			{
-                var observable = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => {
-                    Subscriber(observer).ConfigureAwait(false);
-                    return Disposable.Empty;
-                });
+				var observable = Observable.Create<Payload>(observer =>
+				{
+					Subscriber(observer).ConfigureAwait(false);
+					return Disposable.Empty;
+				});
 
 				var value = await observable.ToTask(cancellation);
-				return Mapper((value.data, value.metadata));
+				return Mapper(value);
 			}
 
 			public async Task<T> ExecuteAsync(T result, CancellationToken cancellation = default)
 			{
-                var observable = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => {
-                    Subscriber(observer).ConfigureAwait(false);
-                    return Disposable.Empty;
-                });
-                await observable.ToTask(cancellation);
-                return result;
+				var observable = Observable.Create<Payload>(observer =>
+				{
+					Subscriber(observer).ConfigureAwait(false);
+					observer.OnCompleted();
+					return Disposable.Empty;
+				});
+				await observable.ToAsyncEnumerable().LastOrDefaultAsync();
+				//await observable.ToTask(cancellation);
+				return result;
 			}
 
 			public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellation = default)
 			{
-                var observable = Observable.Create<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)>(observer => {
-                    Subscriber(observer).ConfigureAwait(false);
-                    return Disposable.Empty;
-                });
-                return observable
-                    .Select(value => Mapper((value.data, value.metadata)))
-                    .ToAsyncEnumerable()
-                    .GetAsyncEnumerator(cancellation);
-            }
+				var observable = Observable.Create<Payload>(observer =>
+				{
+					Subscriber(observer).ConfigureAwait(false);
+					return Disposable.Empty;
+				});
+				return observable
+					.Select(value => Mapper(value))
+					.ToAsyncEnumerable()
+					.GetAsyncEnumerator(cancellation);
+			}
 		}
 
 		public class Receiver<TSource, T> : Receiver<T>
 		{
-			public Receiver(Func<IRSocketStream, Task<IRSocketChannel>> subscriber, IAsyncEnumerable<TSource> source, Func<TSource, (ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> sourcemapper, Func<(ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data), T> resultmapper) :
+			public Receiver(Func<IRSocketStream, Task<IRSocketChannel>> subscriber, IAsyncEnumerable<TSource> source, Func<TSource, Payload> sourcemapper, Func<Payload, T> resultmapper) :
 				base(stream => Subscribe(stream, subscriber(stream), source, sourcemapper), resultmapper)
 			{
 			}
 
-			static async Task Subscribe(IRSocketStream stream, Task<IRSocketChannel> original, IAsyncEnumerable<TSource> source, Func<TSource, (ReadOnlySequence<byte> metadata, ReadOnlySequence<byte> data)> sourcemapper)
+			static async Task Subscribe(IRSocketStream stream, Task<IRSocketChannel> original, IAsyncEnumerable<TSource> source, Func<TSource, Payload> sourcemapper)
 			{
 				var channel = await original;     //Let the receiver hook up first before we start generating values.
 				var enumerator = source.GetAsyncEnumerator();
@@ -79,8 +90,13 @@ namespace RSocket
 					{
 						await channel.Send(sourcemapper(enumerator.Current));
 					}
+
+					await channel.Complete();
 				}
-				finally { await enumerator.DisposeAsync(); }
+				finally
+				{
+					await enumerator.DisposeAsync();
+				}
 			}
 		}
 	}

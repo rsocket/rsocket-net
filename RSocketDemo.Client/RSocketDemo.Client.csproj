@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>netcoreapp2.1</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<RootNamespace>RSocketDemo</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="protobuf-net" Version="2.4.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\RSocket.Core\RSocket.Core.csproj" />
+		<ProjectReference Include="..\RSocketDemo.Common\RSocketDemo.Common.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\LICENSE" Pack="true" PackagePath="LICENSE" />
+	</ItemGroup>
+
+	<ItemGroup>
+
+	</ItemGroup>
+</Project>

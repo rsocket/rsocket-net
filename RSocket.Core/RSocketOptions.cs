@@ -3,7 +3,8 @@ using System;
 namespace RSocket
 {
 
-	public class PrefetchOptions {
+	public class PrefetchOptions
+	{
 		public int InitialRequestSize { get; set; } = 8;
 
 		public int GetInitialRequestSize(int initial) => initial <= 0 ? InitialRequestSize : initial;
@@ -18,10 +19,10 @@ namespace RSocket
 
 		public TimeSpan KeepAlive { get; set; }
 		public TimeSpan Lifetime { get; set; }
-		public string DataMimeType { get; set; }
-		public string MetadataMimeType { get; set; }
+		public string DataMimeType { get; set; } = BINARYMIMETYPE;
+		public string MetadataMimeType { get; set; } = BINARYMIMETYPE;
 
-		public static readonly RSocketOptions Default = new RSocketOptions()
+		public static new readonly RSocketOptions Default = new RSocketOptions()
 		{
 			KeepAlive = TimeSpan.FromMinutes(1),
 			Lifetime = TimeSpan.FromMinutes(3),
