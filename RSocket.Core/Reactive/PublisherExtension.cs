@@ -8,6 +8,10 @@ namespace RSocket
 {
 	public static class PublisherExtension
 	{
+		public static ISubscription Subscribe<T>(this IPublisher<T> source)
+		{
+			return (ISubscription)source.AsIObservable().Subscribe();
+		}
 		public static ISubscription Subscribe<T>(this IPublisher<T> source, Action<T> onNext)
 		{
 			return (ISubscription)source.AsIObservable().Subscribe(onNext);

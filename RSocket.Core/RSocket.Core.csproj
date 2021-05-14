@@ -18,26 +18,14 @@
 		<AssemblyVersion>0.2.7</AssemblyVersion>
 		<FileVersion>0.2.7</FileVersion>
 		<ProductVersion>0.2.7</ProductVersion>
+
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<SignAssembly>True</SignAssembly>
+		<AssemblyOriginatorKeyFile>RSocketStrongName.snk</AssemblyOriginatorKeyFile>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
 		<DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
-	</PropertyGroup>
-
-		<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	</PropertyGroup>
-	
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	</PropertyGroup>
-
-	<PropertyGroup>
-		<AssemblyOriginatorKeyFile>RSocketStrongName.snk</AssemblyOriginatorKeyFile>
-	</PropertyGroup>
-
-	<PropertyGroup>
-		<SignAssembly>True</SignAssembly>
 	</PropertyGroup>
 
 	<ItemGroup>
