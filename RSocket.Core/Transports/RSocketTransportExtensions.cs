@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Threading;
@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 namespace RSocket.Transports
 {
-	using System.Net.Sockets;
 	using System.Net.WebSockets;
 
 	internal static partial class RSocketTransportExtensions
@@ -37,24 +36,6 @@ namespace RSocket.Transports
 			//	position = buffer.GetPosition(length, offset);
 			//}
 			return position;
-		}
-
-		public static async ValueTask<SequencePosition> SendAsync(this Socket socket, ReadOnlySequence<byte> buffer, SequencePosition position, SocketFlags socketFlags, CancellationToken cancellationToken = default)
-		{
-			for (var frame = PeekFrame(buffer.Slice(position)); frame.Length > 0; frame = PeekFrame(buffer.Slice(position)))
-			{
-				//Console.WriteLine($"Send Frame[{frame.Length}]");
-				var length = frame.Length + RSocketProtocol.FRAMELENGTHSIZE;
-				var offset = buffer.GetPosition(RSocketProtocol.MESSAGEFRAMESIZE - RSocketProtocol.FRAMELENGTHSIZE, position);
-				if (buffer.Slice(offset).Length < length) { break; }    //If there is a partial message in the buffer, yield to accumulate more. Can't compare SequencePositions...
-				await socket.SendAsync(buffer.Slice(offset, length), socketFlags, cancellationToken);
-				position = buffer.GetPosition(length, offset);
-			}
-			return position;
-
-			//buffer.TryGet(ref position, out var memory, advance: false);
-			//var (length, isEndOfMessage) = RSocketProtocol.MessageFrame(System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(memory.Span));
-			//position = buffer.GetPosition(1, position);
 		}
 	}
 }
