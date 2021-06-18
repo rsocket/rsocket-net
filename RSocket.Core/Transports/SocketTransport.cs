@@ -3,18 +3,18 @@ using System.Net;
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Buffers;
+using System.Net.Security;
+using Pipelines.Sockets.Unofficial;
 
 namespace RSocket.Transports
 {
 	//TODO Readd transport logging - worth it during debugging.
 	public class SocketTransport : IRSocketTransport
 	{
+		private readonly bool ssl;
 		private IPEndPoint Endpoint;
 		private Socket Socket;
 
@@ -28,19 +28,21 @@ namespace RSocket.Transports
 		private LoggerFactory Logger;
 
 		IDuplexPipe Front, Back;
+		private IDuplexPipe socketPipe;
 		public PipeReader Input => Front.Input;
 		public PipeWriter Output => Front.Output;
 
-		public SocketTransport(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default) : this(new Uri(url), outputoptions, inputoptions) { }
-		public SocketTransport(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
+		public SocketTransport(string url, PipeOptions outputOptions = default, PipeOptions inputOptions = default, bool ssl = false) : this(new Uri(url), outputOptions, inputOptions, ssl) { }
+		public SocketTransport(Uri url, PipeOptions outputOptions = default, PipeOptions inputOptions = default, bool ssl = false)
 		{
+			this.ssl = ssl;
 			Url = url;
 			if (string.Compare(url.Scheme, "TCP", true) != 0) { throw new ArgumentException("Only TCP connections are supported.", nameof(Url)); }
 			if (url.Port == -1) { throw new ArgumentException("TCP Port must be specified.", nameof(Url)); }
 
 			//Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
 			Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
-			(Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
+			(Front, Back) = DuplexPipe.CreatePair(outputOptions, inputOptions);
 		}
 
 		public async Task StartAsync(CancellationToken cancel = default)
@@ -52,16 +54,28 @@ namespace RSocket.Transports
 			Socket = new Socket(Endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 			Socket.Connect(dns.AddressList, Url.Port);  //TODO Would like this to be async... Why so serious???
 
-			Running = ProcessSocketAsync(Socket);
+			if (ssl)
+			{
+				var sslStream = new SslStream(new NetworkStream(Socket), false);
+				await sslStream.AuthenticateAsClientAsync(Url.Host);
+
+				socketPipe = StreamConnection.GetDuplex(sslStream);
+			}
+			else
+			{
+				socketPipe = SocketConnection.Create(Socket);
+			}
+
+			Running = ProcessSocketAsync();
 		}
 
 		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
 
-		private async Task ProcessSocketAsync(Socket socket)
+		private async Task ProcessSocketAsync()
 		{
 			// Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
-			var receiving = StartReceiving(socket);
-			var sending = StartSending(socket);
+			var receiving = StartReceiving();
+			var sending = StartSending();
 
 			var trigger = await Task.WhenAny(receiving, sending);
 
@@ -127,28 +141,28 @@ namespace RSocket.Transports
 		}
 
 
-		private async Task StartReceiving(Socket socket)
+		private async Task StartReceiving()
 		{
 			var token = default(CancellationToken);	//Cancellation?.Token ?? default;
-
+			
 			try
 			{
 				while (!token.IsCancellationRequested)
 				{
-#if NETCOREAPP3_0
-                    // Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
-                    var received = await socket.ReceiveAsync(Memory<byte>.Empty, token);
-					if(received == 0) { continue; }
-					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
-                    var received = await socket.ReceiveAsync(memory, token);
-#else
-					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
-					var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment); Debug.Assert(isArray);
-					var received = await socket.ReceiveAsync(arraySegment, SocketFlags.None);   //TODO Cancellation?
-#endif
+					var read = await socketPipe.Input.ReadAsync(token);
+
+					if (read.IsCanceled) break;
+					if (read.Buffer.IsEmpty && read.IsCompleted) break;
+
+					foreach (var segment in read.Buffer)
+					{
+						await Back.Output.WriteAsync(segment, token);
+					}
+
 					//Log.MessageReceived(_logger, receive.MessageType, receive.Count, receive.EndOfMessage);
-					Back.Output.Advance(received);
-					var flushResult = await Back.Output.FlushAsync();
+					socketPipe.Input.AdvanceTo(read.Buffer.End);
+
+					var flushResult = await Back.Output.FlushAsync(token);
 					if (flushResult.IsCanceled || flushResult.IsCompleted) { break; }
 				}
 			}
@@ -165,11 +179,11 @@ namespace RSocket.Transports
 			{
 				if (!Aborted && !token.IsCancellationRequested) { Back.Output.Complete(ex); throw; }
 			}
-			finally { Back.Output.Complete(); }
+			finally { await Back.Output.CompleteAsync(); }
 		}
 
 
-		private async Task StartSending(Socket socket)
+		private async Task StartSending()
 		{
 			Exception error = null;
 
@@ -179,7 +193,6 @@ namespace RSocket.Transports
 				{
 					var result = await Back.Input.ReadAsync();
 					var buffer = result.Buffer;
-					var consumed = buffer.Start;        //RSOCKET Framing
 
 					try
 					{
@@ -188,8 +201,12 @@ namespace RSocket.Transports
 						{
 							try
 							{
+								foreach (var memory in buffer)
+								{
+									await socketPipe.Output.WriteAsync(memory);
+								}
+								
 								//Log.SendPayload(_logger, buffer.Length);
-								consumed = await socket.SendAsync(buffer, buffer.Start, SocketFlags.None);     //RSOCKET Framing
 							}
 							catch (Exception)
 							{
@@ -201,7 +218,7 @@ namespace RSocket.Transports
 					}
 					finally
 					{
-						Back.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
+						Back.Input.AdvanceTo(buffer.End);     //RSOCKET Framing
 					}
 				}
 			}
@@ -220,59 +237,6 @@ namespace RSocket.Transports
 				Back.Input.Complete();
 			}
 
-		}
-	}
-}
-
-
-namespace System.Net.Sockets
-{
-	internal static class SocketExtensions
-	{
-		public static ValueTask SendAsync(this Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
-		{
-#if NETCOREAPP3_0
-            if (buffer.IsSingleSegment)
-            {
-                return socket.SendAsync(buffer.First, webSocketMessageType, endOfMessage: true, cancellationToken);
-            }
-            else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
-#else
-			if (buffer.IsSingleSegment)
-			{
-				var isArray = MemoryMarshal.TryGetArray(buffer.First, out var segment);
-				Debug.Assert(isArray);
-				return new ValueTask(socket.SendAsync(segment, socketFlags));       //TODO Cancellation?
-			}
-			else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
-#endif
-		}
-
-		static async ValueTask SendMultiSegmentAsync(Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
-		{
-#if NETCOREAPP3_0
-			var position = buffer.Start;
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
-			{
-				await socket.SendAsync(prevSegment, socketFlags);
-				prevSegment = segment;
-			}
-			await socket.SendAsync(prevSegment, socketFlags);
-#else
-			var position = buffer.Start;
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
-			{
-				var isArray = MemoryMarshal.TryGetArray(prevSegment, out var arraySegment);
-				Debug.Assert(isArray);
-				await socket.SendAsync(arraySegment, socketFlags);
-				prevSegment = segment;
-			}
-			var isArrayEnd = MemoryMarshal.TryGetArray(prevSegment, out var arraySegmentEnd);
-			Debug.Assert(isArrayEnd);
-			await socket.SendAsync(arraySegmentEnd, socketFlags);
-#endif
 		}
 	}
 }
