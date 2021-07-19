@@ -10,7 +10,10 @@ namespace RSocket
 {
 	partial class RSocket
 	{
-		static void Decoded(string message) => Console.WriteLine(message);
+		static void Decoded(string message)
+		{
+			//Console.WriteLine(message);
+		}
 
 		async Task Handler(PipeReader pipereader, CancellationToken cancellation)
 		{

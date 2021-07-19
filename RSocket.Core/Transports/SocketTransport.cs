@@ -77,12 +77,11 @@ namespace RSocket.Transports
 
 	public abstract class SocketTransport : IRSocketTransport
 	{
+		int _disposedFlag;
 		Socket _socket;
 		int _completeFlag = 2;
 
 		public Task Running { get; private set; } = Task.CompletedTask;
-		//private CancellationTokenSource Cancellation;
-		volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
 
 		LoggerFactory Logger;
 
@@ -106,9 +105,11 @@ namespace RSocket.Transports
 
 		public virtual async Task StopAsync()
 		{
-			await Task.CompletedTask;
-			this.Front.Input.Complete();
-			this.Front.Output.Complete();
+			if (Interlocked.CompareExchange(ref this._disposedFlag, 1, 0) != 0)
+				return;
+
+			this.Back.Output.CancelPendingFlush();
+			this.Back.Input.CancelPendingRead();
 			this._socket?.Shutdown(SocketShutdown.Both);
 		}
 
@@ -116,7 +117,7 @@ namespace RSocket.Transports
 
 		async Task ProcessSocketAsync(Socket socket)
 		{
-			// Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
+			await Task.Yield();
 			var receiving = this.StartReceiving(socket);
 			var sending = this.StartSending(socket);
 
@@ -125,11 +126,9 @@ namespace RSocket.Transports
 
 		async Task StartReceiving(Socket socket)
 		{
-			var token = default(CancellationToken); //Cancellation?.Token ?? default;
-
 			try
 			{
-				while (!token.IsCancellationRequested)
+				while (true)
 				{
 #if NETCOREAPP3_0
                     // Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
@@ -143,77 +142,64 @@ namespace RSocket.Transports
 
 					var received = await socket.ReceiveAsync(arraySegment, SocketFlags.None);   //TODO Cancellation?
 #endif
-					//Log.MessageReceived(_logger, receive.MessageType, receive.Count, receive.EndOfMessage);
+
+					if (received == 0)
+						break;
+
 					Back.Output.Advance(received);
 					var flushResult = await this.Back.Output.FlushAsync();
-					if (flushResult.IsCanceled || flushResult.IsCompleted) { break; }
+					if (flushResult.IsCanceled || flushResult.IsCompleted)
+					{
+						break;
+					}
 				}
+
+				Back.Output.Complete();
 			}
-			//catch (SocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
-			//{
-			//	// Client has closed the WebSocket connection without completing the close handshake
-			//	Log.ClosedPrematurely(_logger, ex);
-			//}
 			catch (OperationCanceledException)
 			{
-				// Ignore aborts, don't treat them like transport errors
+				Back.Output.Complete();
 			}
 			catch (Exception ex)
 			{
-				if (!Aborted && !token.IsCancellationRequested)
-				{
-					this.Back.Output.Complete(ex); throw;
-				}
+				this.Back.Output.Complete(ex);
 			}
 			finally
 			{
-				this.Back.Output.Complete();
+				await this.StopAsync();
 				this.TryDisposeSocket();
 			}
+
 		}
 		async Task StartSending(Socket socket)
 		{
-			Exception error = null;
-
 			try
 			{
 				while (true)
 				{
 					var result = await this.Back.Input.ReadAsync();
+
+					if (result.IsCanceled || (result.IsCompleted && result.Buffer.IsEmpty))
+					{
+						break;
+					}
+
 					var buffer = result.Buffer;
 					var consumed = buffer.Start;        //RSOCKET Framing
 
-					try
-					{
-						if (result.IsCanceled) { break; }
-						if (!buffer.IsEmpty)
-						{
-							try
-							{
-								//Log.SendPayload(_logger, buffer.Length);
-								consumed = await socket.SendAsync(buffer, buffer.Start, SocketFlags.None);     //RSOCKET Framing
-							}
-							catch (Exception)
-							{
-								if (!Aborted) { /*Log.ErrorWritingFrame(_logger, ex);*/ }
-								break;
-							}
-						}
-						else if (result.IsCompleted) { break; }
-					}
-					finally
-					{
-						this.Back.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
-					}
+					consumed = await socket.SendAsync(buffer, buffer.Start, SocketFlags.None);     //RSOCKET Framing
+					this.Back.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
 				}
+
+				this.Back.Input.Complete();
 			}
 			catch (Exception ex)
 			{
-				error = ex;
+				this.Back.Input.Complete(ex);
 			}
 			finally
 			{
-				this.Back.Input.Complete();
+				await this.StopAsync();
 				this.TryDisposeSocket();
 			}
 		}
@@ -224,6 +210,7 @@ namespace RSocket.Transports
 			{
 				this._socket?.Close();
 				this._socket?.Dispose();
+				//Console.WriteLine($"this._socket?.Dispose()");
 			}
 		}
 	}
