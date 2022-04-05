@@ -43,9 +43,9 @@ namespace RSocket
 		/// <returns>The handler task.</returns>
 		public Task Connect(CancellationToken cancel = default) => RSocketProtocol.Handler(this, Transport.Input, cancel);
 		public Task Setup(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) => new RSocketProtocol.Setup(keepalive, lifetime, metadataMimeType: metadataMimeType, dataMimeType: dataMimeType, data: data, metadata: metadata).WriteFlush(Transport.Output, data: data, metadata: metadata);
-
-
+		public Task KeepAlive(TimeSpan keepalive, TimeSpan lifetime, string metadataMimeType = null, string dataMimeType = null, ReadOnlySequence<byte> data = default, ReadOnlySequence<byte> metadata = default) => new RSocketProtocol.KeepAlive(0,false, data: data).WriteFlush(Transport.Output );
 		//TODO SPEC: A requester MUST not send PAYLOAD frames after the REQUEST_CHANNEL frame until the responder sends a REQUEST_N frame granting credits for number of PAYLOADs able to be sent.
+		public virtual void KeepAlive(in RSocketProtocol.KeepAlive value) => new RSocketProtocol.KeepAlive(0, false).WriteFlush(Transport.Output);
 
 		public virtual IAsyncEnumerable<T> RequestChannel<TSource, T>(IAsyncEnumerable<TSource> source, Func<TSource, ReadOnlySequence<byte>> sourcemapper,
 			Func<(ReadOnlySequence<byte> data, ReadOnlySequence<byte> metadata), T> resultmapper,
@@ -214,5 +214,6 @@ namespace RSocket
 			await source.ForEachAsync(item => action(item), cancel);
 			await final?.Invoke();
 		}
+
 	}
 }
