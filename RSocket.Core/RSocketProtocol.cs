@@ -442,7 +442,7 @@ namespace RSocket
 
 			public bool Validate(bool canContinue = false)
 			{
-				if (Header.Stream == 0) { return true; }	//SPEC: KEEPALIVE frames with Stream ID 0 require no further validation
+				if (Header.Stream == 0) { return true; } else { return false; }	//SPEC: KEEPALIVE frames with Stream ID 0 require no further validation
 				if (LastReceivedPosition < 0) { return canContinue ? false : throw new ArgumentOutOfRangeException(nameof(LastReceivedPosition), LastReceivedPosition, $"Invalid {nameof(KeepAlive)} Message."); }	//SPEC: Value MUST be > 0. (optional. Set to all 0s when not supported.)
 				else return true;
 			}
